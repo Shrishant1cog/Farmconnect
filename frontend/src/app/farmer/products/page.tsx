@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { 
   Plus, Search, Package, Sprout, TrendingUp, Edit3, 
   Trash2, CheckCircle2, AlertCircle, X, Layers, Scale, 
   IndianRupee, Calendar, Sparkles, Filter, RefreshCw, 
-  ArrowUpRight, AlertTriangle 
+  ArrowUpRight, AlertTriangle, Loader2 
 } from 'lucide-react';
 import { fetchApi } from '../../../lib/api';
 import { useAuth } from '../../../hooks/useAuth';
+import CropImageUpload from '../../../components/ui/CropImageUpload';
 
 export interface FarmerProduct {
   id: string;
@@ -24,6 +25,29 @@ export interface FarmerProduct {
   grade: 'Grade-A Export' | 'Standard Market' | 'Organic Certified';
   status: 'ACTIVE' | 'LOW_STOCK' | 'SOLD_OUT';
   location: string;
+  imageUrl?: string;
+  isOrganic?: boolean;
+}
+
+const CATEGORY_FALLBACKS: Record<string, string> = {
+  GRAINS: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80',
+  MILLETS: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80',
+  VEGETABLES: 'https://images.unsplash.com/photo-1597362925123-77861d3fbac7?auto=format&fit=crop&w=800&q=80',
+  FRUITS: 'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?auto=format&fit=crop&w=800&q=80',
+  SPICES: 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=800&q=80',
+  ORGANIC: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80',
+  DEFAULT: 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=800&q=80',
+};
+
+function resolveFallback(title?: string, isOrganic?: boolean): string {
+  const probe = (title || '').toUpperCase();
+  if (probe.includes('RICE') || probe.includes('WHEAT') || probe.includes('GRAIN')) return CATEGORY_FALLBACKS.GRAINS;
+  if (probe.includes('RAGI') || probe.includes('MILLET') || probe.includes('JOWAR')) return CATEGORY_FALLBACKS.MILLETS;
+  if (probe.includes('TOMATO') || probe.includes('ONION') || probe.includes('POTATO') || probe.includes('VEG')) return CATEGORY_FALLBACKS.VEGETABLES;
+  if (probe.includes('MANGO') || probe.includes('BANANA') || probe.includes('FRUIT')) return CATEGORY_FALLBACKS.FRUITS;
+  if (probe.includes('CHILLI') || probe.includes('PEPPER') || probe.includes('SPICE')) return CATEGORY_FALLBACKS.SPICES;
+  if (isOrganic) return CATEGORY_FALLBACKS.ORGANIC;
+  return CATEGORY_FALLBACKS.DEFAULT;
 }
 
 const INITIAL_SEED_PRODUCTS: FarmerProduct[] = [
@@ -40,6 +64,7 @@ const INITIAL_SEED_PRODUCTS: FarmerProduct[] = [
     grade: 'Grade-A Export',
     status: 'ACTIVE',
     location: 'Pandavapura, Mandya',
+    isOrganic: true,
   },
   {
     id: 'prod-2',
@@ -54,6 +79,7 @@ const INITIAL_SEED_PRODUCTS: FarmerProduct[] = [
     grade: 'Organic Certified',
     status: 'ACTIVE',
     location: 'Srirangapatna, Mandya',
+    isOrganic: true,
   },
   {
     id: 'prod-3',
@@ -89,18 +115,16 @@ export default function FarmerProductsPage() {
   const { user } = useAuth();
 
   const [products, setProducts] = useState<FarmerProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
-
-  // Unit display switcher: KG vs Quintal (100 kg)
   const [unitMode, setUnitMode] = useState<'KG' | 'QUINTAL'>('KG');
 
-  // Modal controls
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<FarmerProduct | null>(null);
 
-  // Form State
   const [formData, setFormData] = useState({
     name: '',
     variety: '',
@@ -111,29 +135,82 @@ export default function FarmerProductsPage() {
     mandiBenchmarkPerKg: '',
     harvestDate: new Date().toISOString().split('T')[0],
     grade: 'Grade-A Export' as FarmerProduct['grade'],
+    imageUrl: '',
+    isOrganic: false,
   });
 
-  // Load from local storage or seed data
-  useEffect(() => {
-    const saved = localStorage.getItem('farmconnect_farmer_products');
-    if (saved) {
+  const getAuthToken = () => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('farmconnect_token') || localStorage.getItem('fc_token');
+  };
+
+  const loadProducts = useCallback(async () => {
+    setLoading(true);
+    const token = getAuthToken();
+
+    try {
+      let backendProducts: any[] = [];
       try {
-        setProducts(JSON.parse(saved));
+        const res = await fetchApi('/products/my-products');
+        backendProducts = res?.data || res?.products || (Array.isArray(res) ? res : []);
       } catch {
-        setProducts(INITIAL_SEED_PRODUCTS);
+        if (token) {
+          const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
+          const res = await fetch(`${baseUrl}/products/my-products`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const json = await res.json();
+          backendProducts = json?.data || json?.products || (Array.isArray(json) ? json : []);
+        }
       }
-    } else {
-      setProducts(INITIAL_SEED_PRODUCTS);
-      localStorage.setItem('farmconnect_farmer_products', JSON.stringify(INITIAL_SEED_PRODUCTS));
+
+      if (backendProducts && backendProducts.length > 0) {
+        const mapped: FarmerProduct[] = backendProducts.map((p: any) => ({
+          id: String(p.id),
+          name: p.title || p.name || 'Unnamed Crop',
+          variety: p.variety || 'Native Variety',
+          category: (p.category?.name || p.category || 'Vegetables') as FarmerProduct['category'],
+          quantityKg: Number(p.quantityAvailable ?? p.quantityKg ?? 0),
+          minOrderKg: Number(p.minOrderKg ?? 10),
+          pricePerKg: Number(p.farmerPrice ?? p.pricePerKg ?? 0),
+          mandiBenchmarkPerKg: Number(p.mandiBenchmarkPerKg ?? p.farmerPrice ?? 0),
+          harvestDate: p.harvestDate || (p.createdAt ? p.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]),
+          grade: p.grade || (p.isOrganic ? 'Organic Certified' : 'Grade-A Export'),
+          status: p.quantityAvailable <= 0 ? 'SOLD_OUT' : p.quantityAvailable < 200 ? 'LOW_STOCK' : 'ACTIVE',
+          location: p.location || 'Karnataka Farm',
+          imageUrl: p.imageUrl || '',
+          isOrganic: Boolean(p.isOrganic),
+        }));
+        setProducts(mapped);
+        localStorage.setItem('farmconnect_farmer_products', JSON.stringify(mapped));
+      } else {
+        const saved = localStorage.getItem('farmconnect_farmer_products');
+        if (saved) {
+          setProducts(JSON.parse(saved));
+        } else {
+          setProducts(INITIAL_SEED_PRODUCTS);
+          localStorage.setItem('farmconnect_farmer_products', JSON.stringify(INITIAL_SEED_PRODUCTS));
+        }
+      }
+    } catch {
+      const saved = localStorage.getItem('farmconnect_farmer_products');
+      setProducts(saved ? JSON.parse(saved) : INITIAL_SEED_PRODUCTS);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
+
   const saveProducts = (updated: FarmerProduct[]) => {
     setProducts(updated);
-    localStorage.setItem('farmconnect_farmer_products', JSON.stringify(updated));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('farmconnect_farmer_products', JSON.stringify(updated));
+    }
   };
 
-  // KPIs
   const stats = useMemo(() => {
     const totalLots = products.length;
     const totalWeightKg = products.reduce((acc, p) => acc + (p.status !== 'SOLD_OUT' ? p.quantityKg : 0), 0);
@@ -148,7 +225,6 @@ export default function FarmerProductsPage() {
     };
   }, [products]);
 
-  // Filter Pipeline
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
       const matchesSearch = 
@@ -163,28 +239,39 @@ export default function FarmerProductsPage() {
     });
   }, [products, search, selectedCategory, selectedStatus]);
 
-  // Handle Quick Status Toggle
-  const toggleStockStatus = (id: string) => {
-    const updated = products.map((p) => {
-      if (p.id === id) {
-        const nextStatus: FarmerProduct['status'] = 
-          p.status === 'ACTIVE' ? 'SOLD_OUT' : 'ACTIVE';
-        return { ...p, status: nextStatus };
-      }
-      return p;
-    });
-    saveProducts(updated);
-  };
+  const toggleStockStatus = async (id: string) => {
+    const target = products.find((p) => p.id === id);
+    if (!target) return;
 
-  // Delete product
-  const handleDeleteProduct = (id: string) => {
-    if (confirm('Are you sure you want to remove this active produce listing?')) {
-      const updated = products.filter((p) => p.id !== id);
-      saveProducts(updated);
+    const nextStatus: FarmerProduct['status'] = target.status === 'ACTIVE' ? 'SOLD_OUT' : 'ACTIVE';
+    const isNowAvailable = nextStatus === 'ACTIVE';
+
+    const updated = products.map((p) => (p.id === id ? { ...p, status: nextStatus } : p));
+    saveProducts(updated);
+
+    try {
+      await fetchApi(`/products/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ isAvailable: isNowAvailable })
+      });
+    } catch {
+      // Local state already updated
     }
   };
 
-  // Open Edit Modal
+  const handleDeleteProduct = async (id: string) => {
+    if (!confirm('Are you sure you want to remove this harvest listing?')) return;
+
+    const updated = products.filter((p) => p.id !== id);
+    saveProducts(updated);
+
+    try {
+      await fetchApi(`/products/${id}`, { method: 'DELETE' });
+    } catch {
+      // Local state already updated
+    }
+  };
+
   const openEditModal = (p: FarmerProduct) => {
     setEditingProduct(p);
     setFormData({
@@ -197,11 +284,12 @@ export default function FarmerProductsPage() {
       mandiBenchmarkPerKg: p.mandiBenchmarkPerKg.toString(),
       harvestDate: p.harvestDate,
       grade: p.grade,
+      imageUrl: p.imageUrl || '',
+      isOrganic: Boolean(p.isOrganic),
     });
     setIsModalOpen(true);
   };
 
-  // Open New Listing Modal
   const openNewListingModal = () => {
     setEditingProduct(null);
     setFormData({
@@ -214,14 +302,15 @@ export default function FarmerProductsPage() {
       mandiBenchmarkPerKg: '',
       harvestDate: new Date().toISOString().split('T')[0],
       grade: 'Grade-A Export',
+      imageUrl: '',
+      isOrganic: false,
     });
     setIsModalOpen(true);
   };
 
-  // Save Modal Form
-// Save Modal Form
-  const handleSaveForm = (e: React.FormEvent) => {
+  const handleSaveForm = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
     const price = parseFloat(formData.pricePerKg) || 10;
     const mandiRate = parseFloat(formData.mandiBenchmarkPerKg) || price;
@@ -234,50 +323,93 @@ export default function FarmerProductsPage() {
 
     const userDistrict = (user as any)?.district || 'Mandya';
 
-    if (editingProduct) {
-      // Update existing
-      const updated = products.map((p) => {
-        if (p.id === editingProduct.id) {
-          return {
-            ...p,
-            name: formData.name.trim(),
-            variety: formData.variety.trim(),
-            category: formData.category,
-            quantityKg: qty,
-            minOrderKg: minOrder,
-            pricePerKg: price,
-            mandiBenchmarkPerKg: mandiRate,
-            harvestDate: formData.harvestDate,
-            grade: formData.grade,
-            status: computedStatus,
-          };
-        }
-        return p;
-      });
-      saveProducts(updated);
-    } else {
-      // Create new
-      const newProduct: FarmerProduct = {
-        id: `prod-${Date.now()}`,
-        name: formData.name.trim(),
-        variety: formData.variety.trim(),
-        category: formData.category,
-        quantityKg: qty,
-        minOrderKg: minOrder,
-        pricePerKg: price,
-        mandiBenchmarkPerKg: mandiRate,
-        harvestDate: formData.harvestDate,
-        grade: formData.grade,
-        status: computedStatus,
-        location: `${userDistrict}, Karnataka`,
-      };
-      saveProducts([newProduct, ...products]);
-    }
+    const payload = {
+      title: formData.name.trim(),
+      description: `${formData.variety} • Grade: ${formData.grade}`,
+      farmerPrice: price,
+      priceUnit: 'PER_KG',
+      quantityAvailable: qty,
+      quantityUnit: 'KG',
+      isOrganic: formData.isOrganic || formData.grade === 'Organic Certified',
+      imageUrl: formData.imageUrl || '',
+    };
 
-    setIsModalOpen(false);
+    try {
+      if (editingProduct) {
+        let updatedBackendId = editingProduct.id;
+        try {
+          const res = await fetchApi(`/products/${editingProduct.id}`, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+          });
+          if (res?.data?.id) updatedBackendId = res.data.id;
+        } catch {
+          // Fallback handled locally
+        }
+
+        const updated = products.map((p) => {
+          if (p.id === editingProduct.id) {
+            return {
+              ...p,
+              id: updatedBackendId,
+              name: formData.name.trim(),
+              variety: formData.variety.trim(),
+              category: formData.category,
+              quantityKg: qty,
+              minOrderKg: minOrder,
+              pricePerKg: price,
+              mandiBenchmarkPerKg: mandiRate,
+              harvestDate: formData.harvestDate,
+              grade: formData.grade,
+              status: computedStatus,
+              imageUrl: formData.imageUrl,
+              isOrganic: formData.isOrganic,
+            };
+          }
+          return p;
+        });
+        saveProducts(updated);
+      } else {
+        let createdId = `prod-${Date.now()}`;
+        try {
+          const res = await fetchApi('/products', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+          });
+          if (res?.data?.id || res?.id) {
+            createdId = res.data?.id || res.id;
+          }
+        } catch {
+          // Fallback handled locally
+        }
+
+        const newProduct: FarmerProduct = {
+          id: createdId,
+          name: formData.name.trim(),
+          variety: formData.variety.trim(),
+          category: formData.category,
+          quantityKg: qty,
+          minOrderKg: minOrder,
+          pricePerKg: price,
+          mandiBenchmarkPerKg: mandiRate,
+          harvestDate: formData.harvestDate,
+          grade: formData.grade,
+          status: computedStatus,
+          location: `${userDistrict}, Karnataka`,
+          imageUrl: formData.imageUrl,
+          isOrganic: formData.isOrganic,
+        };
+        saveProducts([newProduct, ...products]);
+      }
+
+      setIsModalOpen(false);
+    } catch (err: any) {
+      alert(err.message || 'Error publishing produce listing.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  // Price & Quantity format helper
   const displayPrice = (pricePerKg: number) => {
     if (unitMode === 'QUINTAL') {
       return `₹${(pricePerKg * 100).toLocaleString()}/qtl`;
@@ -315,6 +447,14 @@ export default function FarmerProductsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <button
+            onClick={loadProducts}
+            className="p-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-2xl transition-colors"
+            title="Refresh Inventory"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+
           <div className="flex items-center bg-stone-100 p-1 rounded-2xl border border-stone-200">
             <button
               type="button"
@@ -448,7 +588,14 @@ export default function FarmerProductsPage() {
       </div>
 
       {/* 4. Product Cards Grid */}
-      {filteredProducts.length === 0 ? (
+      {loading ? (
+        <div className="min-h-[35vh] flex flex-col items-center justify-center text-emerald-800 gap-3">
+          <Loader2 className="w-8 h-8 animate-spin" />
+          <span className="font-bold tracking-widest text-xs uppercase text-stone-500">
+            Syncing Crop Inventory...
+          </span>
+        </div>
+      ) : filteredProducts.length === 0 ? (
         <div className="bg-white rounded-3xl border border-stone-200 p-12 text-center max-w-md mx-auto space-y-4">
           <div className="w-16 h-16 rounded-3xl bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto border border-emerald-100">
             <Package className="w-8 h-8" />
@@ -472,6 +619,7 @@ export default function FarmerProductsPage() {
           {filteredProducts.map((product) => {
             const isUnderMandi = product.pricePerKg <= product.mandiBenchmarkPerKg;
             const isSoldOut = product.status === 'SOLD_OUT';
+            const fallbackImg = resolveFallback(product.name, product.isOrganic);
 
             return (
               <div 
@@ -480,6 +628,24 @@ export default function FarmerProductsPage() {
                   isSoldOut ? 'border-stone-200 opacity-70 bg-stone-50/50' : 'border-stone-200/90 hover:border-emerald-300 hover:shadow-md'
                 }`}
               >
+                {/* Image */}
+                <div className="h-44 w-full bg-stone-100 relative overflow-hidden">
+                  <img
+                    src={product.imageUrl || fallbackImg}
+                    alt={product.name}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = fallbackImg;
+                    }}
+                    className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                  />
+                  {product.isOrganic && (
+                    <span className="absolute top-3 left-3 bg-emerald-800/90 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full shadow-xs">
+                      Organic
+                    </span>
+                  )}
+                </div>
+
                 {/* Card Top */}
                 <div className="p-6 space-y-4">
                   {/* Category & Status */}
@@ -615,7 +781,12 @@ export default function FarmerProductsPage() {
             </div>
 
             <form onSubmit={handleSaveForm} className="space-y-4">
-              
+              {/* Photo Upload */}
+              <CropImageUpload
+                value={formData.imageUrl}
+                onChange={(url) => setFormData((prev) => ({ ...prev, imageUrl: url }))}
+              />
+
               {/* Crop Name */}
               <div>
                 <label className="block text-xs font-bold text-stone-700 uppercase mb-1.5">
@@ -767,15 +938,24 @@ export default function FarmerProductsPage() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
+                  disabled={isSubmitting}
                   className="flex-1 py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs rounded-xl transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5"
+                  disabled={isSubmitting}
+                  className="flex-1 py-3 bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5"
                 >
-                  {editingProduct ? 'Save Updates' : 'Publish Produce'} <ArrowUpRight className="w-4 h-4" />
+                  {isSubmitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      {editingProduct ? 'Save Updates' : 'Publish Produce'}{' '}
+                      <ArrowUpRight className="w-4 h-4" />
+                    </>
+                  )}
                 </button>
               </div>
 

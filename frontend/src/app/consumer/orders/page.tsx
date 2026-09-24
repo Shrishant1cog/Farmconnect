@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { 
   Package, 
@@ -16,8 +16,11 @@ import {
   ShieldCheck,
   X,
   Boxes,
-  Check
+  Check,
+  Search,
+  RefreshCw
 } from 'lucide-react';
+import { fetchApi } from '../../../lib/api';
 
 const TRACKING_STEPS = [
   { key: 'PENDING', label: 'Order Placed' },
@@ -30,71 +33,117 @@ export default function ConsumerOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   // Advanced Confirmation Modal State
   const [activeModalOrder, setActiveModalOrder] = useState<any | null>(null);
   const [isInspectedChecked, setIsInspectedChecked] = useState(false);
 
-  const fetchOrders = async () => {
+  const getAuthToken = () => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('farmconnect_token') || localStorage.getItem('fc_token');
+  };
+
+  const fetchOrders = useCallback(async () => {
+    setLoading(true);
+    setPageError(null);
+
+    const token = getAuthToken();
+    if (!token) {
+      setPageError('Please log in to view your orders and dispatch tracking.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('fc_token');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/my`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const json = await res.json();
-      if (json.success) {
-        setOrders(json.data || []);
+      let data: any;
+      try {
+        const res = await fetchApi('/orders/my');
+        data = res?.data || res?.orders || res;
+      } catch {
+        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
+        const res = await fetch(`${baseUrl}/orders/my`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const json = await res.json();
+        data = json?.data || json?.orders || json;
       }
-    } catch (err) {
+
+      if (Array.isArray(data)) {
+        setOrders(data);
+      } else if (data?.orders && Array.isArray(data.orders)) {
+        setOrders(data.orders);
+      } else {
+        setOrders([]);
+      }
+    } catch (err: any) {
       console.error('Failed to load orders', err);
+      setPageError('Could not load your orders. Please check your network connection.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+  }, [fetchOrders]);
 
-  // Opens the advanced modal
   const openConfirmationModal = (order: any) => {
     setActiveModalOrder(order);
     setIsInspectedChecked(false);
+    setModalError(null);
   };
 
-  // Closes the modal
   const closeConfirmationModal = () => {
     if (confirmingId) return;
     setActiveModalOrder(null);
     setIsInspectedChecked(false);
+    setModalError(null);
   };
 
-  // Submits the confirmed delivery
   const handleExecuteConfirm = async () => {
     if (!activeModalOrder) return;
 
     const orderId = activeModalOrder.id;
+    const token = getAuthToken();
+
+    if (!token) {
+      setModalError('Session expired. Please log in again.');
+      return;
+    }
+
     setConfirmingId(orderId);
+    setModalError(null);
 
     try {
-      const token = localStorage.getItem('fc_token');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/${orderId}/received`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        }
-      });
-      const json = await res.json();
+      let json: any;
+      try {
+        json = await fetchApi(`/orders/${orderId}/received`, {
+          method: 'PATCH'
+        });
+      } catch {
+        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
+        const res = await fetch(`${baseUrl}/orders/${orderId}/received`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        });
+        json = await res.json();
+      }
 
-      if (json.success) {
+      if (json?.success || json?.id || json?.data) {
         setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'DELIVERED' } : o));
         closeConfirmationModal();
       } else {
-        alert(json.message || 'Failed to confirm receipt');
+        setModalError(json?.message || 'Failed to confirm receipt.');
       }
-    } catch {
-      alert('Network error confirming receipt');
+    } catch (err: any) {
+      setModalError(err?.message || 'Network error confirming receipt.');
     } finally {
       setConfirmingId(null);
     }
@@ -117,27 +166,96 @@ export default function ConsumerOrdersPage() {
     }
   };
 
+  const filteredOrders = useMemo(() => {
+    return orders.filter(order => {
+      const idMatch = String(order.id || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const farmMatch = (order.farmer?.farmName || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const cropMatch = (order.items || []).some((item: any) => 
+        (item.product?.title || '').toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      const matchesSearch = idMatch || farmMatch || cropMatch;
+
+      const matchesStatus = statusFilter === 'ALL' || order.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [orders, searchTerm, statusFilter]);
+
   if (loading) {
     return (
       <div className="min-h-[75vh] flex flex-col items-center justify-center text-emerald-800 gap-3">
         <Loader2 className="w-8 h-8 animate-spin" />
-        <span className="font-bold text-sm tracking-wider uppercase">Loading Your Orders & Shipments...</span>
+        <span className="font-bold text-sm tracking-wider uppercase text-stone-500">
+          Loading Your Orders & Shipments...
+        </span>
       </div>
     );
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-8">
-      <div>
-        <h1 className="text-3xl font-black text-stone-900 tracking-tight flex items-center gap-3">
-          <Truck className="w-8 h-8 text-emerald-700" />
-          <span>My Orders & Dispatch Tracking</span>
-        </h1>
-        <p className="text-stone-600 text-sm mt-1">
-          Monitor your active farm-direct harvests and logistics progress from Karnataka fields to your kitchen.
-        </p>
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-8 animate-in fade-in duration-200">
+      
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-stone-900 tracking-tight flex items-center gap-3">
+            <Truck className="w-8 h-8 text-emerald-700" />
+            <span>My Orders & Dispatch Tracking</span>
+          </h1>
+          <p className="text-stone-600 text-sm mt-1">
+            Monitor your active farm-direct harvests and logistics progress from Karnataka fields to your kitchen.
+          </p>
+        </div>
+
+        <button
+          onClick={fetchOrders}
+          className="self-start sm:self-auto p-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-2xl transition-colors"
+          title="Refresh Orders"
+        >
+          <RefreshCw className="w-4 h-4" />
+        </button>
       </div>
 
+      {/* Filter and Search Bar */}
+      {orders.length > 0 && (
+        <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="relative w-full md:w-80">
+            <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search by Order ID, Farm, or Produce..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-stone-50 rounded-xl text-xs font-semibold text-stone-900 border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-600 transition-all"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
+            {['ALL', 'PENDING', 'PACKED', 'DISPATCHED', 'DELIVERED'].map((st) => (
+              <button
+                key={st}
+                onClick={() => setStatusFilter(st)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  statusFilter === st
+                    ? 'bg-emerald-800 text-white shadow-xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                {st === 'ALL' ? 'All Orders' : st}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Error Alert */}
+      {pageError && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 text-xs text-red-700">
+          <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+          <span className="font-semibold">{pageError}</span>
+        </div>
+      )}
+
+      {/* Empty State */}
       {orders.length === 0 ? (
         <div className="bg-white border border-stone-200 rounded-3xl p-12 text-center shadow-sm">
           <Package className="w-12 h-12 text-stone-300 mx-auto mb-3" />
@@ -152,11 +270,16 @@ export default function ConsumerOrdersPage() {
             Explore Marketplace <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
+      ) : filteredOrders.length === 0 ? (
+        <div className="bg-white border border-stone-200 rounded-3xl p-8 text-center text-stone-500 text-xs">
+          No orders match your search or filter selection.
+        </div>
       ) : (
         <div className="space-y-6">
-          {orders.map((order) => {
+          {filteredOrders.map((order) => {
             const currentStepIdx = getStepIndex(order.status);
             const isCancelled = order.status === 'CANCELLED';
+            const totalAmount = Number(order.grandTotal ?? order.totalAmount ?? 0);
 
             return (
               <div 
@@ -168,10 +291,10 @@ export default function ConsumerOrdersPage() {
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-mono font-bold text-stone-400 uppercase">
-                        Order #{order.id.slice(0, 8)}
+                        Order #{String(order.id || '').slice(0, 8).toUpperCase()}
                       </span>
                       <span className="text-xs font-semibold text-stone-500">
-                        • {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        • {order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recent'}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 mt-1">
@@ -189,7 +312,7 @@ export default function ConsumerOrdersPage() {
 
                   <div className="text-right">
                     <span className="text-[10px] uppercase font-bold text-stone-400 block">Total Amount</span>
-                    <span className="text-xl font-black text-stone-900">₹{order.grandTotal.toLocaleString('en-IN')}</span>
+                    <span className="text-xl font-black text-stone-900">₹{totalAmount.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
 
@@ -204,7 +327,7 @@ export default function ConsumerOrdersPage() {
                       <div className="absolute top-4 left-6 right-6 h-1 bg-stone-200 -z-0" />
                       <div 
                         className="absolute top-4 left-6 h-1 bg-emerald-600 transition-all duration-500 -z-0"
-                        style={{ width: `${(currentStepIdx / 3) * 85}%` }}
+                        style={{ width: `${Math.min(100, (currentStepIdx / 3) * 88)}%` }}
                       />
 
                       {TRACKING_STEPS.map((step, idx) => {
@@ -243,15 +366,20 @@ export default function ConsumerOrdersPage() {
                       Procured Items
                     </span>
                     <div className="space-y-2">
-                      {order.items?.map((item: any) => (
-                        <div key={item.id} className="flex justify-between items-center bg-stone-50 p-3 rounded-xl border border-stone-100">
-                          <div>
-                            <p className="font-bold text-stone-900">{item.product?.title || 'Harvest Produce'}</p>
-                            <p className="text-[11px] text-stone-500">{item.quantity} units × ₹{item.unitPrice}</p>
+                      {order.items?.map((item: any, idx: number) => {
+                        const itemQty = Number(item.quantity) || 1;
+                        const unitRate = Number(item.unitPrice ?? item.price ?? item.farmerPrice ?? 0);
+
+                        return (
+                          <div key={item.id || idx} className="flex justify-between items-center bg-stone-50 p-3 rounded-xl border border-stone-100">
+                            <div>
+                              <p className="font-bold text-stone-900">{item.product?.title || 'Harvest Produce'}</p>
+                              <p className="text-[11px] text-stone-500">{itemQty} units × ₹{unitRate}</p>
+                            </div>
+                            <span className="font-black text-stone-900">₹{(itemQty * unitRate).toLocaleString('en-IN')}</span>
                           </div>
-                          <span className="font-black text-stone-900">₹{item.quantity * item.unitPrice}</span>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -263,7 +391,7 @@ export default function ConsumerOrdersPage() {
                       <div className="flex items-start gap-2">
                         <MapPin className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
                         <p className="font-medium text-stone-800 leading-relaxed">
-                          {order.deliveryAddress || 'Karnataka Delivery Address'}
+                          {order.deliveryAddress || 'Direct Destination Delivery'}
                         </p>
                       </div>
                       <div className="pt-2 border-t border-stone-200 flex justify-between text-stone-500 font-medium">
@@ -314,7 +442,6 @@ export default function ConsumerOrdersPage() {
         <div className="fixed inset-0 z-[9999] bg-stone-950/70 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl border border-stone-200 max-w-lg w-full p-6 sm:p-8 shadow-2xl space-y-6 relative overflow-hidden">
             
-            {/* Ambient emerald header glow */}
             <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-100 rounded-full blur-2xl pointer-events-none" />
 
             {/* Modal Header */}
@@ -326,7 +453,7 @@ export default function ConsumerOrdersPage() {
                 <div>
                   <h2 className="text-lg font-black text-stone-900 tracking-tight">Confirm Delivery Receipt</h2>
                   <p className="text-xs text-stone-500 font-medium">
-                    Order #{activeModalOrder.id.slice(0, 8).toUpperCase()} • {activeModalOrder.farmer?.farmName}
+                    Order #{String(activeModalOrder.id || '').slice(0, 8).toUpperCase()} • {activeModalOrder.farmer?.farmName}
                   </p>
                 </div>
               </div>
@@ -340,6 +467,14 @@ export default function ConsumerOrdersPage() {
               </button>
             </div>
 
+            {/* Modal Error */}
+            {modalError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                <span>{modalError}</span>
+              </div>
+            )}
+
             {/* Produce Lot Item Verification List */}
             <div className="space-y-2 relative z-10">
               <div className="flex justify-between items-center text-[10px] font-black uppercase text-stone-400 tracking-wider">
@@ -347,18 +482,23 @@ export default function ConsumerOrdersPage() {
                 <span>Expected Amount</span>
               </div>
               <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200 max-h-48 overflow-y-auto space-y-2 divide-y divide-stone-100">
-                {activeModalOrder.items?.map((item: any) => (
-                  <div key={item.id} className="pt-2 first:pt-0 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <Boxes className="w-4 h-4 text-emerald-700 shrink-0" />
-                      <div>
-                        <p className="font-bold text-stone-800">{item.product?.title || 'Crop Yield'}</p>
-                        <p className="text-[10px] text-stone-500 font-medium">{item.quantity} units</p>
+                {activeModalOrder.items?.map((item: any, idx: number) => {
+                  const itemQty = Number(item.quantity) || 1;
+                  const unitRate = Number(item.unitPrice ?? item.price ?? item.farmerPrice ?? 0);
+
+                  return (
+                    <div key={item.id || idx} className="pt-2 first:pt-0 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <Boxes className="w-4 h-4 text-emerald-700 shrink-0" />
+                        <div>
+                          <p className="font-bold text-stone-800">{item.product?.title || 'Crop Yield'}</p>
+                          <p className="text-[10px] text-stone-500 font-medium">{itemQty} units</p>
+                        </div>
                       </div>
+                      <span className="font-black text-stone-900">₹{(itemQty * unitRate).toLocaleString('en-IN')}</span>
                     </div>
-                    <span className="font-black text-stone-900">₹{item.quantity * item.unitPrice}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

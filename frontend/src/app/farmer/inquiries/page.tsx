@@ -1,74 +1,170 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { 
   Search, Send, CheckCheck, Phone, ShieldCheck, 
-  Sprout, ArrowLeft, Flame
+  Sprout, ArrowLeft, Flame, Loader2, AlertCircle 
 } from 'lucide-react';
+import { fetchApi } from '../../../lib/api';
+
+interface Message {
+  id: string;
+  enquiryId: string;
+  content: string;
+  senderId: string;
+  createdAt: string;
+  sender?: { name?: string; role?: string };
+}
 
 export default function FarmerInquiriesPage() {
   const [inquiries, setInquiries] = useState<any[]>([]);
   const [activeInquiry, setActiveInquiry] = useState<any | null>(null);
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [isSending, setIsSending] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
-  const token = typeof window !== 'undefined' ? localStorage.getItem('fc_token') : null;
-  const currentUserId = token ? JSON.parse(atob(token.split('.')[1])).id : null;
+  // 1. Resolve auth token safely across both conventions
+  const getAuthToken = useCallback(() => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('farmconnect_token') || localStorage.getItem('fc_token');
+  }, []);
 
-  // Auto-scroll chat window
+  // 2. Resolve current user ID safely
+  const resolveCurrentUserId = useCallback((): string | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const storedUser = localStorage.getItem('fc_user') || localStorage.getItem('farmconnect_user');
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        if (parsed?.id) return parsed.id;
+      }
+
+      const token = getAuthToken();
+      if (token && token.includes('.')) {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split('')
+            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+        );
+        return JSON.parse(jsonPayload)?.id || null;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }, [getAuthToken]);
+
+  // Auto-scroll chat window to latest message
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Load All Customer Inquiries
-  const fetchInquiries = async () => {
+  // 3. Load all Customer Inquiries for the authenticated farmer
+  const fetchInquiries = useCallback(async () => {
+    const token = getAuthToken();
+    if (!token) {
+      setLoading(false);
+      setErrorMessage('Please log in to review customer inquiries.');
+      return;
+    }
+
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/farmer/enquiries`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const json = await res.json();
-      if (json.success) {
-        setInquiries(json.data || []);
-        if (json.data.length > 0 && !activeInquiry) {
-          selectChat(json.data[0]);
-        }
+      let json: any;
+      try {
+        json = await fetchApi('/farmer/enquiries');
+      } catch {
+        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
+        const res = await fetch(`${baseUrl}/farmer/enquiries`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        json = await res.json();
       }
-    } catch (e) {
+
+      const inquiryList = json?.data || json?.enquiries || (Array.isArray(json) ? json : []);
+      setInquiries(inquiryList);
+
+      if (inquiryList.length > 0 && !activeInquiry) {
+        selectChat(inquiryList[0]);
+      }
+    } catch (e: any) {
       console.error('Failed to load inquiries', e);
+      setErrorMessage('Unable to load customer inquiry list.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeInquiry, getAuthToken]);
 
   useEffect(() => {
+    setCurrentUserId(resolveCurrentUserId());
     fetchInquiries();
-  }, []);
+  }, [fetchInquiries, resolveCurrentUserId]);
 
-  // Initialize Socket.IO
+  // 4. Initialize Socket.IO connection
   useEffect(() => {
+    const token = getAuthToken();
     if (!token) return;
-    socketRef.current = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000', {
-      auth: { token }
+
+    const socketUrl = (process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000')
+      .replace(/\/+$/, '')
+      .replace(/\/api$/, '');
+
+    const socket = io(socketUrl, {
+      auth: { token },
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 5,
     });
 
-    socketRef.current.on('new_chat_message', (msg: any) => {
-      setMessages((prev) => {
-        // Prevent duplicate socket message insertion
-        if (prev.some((m) => m.id === msg.id)) return prev;
-        return [...prev, msg];
-      });
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      if (activeInquiry?.id) {
+        socket.emit('join_enquiry_room', activeInquiry.id);
+      }
+    });
+
+    socket.on('new_chat_message', (msg: any) => {
+      if (!msg) return;
+
+      // Update the active chat messages ONLY if the message belongs to this thread
+      if (activeInquiry && msg.enquiryId === activeInquiry.id) {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+      }
+
+      // Update sidebar preview snippet regardless of which thread is active
+      setInquiries((prev) =>
+        prev.map((inq) => {
+          if (inq.id === msg.enquiryId) {
+            const currentMsgs = inq.messages || [];
+            return {
+              ...inq,
+              messages: [...currentMsgs.filter((m: any) => m.id !== msg.id), msg],
+            };
+          }
+          return inq;
+        })
+      );
     });
 
     return () => {
-      socketRef.current?.disconnect();
+      socket.off('connect');
+      socket.off('new_chat_message');
+      socket.disconnect();
     };
-  }, [token]);
+  }, [activeInquiry?.id, getAuthToken]);
 
   const selectChat = (inquiry: any) => {
     if (activeInquiry && socketRef.current) {
@@ -76,6 +172,8 @@ export default function FarmerInquiriesPage() {
     }
     setActiveInquiry(inquiry);
     setMessages(inquiry.messages || []);
+    setErrorMessage(null);
+
     if (socketRef.current) {
       socketRef.current.emit('join_enquiry_room', inquiry.id);
     }
@@ -83,43 +181,95 @@ export default function FarmerInquiriesPage() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !activeInquiry) return;
+    const cleanContent = inputText.trim();
+    if (!cleanContent || !activeInquiry || isSending) return;
 
-    const messageContent = inputText.trim();
+    const token = getAuthToken();
+    if (!token) {
+      setErrorMessage('Session expired. Please log in again.');
+      return;
+    }
+
+    setIsSending(true);
+    setErrorMessage(null);
+
+    // Optimistic message update
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMessage: Message = {
+      id: tempId,
+      enquiryId: activeInquiry.id,
+      content: cleanContent,
+      senderId: currentUserId || 'farmer',
+      createdAt: new Date().toISOString(),
+      sender: { name: 'You', role: 'FARMER' },
+    };
+
+    setMessages((prev) => [...prev, optimisticMessage]);
     setInputText('');
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/enquiries/${activeInquiry.id}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ content: messageContent })
-      });
-      const json = await res.json();
-      if (json.success && json.data) {
-        // Deduplicate: only append if the socket hasn't already added it
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === json.data.id)) return prev;
-          return [...prev, json.data];
+      const payload = { content: cleanContent };
+      let json: any;
+      try {
+        json = await fetchApi(`/enquiries/${activeInquiry.id}/messages`, {
+          method: 'POST',
+          body: JSON.stringify(payload),
         });
+      } catch {
+        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
+        const res = await fetch(`${baseUrl}/enquiries/${activeInquiry.id}/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+        json = await res.json();
       }
-    } catch (e) {
-      alert('Message failed to deliver');
+
+      if (json?.success && json?.data) {
+        const confirmedMsg = json.data;
+        setMessages((prev) =>
+          prev.map((m) => (m.id === tempId ? confirmedMsg : m))
+        );
+
+        // Update sidebar thread preview
+        setInquiries((prev) =>
+          prev.map((inq) => {
+            if (inq.id === activeInquiry.id) {
+              const currentList = inq.messages || [];
+              return {
+                ...inq,
+                messages: [...currentList.filter((m: any) => m.id !== tempId), confirmedMsg],
+              };
+            }
+            return inq;
+          })
+        );
+      }
+    } catch (e: any) {
+      console.error('Failed to deliver message:', e);
+      // Restore input text so farmer does not lose negotiation message
+      setInputText(cleanContent);
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setErrorMessage('Message failed to deliver. Please verify your connection.');
+    } finally {
+      setIsSending(false);
     }
   };
 
-  const filteredInquiries = inquiries.filter(inq => 
+  const filteredInquiries = inquiries.filter((inq) =>
     inq.consumer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    inq.product?.title?.toLowerCase().includes(searchTerm.toLowerCase())
+    inq.product?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    inq.subject?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="max-w-7xl mx-auto px-2 sm:px-6 py-6 h-[calc(100vh-5rem)]">
       <div className="bg-[#f0f2f5] rounded-3xl border border-stone-300 shadow-2xl h-full flex overflow-hidden">
         
-        {/* LEFT COLUMN: WhatsApp Threads Sidebar */}
+        {/* LEFT COLUMN: Inquiries Sidebar */}
         <div className={`w-full md:w-[380px] lg:w-[420px] bg-white border-r border-stone-200 flex flex-col ${activeInquiry ? 'hidden md:flex' : 'flex'}`}>
           
           {/* Header Bar */}
@@ -129,8 +279,8 @@ export default function FarmerInquiriesPage() {
                 🌱
               </div>
               <div>
-                <h1 className="text-sm font-black tracking-tight">Customer's Inquiry</h1>
-                <p className="text-[11px] text-emerald-200 font-medium">Direct WhatsApp Negotiation</p>
+                <h1 className="text-sm font-black tracking-tight">Customer Inquiries</h1>
+                <p className="text-[11px] text-emerald-200 font-medium">Direct Produce Negotiation</p>
               </div>
             </div>
             <span className="bg-amber-400 text-stone-950 font-black text-[10px] px-2 py-0.5 rounded-full uppercase flex items-center gap-1">
@@ -144,7 +294,7 @@ export default function FarmerInquiriesPage() {
               <Search className="w-4 h-4 text-stone-400" />
               <input
                 type="text"
-                placeholder="Search consumer or harvest lead..."
+                placeholder="Search buyer name, crop, or subject..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full text-xs outline-none bg-transparent placeholder-stone-400 font-medium"
@@ -155,7 +305,10 @@ export default function FarmerInquiriesPage() {
           {/* Contact List */}
           <div className="flex-1 overflow-y-auto divide-y divide-stone-100">
             {loading ? (
-              <p className="text-center py-10 text-xs text-stone-400 font-bold">Loading inquiries...</p>
+              <div className="flex flex-col items-center justify-center py-12 gap-2 text-stone-400">
+                <Loader2 className="w-6 h-6 animate-spin text-emerald-700" />
+                <p className="text-xs font-bold">Loading buyer inquiries...</p>
+              </div>
             ) : filteredInquiries.length === 0 ? (
               <div className="p-8 text-center text-stone-400">
                 <p className="text-xs font-bold">No consumer inquiries found.</p>
@@ -179,7 +332,7 @@ export default function FarmerInquiriesPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-baseline mb-0.5">
                         <h4 className="text-xs font-bold text-stone-900 truncate">
-                          {inq.consumer?.name}
+                          {inq.consumer?.name || 'Anonymous Buyer'}
                         </h4>
                         <span className="text-[10px] text-stone-400 shrink-0">
                           {lastMsg ? new Date(lastMsg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
@@ -187,7 +340,10 @@ export default function FarmerInquiriesPage() {
                       </div>
                       <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-800 truncate mb-1">
                         <Sprout className="w-3 h-3 text-emerald-600 shrink-0" />
-                        <span className="truncate">{inq.product?.title} (₹{inq.product?.farmerPrice})</span>
+                        <span className="truncate">
+                          {inq.product?.title || 'Harvest Produce'} 
+                          {inq.product?.farmerPrice ? ` (₹${inq.product?.farmerPrice})` : ''}
+                        </span>
                       </div>
                       <p className="text-[11px] text-stone-500 truncate">
                         {lastMsg ? lastMsg.content : inq.subject}
@@ -200,14 +356,17 @@ export default function FarmerInquiriesPage() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: WhatsApp Chat Window */}
+        {/* RIGHT COLUMN: Chat Window */}
         <div className={`flex-1 flex flex-col bg-[#efeae2] ${!activeInquiry ? 'hidden md:flex' : 'flex'}`}>
           {activeInquiry ? (
             <>
               {/* Chat Header */}
-              <div className="h-16 px-4 bg-[#f0f2f5] border-b border-stone-300 flex items-center justify-between">
+              <div className="h-16 px-4 bg-[#f0f2f5] border-b border-stone-300 flex items-center justify-between shadow-sm">
                 <div className="flex items-center gap-3">
-                  <button onClick={() => setActiveInquiry(null)} className="md:hidden text-stone-600 p-1">
+                  <button 
+                    onClick={() => setActiveInquiry(null)} 
+                    className="md:hidden text-stone-600 p-1 hover:bg-stone-200 rounded-lg transition-colors"
+                  >
                     <ArrowLeft className="w-5 h-5" />
                   </button>
                   <div className="w-10 h-10 rounded-full bg-[#128c7e] text-white flex items-center justify-center font-bold">
@@ -215,22 +374,32 @@ export default function FarmerInquiriesPage() {
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <h3 className="text-sm font-black text-stone-900">{activeInquiry.consumer?.name}</h3>
+                      <h3 className="text-sm font-black text-stone-900">
+                        {activeInquiry.consumer?.name || 'Consumer Lead'}
+                      </h3>
                       <ShieldCheck className="w-4 h-4 text-emerald-600" />
                     </div>
                     <p className="text-[11px] text-stone-500 flex items-center gap-1">
-                      <Phone className="w-3 h-3 text-stone-400" /> {activeInquiry.consumer?.phone} • <span className="text-emerald-700 font-bold">Inquiry Active</span>
+                      <Phone className="w-3 h-3 text-stone-400" /> {activeInquiry.consumer?.phone || 'Verified Buyer'} • <span className="text-emerald-700 font-bold">Inquiry Active</span>
                     </p>
                   </div>
                 </div>
 
                 <div className="bg-emerald-100 text-emerald-900 border border-emerald-300 px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1">
                   <Sprout className="w-3.5 h-3.5 text-emerald-700" />
-                  {activeInquiry.product?.title}
+                  {activeInquiry.product?.title || 'Harvest Crop'}
                 </div>
               </div>
 
-              {/* Chat Messages Body with WhatsApp styling */}
+              {/* Error Banner */}
+              {errorMessage && (
+                <div className="bg-red-50 border-b border-red-200 px-4 py-2 flex items-center gap-2 text-xs text-red-700">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                  <span className="font-semibold">{errorMessage}</span>
+                </div>
+              )}
+
+              {/* Messages Body */}
               <div 
                 className="flex-1 p-4 overflow-y-auto space-y-2.5"
                 style={{
@@ -243,10 +412,9 @@ export default function FarmerInquiriesPage() {
                 </div>
 
                 {messages.map((m, idx) => {
-                  const isMe = m.senderId === currentUserId || m.sender?.role === 'FARMER';
+                  const isMe = currentUserId ? m.senderId === currentUserId : m.sender?.role === 'FARMER';
                   return (
-                    /* Guaranteed unique compound key avoids collisions */
-                    <div key={`${m.id || 'msg'}-${idx}`} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                    <div key={m.id || `msg-${idx}`} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                       <div
                         className={`max-w-[80%] sm:max-w-[70%] rounded-2xl px-3.5 py-2 shadow-xs relative text-xs ${
                           isMe 
@@ -254,9 +422,9 @@ export default function FarmerInquiriesPage() {
                             : 'bg-white text-stone-900 rounded-tl-none'
                         }`}
                       >
-                        <p className="font-medium leading-relaxed pr-14">{m.content}</p>
+                        <p className="font-medium leading-relaxed pr-14 whitespace-pre-wrap break-words">{m.content}</p>
                         <div className="absolute right-2 bottom-1.5 flex items-center gap-1 text-[9px] text-stone-400 font-semibold">
-                          <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          <span>{new Date(m.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                           {isMe && <CheckCheck className="w-3.5 h-3.5 text-blue-500" />}
                         </div>
                       </div>
@@ -266,7 +434,7 @@ export default function FarmerInquiriesPage() {
                 <div ref={chatBottomRef} />
               </div>
 
-              {/* Chat Bottom Input Bar */}
+              {/* Chat Input Bar */}
               <form onSubmit={handleSendMessage} className="h-16 px-4 bg-[#f0f2f5] border-t border-stone-300 flex items-center gap-2">
                 <input
                   type="text"
@@ -277,10 +445,10 @@ export default function FarmerInquiriesPage() {
                 />
                 <button
                   type="submit"
-                  disabled={!inputText.trim()}
+                  disabled={!inputText.trim() || isSending}
                   className="w-10 h-10 rounded-full bg-[#128c7e] hover:bg-[#075e54] disabled:bg-stone-300 text-white flex items-center justify-center transition-transform active:scale-95 shadow-sm"
                 >
-                  <Send className="w-4 h-4 ml-0.5" />
+                  {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 ml-0.5" />}
                 </button>
               </form>
             </>

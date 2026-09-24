@@ -14,7 +14,7 @@ export interface CartItem {
   priceUnit: string;
   quantity: number;
   quantityUnit: string;
-  unit?: string; // Legacy alias for backward compatibility
+  unit?: string;
   availableStock: number;
   containerType?: 'STANDARD_CRATE' | 'COLD_CHAIN_REFRIGERATED' | 'MOISTURE_CONTROLLED' | 'VENTILATED_JUTE';
   containerCostPerKg?: number;
@@ -33,7 +33,7 @@ export type AddToCartItem = Omit<CartItem, 'quantity' | 'productId' | 'priceUnit
   availableStock?: number;
 };
 
-interface DestinationCoords {
+export interface DestinationCoords {
   latitude: number;
   longitude: number;
   address: string;
@@ -41,23 +41,24 @@ interface DestinationCoords {
 
 export interface CartContextType {
   items: CartItem[];
-  cart: CartItem[]; // Legacy alias for items
+  cart: CartItem[];
+  isHydrated: boolean;
   activeFarmerId: string | null;
   activeFarmName: string | null;
   destination: DestinationCoords | null;
   totalItemsCost: number;
-  subtotal: number; // Legacy alias for totalItemsCost
+  subtotal: number;
   totalWeightKg: number;
   containerCost: number;
   transportCost: number;
   grandTotal: number;
   totalItemsCount: number;
   distanceKm: number;
-  addToCart: (item: AddToCartItem, quantity?: number) => void;
+  addToCart: (item: AddToCartItem, quantity?: number) => boolean;
   updateQuantity: (productId: string, quantity: number) => void;
   removeFromCart: (productId: string) => void;
   clearCart: () => void;
-  setDeliveryDestination: (dest: DestinationCoords) => void;
+  setDeliveryDestination: (dest: DestinationCoords | null) => void;
   refreshFreightQuote: () => Promise<void>;
 }
 
@@ -74,66 +75,101 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [destination, setDestination] = useState<DestinationCoords | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
 
+  // Hydrate cart and destination from localStorage on initial client mount
   useEffect(() => {
     try {
-      const savedCart = localStorage.getItem(CART_STORAGE_KEY);
-      const savedDest = localStorage.getItem(DEST_STORAGE_KEY);
-      if (savedCart) setItems(JSON.parse(savedCart));
-      if (savedDest) setDestination(JSON.parse(savedDest));
-    } catch {
-      console.warn('Could not hydrate shopping cart from browser storage.');
+      if (typeof window !== 'undefined') {
+        const savedCart = localStorage.getItem(CART_STORAGE_KEY);
+        const savedDest = localStorage.getItem(DEST_STORAGE_KEY);
+
+        if (savedCart) {
+          const parsed = JSON.parse(savedCart);
+          if (Array.isArray(parsed)) {
+            setItems(parsed);
+          }
+        }
+        if (savedDest) {
+          setDestination(JSON.parse(savedDest));
+        }
+      }
+    } catch (err) {
+      console.warn('Could not hydrate shopping cart from browser storage:', err);
     } finally {
       setIsHydrated(true);
     }
   }, []);
 
+  // Sync state changes back to localStorage
   useEffect(() => {
-    if (!isHydrated) return;
-    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
-    if (destination) {
-      localStorage.setItem(DEST_STORAGE_KEY, JSON.stringify(destination));
-    } else {
-      localStorage.removeItem(DEST_STORAGE_KEY);
+    if (!isHydrated || typeof window === 'undefined') return;
+
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+      if (destination) {
+        localStorage.setItem(DEST_STORAGE_KEY, JSON.stringify(destination));
+      } else {
+        localStorage.removeItem(DEST_STORAGE_KEY);
+      }
+    } catch (err) {
+      console.warn('Failed to save cart state to browser storage:', err);
     }
   }, [items, destination, isHydrated]);
 
   const activeFarmerId = items[0]?.farmerId || null;
   const activeFarmName = items[0]?.farmName || null;
 
-  const addToCart = useCallback((product: AddToCartItem, quantity = 1) => {
+  const addToCart = useCallback((product: AddToCartItem, quantity = 1): boolean => {
     const resolvedProductId = product.productId || product.id || '';
     if (!resolvedProductId) {
       console.error('Product must provide either an id or productId.');
-      return;
+      return false;
+    }
+
+    const resolvedAvailableStock = Math.max(0, Number(product.availableStock ?? 9999));
+    if (resolvedAvailableStock <= 0) {
+      if (typeof window !== 'undefined') {
+        alert('This crop listing is currently out of stock.');
+      }
+      return false;
     }
 
     const resolvedPriceUnit = product.priceUnit || product.unit || 'PER_KG';
     const resolvedQuantityUnit = product.quantityUnit || product.unit || 'KG';
-    const resolvedQuantity = product.quantity ?? quantity ?? 1;
-    const resolvedAvailableStock = product.availableStock ?? 9999;
+    const requestedQty = Math.max(1, Number(product.quantity ?? quantity ?? 1));
+    const resolvedQuantity = Math.min(requestedQty, resolvedAvailableStock);
+
+    const safeFarmerPrice = Math.max(0, Number(product.farmerPrice) || 0);
+    const safeContainerCost = Number(product.containerCostPerKg) || 0.45;
 
     const normalizedItem: CartItem = {
       ...product,
       productId: resolvedProductId,
       id: resolvedProductId,
+      farmerPrice: safeFarmerPrice,
       priceUnit: resolvedPriceUnit,
       quantityUnit: resolvedQuantityUnit,
       unit: product.unit || resolvedPriceUnit,
       availableStock: resolvedAvailableStock,
       containerType: product.containerType || 'STANDARD_CRATE',
-      containerCostPerKg: product.containerCostPerKg || 0.45,
+      containerCostPerKg: safeContainerCost,
       quantity: resolvedQuantity,
     };
 
-    setItems((prev) => {
-      if (prev.length > 0 && prev[0].farmerId !== normalizedItem.farmerId) {
+    // Single-farmer validation performed outside setState to prevent double-prompts
+    if (items.length > 0 && items[0].farmerId !== normalizedItem.farmerId) {
+      if (typeof window !== 'undefined') {
         const confirmSwitch = window.confirm(
-          `Your cart contains harvest from ${prev[0].farmName}. Clear cart to order from ${normalizedItem.farmName}?`
+          `Your cart already contains harvest from ${items[0].farmName || 'another farmer'}. Clear your cart to order from ${normalizedItem.farmName || 'this farmer'} instead?`
         );
-        if (!confirmSwitch) return prev;
-        return [{ ...normalizedItem, quantity: resolvedQuantity }];
+        if (!confirmSwitch) {
+          return false;
+        }
       }
+      setItems([{ ...normalizedItem, quantity: resolvedQuantity }]);
+      return true;
+    }
 
+    setItems((prev) => {
       const existingIndex = prev.findIndex(
         (i) => (i.productId || i.id) === resolvedProductId
       );
@@ -148,27 +184,28 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return updated;
       }
 
-      return [
-        ...prev,
-        {
-          ...normalizedItem,
-          quantity: Math.min(resolvedQuantity, normalizedItem.availableStock),
-        },
-      ];
+      return [...prev, normalizedItem];
     });
-  }, []);
+
+    return true;
+  }, [items]);
 
   const updateQuantity = useCallback((productId: string, quantity: number) => {
-    setItems((prev) => {
-      if (quantity <= 0) return prev.filter((i) => (i.productId || i.id) !== productId);
-      return prev.map((item) => {
+    const numericQty = Number(quantity);
+    if (isNaN(numericQty) || numericQty <= 0) {
+      setItems((prev) => prev.filter((i) => (i.productId || i.id) !== productId));
+      return;
+    }
+
+    setItems((prev) =>
+      prev.map((item) => {
         if ((item.productId || item.id) === productId) {
-          const clampedQty = Math.min(quantity, item.availableStock);
+          const clampedQty = Math.min(numericQty, item.availableStock);
           return { ...item, quantity: clampedQty };
         }
         return item;
-      });
-    });
+      })
+    );
   }, []);
 
   const removeFromCart = useCallback((productId: string) => {
@@ -179,39 +216,45 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setItems([]);
   }, []);
 
-  const setDeliveryDestination = useCallback((dest: DestinationCoords) => {
+  const setDeliveryDestination = useCallback((dest: DestinationCoords | null) => {
     setDestination(dest);
   }, []);
 
   const totalWeightKg = useMemo(() => {
     return items.reduce((acc, item) => {
       const unit = (item.quantityUnit || item.unit || 'KG').toUpperCase();
-      let weightInKg = item.quantity;
-      if (unit.includes('QUINTAL')) weightInKg = item.quantity * 100;
-      if (unit.includes('TON')) weightInKg = item.quantity * 1000;
+      const qty = Number(item.quantity) || 0;
+      let weightInKg = qty;
+      if (unit.includes('QUINTAL')) weightInKg = qty * 100;
+      if (unit.includes('TON')) weightInKg = qty * 1000;
       return acc + weightInKg;
     }, 0);
   }, [items]);
 
   const totalItemsCost = useMemo(() => {
-    return items.reduce((acc, item) => acc + item.farmerPrice * item.quantity, 0);
+    return items.reduce((acc, item) => {
+      const price = Number(item.farmerPrice) || 0;
+      const qty = Number(item.quantity) || 0;
+      return acc + price * qty;
+    }, 0);
   }, [items]);
 
   const containerCost = useMemo(() => {
     return items.reduce((acc, item) => {
       const unit = (item.quantityUnit || item.unit || 'KG').toUpperCase();
-      let itemWeight = item.quantity;
-      if (unit.includes('QUINTAL')) itemWeight = item.quantity * 100;
-      if (unit.includes('TON')) itemWeight = item.quantity * 1000;
-      const ratePerKg = item.containerCostPerKg || 0.45;
+      const qty = Number(item.quantity) || 0;
+      let itemWeight = qty;
+      if (unit.includes('QUINTAL')) itemWeight = qty * 100;
+      if (unit.includes('TON')) itemWeight = qty * 1000;
+      const ratePerKg = Number(item.containerCostPerKg) || 0.45;
       return acc + itemWeight * ratePerKg;
     }, 0);
   }, [items]);
 
   const distanceKm = useMemo(() => {
     if (!destination || items.length === 0) return 0;
-    const originLat = items[0].farmerLat || 12.5218;
-    const originLon = items[0].farmerLon || 76.8951;
+    const originLat = typeof items[0].farmerLat === 'number' ? items[0].farmerLat : 12.5218;
+    const originLon = typeof items[0].farmerLon === 'number' ? items[0].farmerLon : 76.8951;
     return Math.round(
       calculateDistanceKm(originLat, originLon, destination.latitude, destination.longitude)
     );
@@ -229,7 +272,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [totalItemsCost, transportCost, containerCost]);
 
   const totalItemsCount = useMemo(() => {
-    return items.reduce((acc, item) => acc + item.quantity, 0);
+    return items.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
   }, [items]);
 
   const refreshFreightQuote = useCallback(async () => {
@@ -247,7 +290,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }),
       });
     } catch {
-      // Fallback cleanly to local formula
+      // Retains local geometric fallback calculations cleanly
     }
   }, [destination, items, totalWeightKg]);
 
@@ -256,6 +299,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         items,
         cart: items,
+        isHydrated,
         activeFarmerId,
         activeFarmName,
         destination,

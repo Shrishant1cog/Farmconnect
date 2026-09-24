@@ -7,7 +7,7 @@ export async function fetchApi<T = any>(
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const url = cleanEndpoint.startsWith('http') ? cleanEndpoint : `${BASE_URL}${cleanEndpoint}`;
 
-  // Safely retrieve token across both key conventions
+  // Read auth token safely across both naming conventions
   let token: string | null = null;
   if (typeof window !== 'undefined') {
     token = localStorage.getItem('farmconnect_token') || localStorage.getItem('fc_token');
@@ -16,7 +16,7 @@ export async function fetchApi<T = any>(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(options.headers as Record<string, string> || {}),
+    ...((options.headers as Record<string, string>) || {}),
   };
 
   try {
@@ -38,20 +38,24 @@ export async function fetchApi<T = any>(
       }
     }
 
-    if (!res.ok) {
-      const errorMsg = data?.message || data?.error || `Request failed with status ${res.status}`;
-      const error = new Error(errorMsg) as any;
-      error.status = res.status;
-      error.data = data;
-      throw error;
-    }
+if (!res.ok) {
+  let errorMsg = data?.message || data?.error;
+  if (!errorMsg || typeof errorMsg !== 'string' || errorMsg.includes('<html')) {
+    errorMsg = `Server error (${res.status}): ${res.statusText || 'Unable to complete request'}`;
+  }
+  const error = new Error(errorMsg) as any;
+  error.status = res.status;
+  error.data = data;
+  throw error;
+}
 
     return data as T;
   } catch (err: any) {
-    // Use warn instead of error so Next.js dev overlay does not falsely pop up
+    // Only warn during development to prevent Next.js from displaying a full-screen red crash overlay
     if (process.env.NODE_ENV === 'development') {
-      console.warn(`[API] ${endpoint} returned:`, err.message);
+      console.warn(`[API Notice] ${cleanEndpoint}:`, err.message);
     }
     throw err;
   }
+  
 }

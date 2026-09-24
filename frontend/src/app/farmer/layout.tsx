@@ -13,7 +13,7 @@ export default function FarmerLayout({ children }: { children: React.ReactNode }
     setMounted(true);
   }, []);
 
-  // 1. Show clean loader while the browser retrieves stored auth state
+  // 1. Wait for client-side storage hydration to complete
   if (!mounted || isLoading) {
     return (
       <div className="min-h-[75vh] flex flex-col items-center justify-center gap-3">
@@ -25,27 +25,41 @@ export default function FarmerLayout({ children }: { children: React.ReactNode }
     );
   }
 
-  // 2. Comprehensive role resolution across all storage schemes
-  const roleFromUser = (user?.role || '').toUpperCase();
-  
-  let roleFromStorage = '';
+  // 2. Resolve farmer role across all stored auth variations
+  const roleFromAuthHook = (user?.role || '').toUpperCase();
+
+  let roleFromLocalStorage = '';
   let roleFromFcUser = '';
+  let roleFromDecodedToken = '';
+
   if (typeof window !== 'undefined') {
-    roleFromStorage = (localStorage.getItem('farmconnect_role') || '').toUpperCase();
+    roleFromLocalStorage = (localStorage.getItem('farmconnect_role') || '').toUpperCase();
+
     try {
       const parsedFc = JSON.parse(localStorage.getItem('fc_user') || '{}');
       roleFromFcUser = (parsedFc?.role || '').toUpperCase();
     } catch {
       // Ignore JSON parse errors
     }
+
+    const token = localStorage.getItem('farmconnect_token') || localStorage.getItem('fc_token');
+    if (token && token.includes('.')) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        roleFromDecodedToken = (payload?.role || '').toUpperCase();
+      } catch {
+        // Ignore token decode errors
+      }
+    }
   }
 
-  const isFarmer = 
-    roleFromUser === 'FARMER' || 
-    roleFromStorage === 'FARMER' || 
-    roleFromFcUser === 'FARMER';
+  const isFarmer =
+    roleFromAuthHook === 'FARMER' ||
+    roleFromLocalStorage === 'FARMER' ||
+    roleFromFcUser === 'FARMER' ||
+    roleFromDecodedToken === 'FARMER';
 
-  // 3. Render restricted screen only if definitely confirmed NOT a farmer
+  // 3. Block access only if verified as a non-farmer
   if (!isFarmer) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center p-4">

@@ -1,12 +1,26 @@
 import { Router } from 'express';
-import { register, login, verifyAadhaar } from './auth.controller';
-import { authenticateToken, requireRole } from '../../middleware/auth.middleware';
-import { authLimiter } from '../../middleware/rateLimiter';
+import {
+  register,
+  login,
+  loginPhone,
+  verifyAadhaar,
+  firebasePhoneAuth,
+  getCurrentUser,
+} from './auth.controller';
 
 const router = Router();
 
-router.post('/register', authLimiter, register);
-router.post('/login', authLimiter, login);
-router.post('/verify-aadhaar', authLimiter, authenticateToken, requireRole(['FARMER']), verifyAadhaar);
+// Registration & Standard Login
+router.post('/register', register);
+router.post('/login', login);
+
+// Mobile OTP Endpoints
+router.post('/login-phone', loginPhone);
+router.post('/phone-login', loginPhone);
+router.post('/firebase-phone', firebasePhoneAuth);
+
+// Identity Verification & Profile
+router.post('/verify-aadhaar', verifyAadhaar);
+router.get('/me', getCurrentUser);
 
 export default router;

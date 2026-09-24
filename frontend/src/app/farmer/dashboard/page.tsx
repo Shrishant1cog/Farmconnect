@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { 
   Sprout, Package, MessageSquare, Plus, 
   MapPin, IndianRupee, Scale, Edit3, Trash2, 
-  Search, X, ArrowUpRight, ArrowRight, CheckCircle2 
+  Search, X, ArrowUpRight, ArrowRight, CheckCircle2,
+  Loader2, RefreshCw, AlertCircle, Sparkles
 } from 'lucide-react';
 import { fetchApi } from '../../../lib/api';
 import { useAuth } from '../../../hooks/useAuth';
@@ -76,6 +77,7 @@ const DEFAULT_PRODUCTS: Product[] = [
     isAvailable: true,
     grade: 'Grade-A Export',
     location: 'Pandavapura, Mandya',
+    imageUrl: 'https://images.unsplash.com/photo-1597362925123-77861d3fbac7?auto=format&fit=crop&w=800&q=80',
   },
   {
     id: 'prod-2',
@@ -91,6 +93,7 @@ const DEFAULT_PRODUCTS: Product[] = [
     isAvailable: true,
     grade: 'Residue Free',
     location: 'Srirangapatna, Mandya',
+    imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80',
   },
   {
     id: 'prod-3',
@@ -106,6 +109,7 @@ const DEFAULT_PRODUCTS: Product[] = [
     isAvailable: true,
     grade: 'Grade-A Export',
     location: 'Nanjangud, Mysuru',
+    imageUrl: 'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?auto=format&fit=crop&w=800&q=80',
   },
   {
     id: 'prod-4',
@@ -121,6 +125,7 @@ const DEFAULT_PRODUCTS: Product[] = [
     isAvailable: false,
     grade: 'Grade-A Export',
     location: 'Byadgi, Haveri',
+    imageUrl: 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=800&q=80',
   },
 ];
 
@@ -157,7 +162,13 @@ const DEFAULT_LEADS: BuyerChatLead[] = [
   },
 ];
 
-function SafeImage({ src, alt, title, categoryName, className }: { 
+function SafeImage({ 
+  src, 
+  alt, 
+  title, 
+  categoryName, 
+  className 
+}: { 
   src?: string; 
   alt: string; 
   title?: string; 
@@ -182,69 +193,148 @@ function SafeImage({ src, alt, title, categoryName, className }: {
 }
 
 // ============================================================================
-// 2. MAIN FARMER DASHBOARD COMPONENT (NO RESTRICTION MODALS)
+// 2. MAIN FARMER DASHBOARD COMPONENT
 // ============================================================================
 
 export default function FarmerDashboardPage() {
-  const { user: authUser } = useAuth() as any;
+  const { user: authUser } = useAuth();
 
-  // Immediate session hydration to ensure instant zero-latency loading
-  const [currentUser, setCurrentUser] = useState<any>(() => {
+  // State management
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [leads] = useState<BuyerChatLead[]>(DEFAULT_LEADS);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterMode, setFilterMode] = useState<'ALL' | 'ACTIVE' | 'SOLD_OUT'>('ALL');
+
+  // Modals & Operations
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [notification, setNotification] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Auto-dismiss notification
+  useEffect(() => {
+    if (!notification) return;
+    const timer = setTimeout(() => setNotification(null), 3000);
+    return () => clearTimeout(timer);
+  }, [notification]);
+
+  // Safe SSR hydration
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
-        const stored = localStorage.getItem('farmconnect_user');
-        if (stored) return JSON.parse(stored);
+        const storedUser = localStorage.getItem('farmconnect_user') || localStorage.getItem('fc_user');
+        if (storedUser) {
+          setCurrentUser(JSON.parse(storedUser));
+        }
+
+        const storedProducts = localStorage.getItem('farmconnect_farmer_products');
+        if (storedProducts) {
+          const parsed = JSON.parse(storedProducts);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setProducts(parsed);
+          } else {
+            setProducts(DEFAULT_PRODUCTS);
+          }
+        } else {
+          setProducts(DEFAULT_PRODUCTS);
+        }
       } catch {
-        // ignore
+        setProducts(DEFAULT_PRODUCTS);
       }
     }
-    return null;
-  });
+  }, []);
 
+  // Update when auth context changes
   useEffect(() => {
     if (authUser) {
       setCurrentUser(authUser);
     }
   }, [authUser]);
 
-  const [products, setProducts] = useState<Product[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('farmconnect_farmer_products');
-        if (stored) return JSON.parse(stored);
-      } catch {
-        // ignore
+  // Fetch backend products safely
+  const fetchFarmerProducts = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      const res = await fetchApi('/products/my-products');
+      const data = res?.data || res?.products || (Array.isArray(res) ? res : []);
+      if (Array.isArray(data) && data.length > 0) {
+        const mapped: Product[] = data.map((p: any, idx: number) => ({
+          id: p.id || `prod-db-${idx}`,
+          title: p.title || 'Fresh Produce Lot',
+          description: p.description || '',
+          categoryName: p.categoryName || 'Vegetables',
+          farmerPrice: Number(p.farmerPrice) || 20,
+          mandiBenchmark: Number(p.mandiBenchmark) || Number(p.farmerPrice) * 1.05 || 22,
+          priceUnit: p.priceUnit ? p.priceUnit.replace(/^PER_/, '').toLowerCase() : 'kg',
+          quantityAvailable: Number(p.quantityAvailable) || 0,
+          quantityUnit: p.quantityUnit ? p.quantityUnit.toLowerCase() : 'kg',
+          minOrderKg: Number(p.minOrderKg) || 25,
+          isAvailable: p.isAvailable !== undefined ? Boolean(p.isAvailable) : true,
+          grade: p.grade || 'Grade-A Export',
+          location: p.location || 'Mandya, Karnataka',
+          imageUrl: p.imageUrl || '',
+        }));
+
+        setProducts(mapped);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('farmconnect_farmer_products', JSON.stringify(mapped));
+        }
       }
+    } catch {
+      // Retain offline/localStorage produce gracefully without crash
+    } finally {
+      setIsRefreshing(false);
     }
-    return DEFAULT_PRODUCTS;
-  });
+  }, []);
 
-  const [leads] = useState<BuyerChatLead[]>(DEFAULT_LEADS);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterMode, setFilterMode] = useState<'ALL' | 'ACTIVE' | 'SOLD_OUT'>('ALL');
+  useEffect(() => {
+    fetchFarmerProducts();
+  }, [fetchFarmerProducts]);
 
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
-
+  // Persist local changes
   const syncProducts = (updated: Product[]) => {
     setProducts(updated);
-    try {
-      localStorage.setItem('farmconnect_farmer_products', JSON.stringify(updated));
-    } catch {
-      // ignore
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('farmconnect_farmer_products', JSON.stringify(updated));
+      } catch {
+        // ignore storage errors
+      }
     }
   };
 
-  const toggleAvailability = (id: string) => {
-    const updated = products.map((p) => (p.id === id ? { ...p, isAvailable: !p.isAvailable } : p));
+  // Toggle availability
+  const toggleAvailability = async (id: string) => {
+    const target = products.find((p) => p.id === id);
+    if (!target) return;
+
+    const nextState = !target.isAvailable;
+    const updated = products.map((p) => (p.id === id ? { ...p, isAvailable: nextState } : p));
     syncProducts(updated);
+
+    try {
+      await fetchApi(`/products/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isAvailable: nextState }),
+      });
+      setNotification({
+        text: `Batch marked as ${nextState ? 'Active' : 'Sold Out'}.`,
+        type: 'success',
+      });
+    } catch {
+      // Local state is already updated
+    }
   };
 
+  // Filtered view calculation
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            p.location.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = 
+        p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.location.toLowerCase().includes(searchQuery.toLowerCase());
       if (!matchesSearch) return false;
       if (filterMode === 'ACTIVE') return p.isAvailable;
       if (filterMode === 'SOLD_OUT') return !p.isAvailable;
@@ -252,17 +342,21 @@ export default function FarmerDashboardPage() {
     });
   }, [products, searchQuery, filterMode]);
 
+  // Analytical KPIs
   const stats = useMemo(() => {
     const totalLots = products.length;
     const activeLots = products.filter((p) => p.isAvailable).length;
     const totalKg = products.reduce((sum, p) => sum + (p.isAvailable ? p.quantityAvailable : 0), 0);
-    const grossPotential = products.reduce((sum, p) => sum + (p.isAvailable ? p.quantityAvailable * p.farmerPrice : 0), 0);
+    const grossPotential = products.reduce(
+      (sum, p) => sum + (p.isAvailable ? p.quantityAvailable * p.farmerPrice : 0), 
+      0
+    );
 
     return {
       activeLots,
       totalLots,
       totalTonnes: (totalKg / 1000).toFixed(1),
-      grossValuation: grossPotential.toLocaleString(),
+      grossValuation: Math.round(grossPotential).toLocaleString(),
       unreadLeads: leads.filter((l) => l.unread).length,
     };
   }, [products, leads]);
@@ -271,13 +365,146 @@ export default function FarmerDashboardPage() {
   const farmerDistrict = currentUser?.district || authUser?.district || 'Mandya';
   const farmerTaluk = currentUser?.taluk || authUser?.taluk || 'Pandavapura';
 
+  // Handle Create Product
+  const handleCreateProduct = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    const form = e.currentTarget;
+
+    const title = (form.elements.namedItem('title') as HTMLInputElement).value.trim();
+    const description = (form.elements.namedItem('description') as HTMLTextAreaElement).value.trim();
+    const categoryName = (form.elements.namedItem('categoryName') as HTMLSelectElement).value;
+    const grade = (form.elements.namedItem('grade') as HTMLSelectElement).value as Product['grade'];
+    const farmerPrice = parseFloat((form.elements.namedItem('farmerPrice') as HTMLInputElement).value) || 20;
+    const quantityAvailable = parseFloat((form.elements.namedItem('quantityAvailable') as HTMLInputElement).value) || 100;
+    const minOrderKg = parseFloat((form.elements.namedItem('minOrderKg') as HTMLInputElement).value) || 25;
+
+    const newLot: Product = {
+      id: `prod-${Date.now()}`,
+      title,
+      description,
+      categoryName,
+      farmerPrice,
+      mandiBenchmark: Math.round(farmerPrice * 1.05),
+      priceUnit: 'kg',
+      quantityAvailable,
+      quantityUnit: 'kg',
+      minOrderKg,
+      isAvailable: true,
+      grade,
+      location: `${farmerTaluk}, ${farmerDistrict}`,
+      imageUrl: resolveFallback(title, categoryName),
+    };
+
+    // Optimistically prepend
+    syncProducts([newLot, ...products]);
+    setIsAddModalOpen(false);
+    setNotification({ text: 'Produce lot listed successfully!', type: 'success' });
+
+    // Sync with backend API
+    try {
+      const res = await fetchApi('/products', {
+        method: 'POST',
+        body: JSON.stringify({
+          title,
+          description,
+          categoryName,
+          farmerPrice,
+          priceUnit: 'PER_KG',
+          quantityAvailable,
+          quantityUnit: 'KG',
+          minOrderKg,
+          grade,
+          location: `${farmerTaluk}, ${farmerDistrict}`,
+          imageUrl: newLot.imageUrl,
+        }),
+      });
+
+      if (res?.data?.id || res?.id) {
+        const assignedId = res?.data?.id || res?.id;
+        const mapped = [newLot, ...products].map((p) => p.id === newLot.id ? { ...p, id: assignedId } : p);
+        syncProducts(mapped);
+      }
+    } catch {
+      // Local creation retained
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle Edit Product
+  const handleEditProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+
+    setIsSubmitting(true);
+    const updated = products.map((p) => (p.id === editingProduct.id ? editingProduct : p));
+    syncProducts(updated);
+    const targetId = editingProduct.id;
+    setEditingProduct(null);
+    setNotification({ text: 'Harvest details updated successfully!', type: 'success' });
+
+    try {
+      await fetchApi(`/products/${targetId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          title: editingProduct.title,
+          farmerPrice: editingProduct.farmerPrice,
+          quantityAvailable: editingProduct.quantityAvailable,
+        }),
+      });
+    } catch {
+      // Local updates retained
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle Delete Product
+  const handleDeleteProduct = async () => {
+    if (!deletingProduct) return;
+
+    setIsSubmitting(true);
+    const targetId = deletingProduct.id;
+    const updated = products.filter((p) => p.id !== targetId);
+    syncProducts(updated);
+    setDeletingProduct(null);
+    setNotification({ text: 'Produce listing removed.', type: 'success' });
+
+    try {
+      await fetchApi(`/products/${targetId}`, {
+        method: 'DELETE',
+      });
+    } catch {
+      // Local deletion retained
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-200">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-300">
       
+      {/* Toast Notification */}
+      {notification && (
+        <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-2xl border shadow-xl flex items-center gap-2.5 text-xs font-bold transition-all duration-300 animate-in slide-in-from-bottom-5 ${
+          notification.type === 'success' 
+            ? 'bg-emerald-900 text-white border-emerald-700' 
+            : 'bg-red-900 text-white border-red-700'
+        }`}>
+          {notification.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+          )}
+          <span>{notification.text}</span>
+        </div>
+      )}
+
       {/* 1. Header Banner */}
-      <div className="bg-white/95 backdrop-blur-md rounded-3xl p-6 sm:p-8 border border-stone-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="bg-white/95 backdrop-blur-md rounded-3xl p-6 sm:p-8 border border-stone-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-200">
         <div>
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className="px-3 py-0.5 rounded-full bg-emerald-100 text-emerald-950 border border-emerald-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
               <Sprout className="w-3.5 h-3.5 text-emerald-700" /> Cultivator Command Center
             </span>
@@ -289,16 +516,26 @@ export default function FarmerDashboardPage() {
           <h1 className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight">
             Welcome, {farmerName}
           </h1>
-          <p className="text-stone-500 text-xs sm:text-sm mt-1 max-w-xl">
-            Direct farm-gate trade: update crop quantities, review incoming buyer trade messages, and compare your gate rates directly with APMC modal market rates.
+          <p className="text-stone-500 text-xs sm:text-sm mt-1 max-w-xl leading-relaxed">
+            Direct farm-gate trade: manage in-stock crop lots, review incoming wholesale trade leads, and monitor your gate rates against APMC modal benchmarks.
           </p>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
           <button
             type="button"
+            onClick={fetchFarmerProducts}
+            disabled={isRefreshing}
+            className="p-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-2xl transition-all active:scale-95 flex items-center justify-center"
+            title="Refresh Inventory"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-emerald-700' : ''}`} />
+          </button>
+          
+          <button
+            type="button"
             onClick={() => setIsAddModalOpen(true)}
-            className="px-5 py-3 bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center gap-2 shadow-lg shadow-emerald-950/15 transition-all active:scale-95"
+            className="px-5 py-3 bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center gap-2 shadow-lg shadow-emerald-950/15 transition-all duration-200 active:scale-95"
           >
             <Plus className="w-4 h-4 stroke-[3]" /> List New Harvest
           </button>
@@ -307,36 +544,36 @@ export default function FarmerDashboardPage() {
 
       {/* 2. Analytical KPI Stream */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs">
+        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs transition-transform duration-200 hover:scale-[1.01]">
           <div className="flex items-center justify-between text-stone-400 mb-2">
             <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Active Crop Lots</span>
             <Package className="w-4 h-4 text-emerald-700" />
           </div>
           <p className="text-3xl font-black text-stone-900">{stats.activeLots} / {stats.totalLots}</p>
-          <span className="text-xs text-stone-500 mt-1 block">Lots open for buyer procurement</span>
+          <span className="text-xs text-stone-500 mt-1 block">Lots open for direct buyer procurement</span>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs">
+        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs transition-transform duration-200 hover:scale-[1.01]">
           <div className="flex items-center justify-between text-stone-400 mb-2">
             <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Harvest Volume</span>
             <Scale className="w-4 h-4 text-emerald-700" />
           </div>
           <p className="text-3xl font-black text-stone-900">{stats.totalTonnes} MT</p>
-          <span className="text-xs text-stone-500 mt-1 block">In-stock weight across all plots</span>
+          <span className="text-xs text-stone-500 mt-1 block">In-stock tonnage across farm plots</span>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs">
+        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs transition-transform duration-200 hover:scale-[1.01]">
           <div className="flex items-center justify-between text-stone-400 mb-2">
             <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Gross Gate Valuation</span>
             <IndianRupee className="w-4 h-4 text-emerald-700" />
           </div>
           <p className="text-3xl font-black text-emerald-800">₹{stats.grossValuation}</p>
-          <span className="text-xs text-stone-500 mt-1 block">Zero broker deduction potential</span>
+          <span className="text-xs text-stone-500 mt-1 block">Zero broker deduction yield value</span>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs">
+        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs transition-transform duration-200 hover:scale-[1.01]">
           <div className="flex items-center justify-between text-stone-400 mb-2">
-            <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Trade Chats</span>
+            <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Trade Inquiries</span>
             <MessageSquare className="w-4 h-4 text-emerald-700" />
           </div>
           <p className="text-3xl font-black text-stone-900">{leads.length} Inquiries</p>
@@ -344,7 +581,7 @@ export default function FarmerDashboardPage() {
         </div>
       </div>
 
-      {/* 3. Main Split View: Produce Inventory & Buyer Trade Chats */}
+      {/* 3. Main Split View: Produce Inventory & Buyer Trade Inquiries */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
         {/* Left: Active Harvest Inventory (8 Columns) */}
@@ -380,97 +617,116 @@ export default function FarmerDashboardPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {filteredProducts.map((prod) => {
-              const isUnderMandi = prod.farmerPrice <= prod.mandiBenchmark;
+          {filteredProducts.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-stone-200 p-12 text-center max-w-md mx-auto space-y-3">
+              <Package className="w-10 h-10 text-stone-300 mx-auto" />
+              <h3 className="text-sm font-black text-stone-900">No Harvest Batches Found</h3>
+              <p className="text-xs text-stone-500">No crop matches current search or filter query.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {filteredProducts.map((prod) => {
+                const isUnderMandi = prod.farmerPrice <= prod.mandiBenchmark;
 
-              return (
-                <div 
-                  key={prod.id}
-                  className={`bg-white rounded-3xl border transition-all duration-200 shadow-2xs flex flex-col justify-between overflow-hidden ${
-                    !prod.isAvailable ? 'border-stone-200 opacity-75 bg-stone-50/50' : 'border-stone-200/90 hover:border-emerald-300'
-                  }`}
-                >
-                  <div className="p-5 space-y-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 block">
-                          {prod.categoryName} • {prod.grade}
-                        </span>
-                        <h3 className="font-bold text-stone-900 text-base line-clamp-1">{prod.title}</h3>
-                      </div>
-                      <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                        prod.isAvailable ? 'bg-emerald-100 text-emerald-900' : 'bg-stone-200 text-stone-700'
-                      }`}>
-                        {prod.isAvailable ? 'Active' : 'Sold Out'}
-                      </span>
-                    </div>
-
-                    <p className="text-xs text-stone-500 line-clamp-2">{prod.description}</p>
-
-                    <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200 grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <span className="text-[10px] font-bold text-stone-400 uppercase block">Your Gate Rate</span>
-                        <span className="text-lg font-black text-emerald-800">₹{prod.farmerPrice}/{prod.priceUnit}</span>
-                        <span className="text-[10px] text-stone-500 block">Min order: {prod.minOrderKg} kg</span>
-                      </div>
-                      <div className="border-l border-stone-200 pl-2">
-                        <span className="text-[10px] font-bold text-stone-400 uppercase block">APMC Modal Rate</span>
-                        <span className="text-lg font-black text-stone-700">₹{prod.mandiBenchmark}/{prod.priceUnit}</span>
-                        <span className={`text-[10px] font-bold block ${isUnderMandi ? 'text-emerald-700' : 'text-amber-700'}`}>
-                          {isUnderMandi ? 'Competitive vs Mandi' : 'Premium Grade'}
+                return (
+                  <div 
+                    key={prod.id}
+                    className={`bg-white rounded-3xl border transition-all duration-200 shadow-2xs flex flex-col justify-between overflow-hidden ${
+                      !prod.isAvailable ? 'border-stone-200 opacity-75 bg-stone-50/50' : 'border-stone-200/90 hover:border-emerald-300'
+                    }`}
+                  >
+                    <div>
+                      {/* Image Preview */}
+                      <div className="h-40 w-full bg-stone-100 relative overflow-hidden">
+                        <SafeImage
+                          src={prod.imageUrl}
+                          alt={prod.title}
+                          title={prod.title}
+                          categoryName={prod.categoryName}
+                          className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                        />
+                        <span className={`absolute top-3 right-3 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full shadow-xs ${
+                          prod.isAvailable ? 'bg-emerald-800 text-white' : 'bg-stone-900/80 text-white'
+                        }`}>
+                          {prod.isAvailable ? 'Active Batch' : 'Sold Out'}
                         </span>
                       </div>
+
+                      <div className="p-5 space-y-3">
+                        <div>
+                          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 block">
+                            {prod.categoryName} • {prod.grade}
+                          </span>
+                          <h3 className="font-bold text-stone-900 text-base line-clamp-1">{prod.title}</h3>
+                        </div>
+
+                        <p className="text-xs text-stone-500 line-clamp-2 leading-relaxed">{prod.description}</p>
+
+                        <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200 grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-[10px] font-bold text-stone-400 uppercase block">Your Gate Rate</span>
+                            <span className="text-lg font-black text-emerald-800">₹{prod.farmerPrice}/{prod.priceUnit}</span>
+                            <span className="text-[10px] text-stone-500 block">Min order: {prod.minOrderKg} kg</span>
+                          </div>
+                          <div className="border-l border-stone-200 pl-2">
+                            <span className="text-[10px] font-bold text-stone-400 uppercase block">APMC Modal Rate</span>
+                            <span className="text-lg font-black text-stone-700">₹{prod.mandiBenchmark}/{prod.priceUnit}</span>
+                            <span className={`text-[10px] font-bold block ${isUnderMandi ? 'text-emerald-700' : 'text-amber-700'}`}>
+                              {isUnderMandi ? 'Competitive vs Mandi' : 'Premium Grade'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between items-center text-xs text-stone-600 pt-1">
+                          <span>Stock: <strong className="text-stone-900 font-bold">{prod.quantityAvailable} {prod.quantityUnit}</strong></span>
+                          <span className="flex items-center gap-1 text-[11px] text-stone-500">
+                            <MapPin className="w-3 h-3 text-emerald-700" /> {prod.location}
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="flex justify-between items-center text-xs text-stone-600 pt-1">
-                      <span>Stock: <strong className="text-stone-900 font-bold">{prod.quantityAvailable} {prod.quantityUnit}</strong></span>
-                      <span className="flex items-center gap-1 text-[11px] text-stone-500">
-                        <MapPin className="w-3 h-3 text-emerald-700" /> {prod.location}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-stone-50/80 border-t border-stone-100 flex items-center justify-between gap-2">
-                    <button
-                      type="button"
-                      onClick={() => toggleAvailability(prod.id)}
-                      className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-colors ${
-                        prod.isAvailable
-                          ? 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
-                          : 'bg-emerald-800 border-emerald-800 text-white hover:bg-emerald-900'
-                      }`}
-                    >
-                      {prod.isAvailable ? 'Mark Sold Out' : 'Mark In Stock'}
-                    </button>
-
-                    <div className="flex items-center gap-1">
+                    <div className="p-4 bg-stone-50/80 border-t border-stone-100 flex items-center justify-between gap-2">
                       <button
                         type="button"
-                        onClick={() => setEditingProduct(prod)}
-                        className="p-2 text-stone-400 hover:text-emerald-800 hover:bg-emerald-50 rounded-xl transition-colors"
-                        title="Edit Harvest Details"
+                        onClick={() => toggleAvailability(prod.id)}
+                        className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all active:scale-95 ${
+                          prod.isAvailable
+                            ? 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
+                            : 'bg-emerald-800 border-emerald-800 text-white hover:bg-emerald-900'
+                        }`}
                       >
-                        <Edit3 className="w-4 h-4" />
+                        {prod.isAvailable ? 'Mark Sold Out' : 'Mark In Stock'}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeletingProduct(prod)}
-                        className="p-2 text-stone-400 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors"
-                        title="Delete Listing"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditingProduct(prod)}
+                          className="p-2 text-stone-400 hover:text-emerald-800 hover:bg-emerald-50 rounded-xl transition-colors"
+                          title="Edit Harvest Details"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeletingProduct(prod)}
+                          className="p-2 text-stone-400 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors"
+                          title="Delete Listing"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
         </div>
 
-        {/* Right: Buyer Trade Chats with Incoming Messages (4 Columns) */}
+        {/* Right: Buyer Inquiries & Trade Chats (4 Columns) */}
         <div className="lg:col-span-4 space-y-4">
           <div className="bg-white rounded-3xl border border-stone-200 p-6 shadow-2xs space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-stone-100">
@@ -485,8 +741,8 @@ export default function FarmerDashboardPage() {
               </span>
             </div>
 
-            <p className="text-xs text-stone-500">
-              Direct incoming messages from retail and commercial buyers discussing crate specs, pickup logistics, and price quotations.
+            <p className="text-xs text-stone-500 leading-relaxed">
+              Direct incoming trade negotiations from retail and institutional commercial buyers discussing container packaging, delivery schedules, and price bids.
             </p>
 
             <div className="space-y-3">
@@ -514,8 +770,8 @@ export default function FarmerDashboardPage() {
                       Target Rate: ₹{lead.quotedPrice}/kg
                     </span>
                     <Link
-                      href="/farmer/chats"
-                      className="px-2.5 py-1 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-[10px] uppercase tracking-wider rounded-lg flex items-center gap-1 transition-all"
+                      href="/farmer/inquiries"
+                      className="px-2.5 py-1 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-[10px] uppercase tracking-wider rounded-lg flex items-center gap-1 transition-all active:scale-95"
                     >
                       Reply to Buyer <ArrowUpRight className="w-3 h-3" />
                     </Link>
@@ -525,7 +781,7 @@ export default function FarmerDashboardPage() {
             </div>
 
             <Link
-              href="/farmer/chats"
+              href="/farmer/inquiries"
               className="w-full py-3 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-1.5"
             >
               Open Cultivator Chat Inbox <ArrowRight className="w-3.5 h-3.5" />
@@ -535,26 +791,22 @@ export default function FarmerDashboardPage() {
 
       </div>
 
-      {/* Modals */}
+      {/* Edit Crop Modal */}
       {editingProduct && (
-        <div className="fixed inset-0 bg-stone-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
+        <div className="fixed inset-0 bg-stone-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-all duration-200 animate-in fade-in">
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full border border-stone-200 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center pb-2 border-b border-stone-100">
               <h3 className="text-base font-black text-stone-900">Modify Crop Lot</h3>
-              <button type="button" onClick={() => setEditingProduct(null)} className="p-1 text-stone-400 hover:text-stone-700 rounded-lg">
+              <button 
+                type="button" 
+                onClick={() => setEditingProduct(null)} 
+                className="p-1 text-stone-400 hover:text-stone-700 rounded-lg transition-colors"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const updated = products.map((p) => p.id === editingProduct.id ? editingProduct : p);
-                syncProducts(updated);
-                setEditingProduct(null);
-              }}
-              className="space-y-3 text-xs"
-            >
+            <form onSubmit={handleEditProduct} className="space-y-3 text-xs">
               <div>
                 <label className="block font-bold text-stone-700 uppercase mb-1">Crop Title</label>
                 <input
@@ -594,15 +846,16 @@ export default function FarmerDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setEditingProduct(null)}
-                  className="flex-1 py-2.5 bg-stone-100 text-stone-700 font-bold rounded-xl"
+                  className="flex-1 py-2.5 bg-stone-100 text-stone-700 font-bold rounded-xl hover:bg-stone-200 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-emerald-800 text-white font-black uppercase tracking-wider rounded-xl shadow-xs"
+                  disabled={isSubmitting}
+                  className="flex-1 py-2.5 bg-emerald-800 text-white font-black uppercase tracking-wider rounded-xl shadow-xs hover:bg-emerald-900 transition-all active:scale-95 flex items-center justify-center gap-1.5"
                 >
-                  Save Modifications
+                  {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save Modifications'}
                 </button>
               </div>
             </form>
@@ -610,40 +863,22 @@ export default function FarmerDashboardPage() {
         </div>
       )}
 
+      {/* Add Crop Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-stone-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
+        <div className="fixed inset-0 bg-stone-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-all duration-200 animate-in fade-in">
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full border border-stone-200 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center pb-2 border-b border-stone-100">
               <h3 className="text-base font-black text-stone-900">List Fresh Harvest Lot</h3>
-              <button type="button" onClick={() => setIsAddModalOpen(false)} className="p-1 text-stone-400 hover:text-stone-700 rounded-lg">
+              <button 
+                type="button" 
+                onClick={() => setIsAddModalOpen(false)} 
+                className="p-1 text-stone-400 hover:text-stone-700 rounded-lg transition-colors"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const form = e.target as any;
-                const newLot: Product = {
-                  id: `prod-${Date.now()}`,
-                  title: form.title.value.trim(),
-                  description: form.description.value.trim(),
-                  categoryName: form.categoryName.value,
-                  farmerPrice: parseFloat(form.farmerPrice.value) || 20,
-                  mandiBenchmark: parseFloat(form.farmerPrice.value) * 1.05,
-                  priceUnit: 'kg',
-                  quantityAvailable: parseFloat(form.quantityAvailable.value) || 100,
-                  quantityUnit: 'kg',
-                  minOrderKg: parseFloat(form.minOrderKg.value) || 25,
-                  isAvailable: true,
-                  grade: form.grade.value,
-                  location: `${farmerTaluk}, ${farmerDistrict}`,
-                };
-                syncProducts([newLot, ...products]);
-                setIsAddModalOpen(false);
-              }}
-              className="space-y-3 text-xs"
-            >
+            <form onSubmit={handleCreateProduct} className="space-y-3 text-xs">
               <div>
                 <label className="block font-bold text-stone-700 uppercase mb-1">Crop Title *</label>
                 <input
@@ -729,15 +964,16 @@ export default function FarmerDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="flex-1 py-2.5 bg-stone-100 text-stone-700 font-bold rounded-xl"
+                  className="flex-1 py-2.5 bg-stone-100 text-stone-700 font-bold rounded-xl hover:bg-stone-200 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-emerald-800 text-white font-black uppercase tracking-wider rounded-xl shadow-xs"
+                  disabled={isSubmitting}
+                  className="flex-1 py-2.5 bg-emerald-800 text-white font-black uppercase tracking-wider rounded-xl shadow-xs hover:bg-emerald-900 transition-all active:scale-95 flex items-center justify-center gap-1.5"
                 >
-                  Publish Harvest Lot
+                  {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Publish Harvest Lot'}
                 </button>
               </div>
             </form>
@@ -745,12 +981,13 @@ export default function FarmerDashboardPage() {
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
       {deletingProduct && (
-        <div className="fixed inset-0 bg-stone-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
+        <div className="fixed inset-0 bg-stone-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-all duration-200 animate-in fade-in">
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-sm w-full border border-stone-200 shadow-2xl text-center space-y-4">
             <div>
               <h3 className="text-base font-black text-stone-900">Remove Harvest Lot?</h3>
-              <p className="text-xs text-stone-500 mt-1">
+              <p className="text-xs text-stone-500 mt-1 leading-relaxed">
                 Are you sure you want to remove <strong>{deletingProduct.title}</strong>? Buyers will no longer be able to submit trade inquiries for this batch.
               </p>
             </div>
@@ -758,20 +995,17 @@ export default function FarmerDashboardPage() {
               <button
                 type="button"
                 onClick={() => setDeletingProduct(null)}
-                className="flex-1 py-2.5 bg-stone-100 text-stone-700 font-bold rounded-xl text-xs"
+                className="flex-1 py-2.5 bg-stone-100 text-stone-700 font-bold rounded-xl text-xs hover:bg-stone-200 transition-colors"
               >
                 Keep Listing
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  const updated = products.filter((p) => p.id !== deletingProduct.id);
-                  syncProducts(updated);
-                  setDeletingProduct(null);
-                }}
-                className="flex-1 py-2.5 bg-red-700 hover:bg-red-800 text-white font-black uppercase tracking-wider rounded-xl text-xs shadow-xs"
+                onClick={handleDeleteProduct}
+                disabled={isSubmitting}
+                className="flex-1 py-2.5 bg-red-700 hover:bg-red-800 text-white font-black uppercase tracking-wider rounded-xl text-xs shadow-xs transition-all active:scale-95 flex items-center justify-center gap-1"
               >
-                Yes, Remove
+                {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Yes, Remove'}
               </button>
             </div>
           </div>

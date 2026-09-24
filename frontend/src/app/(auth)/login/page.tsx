@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { 
   Sprout, 
+  ShoppingBag, 
   ArrowRight, 
   Loader2, 
   AlertCircle, 
@@ -12,7 +13,10 @@ import {
   KeyRound, 
   Phone, 
   Lock, 
-  Sparkles 
+  Sparkles,
+  Eye,
+  EyeOff,
+  Check
 } from 'lucide-react';
 import { fetchApi } from '../../../lib/api';
 import { auth, setupRecaptcha } from '../../../lib/firebase';
@@ -22,25 +26,29 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const rawRedirect = searchParams.get('redirect');
 
+  // Mode & Role Toggles
   const [activeTab, setActiveTab] = useState<'OTP' | 'PASSWORD'>('PASSWORD');
-  const [role, setRole] = useState<'CONSUMER' | 'FARMER'>('FARMER');
+  const [role, setRole] = useState<'FARMER' | 'CONSUMER'>('FARMER');
 
-  // Phone OTP State
+  // Phone OTP States
   const [phone, setPhone] = useState('8073477125');
   const [otp, setOtp] = useState('');
   const [otpStep, setOtpStep] = useState<'PHONE' | 'OTP'>('PHONE');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [isTestBypass, setIsTestBypass] = useState(false);
 
-  // Email / Password State
+  // Email / Password States
   const [emailOrPhone, setEmailOrPhone] = useState('farmer@farmconnect.com');
   const [password, setPassword] = useState('password123');
+  const [showPassword, setShowPassword] = useState(false);
 
-  // Status State
+  // Status States
   const [loading, setLoading] = useState(false);
+  const [loadingText, setLoadingText] = useState('Verifying credentials...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Cleanup reCAPTCHA on unmount
   useEffect(() => {
     return () => {
       if (typeof window !== 'undefined' && (window as any).recaptchaVerifier) {
@@ -48,7 +56,7 @@ export default function LoginPage() {
           (window as any).recaptchaVerifier.clear();
           (window as any).recaptchaVerifier = null;
         } catch {
-          // Cleanup error ignored
+          // Cleanup notice ignored
         }
       }
     };
@@ -57,7 +65,7 @@ export default function LoginPage() {
   const handleAuthSuccess = (token: string, user: any) => {
     const userRole = (user?.role || role || 'FARMER').toUpperCase();
 
-    // 1. SET COOKIES (Required for Next.js middleware.ts to avoid redirect loop)
+    // 1. Synchronize Cookies for Next.js Middleware
     if (typeof document !== 'undefined') {
       const cookieOptions = '; path=/; max-age=604800; SameSite=Lax';
       document.cookie = `token=${token}${cookieOptions}`;
@@ -67,7 +75,7 @@ export default function LoginPage() {
       document.cookie = `role=${userRole}${cookieOptions}`;
     }
 
-    // 2. SET LOCAL STORAGE
+    // 2. Synchronize LocalStorage for Client-Side Hydration
     if (typeof window !== 'undefined') {
       localStorage.setItem('farmconnect_token', token);
       localStorage.setItem('fc_token', token);
@@ -78,7 +86,7 @@ export default function LoginPage() {
 
     setSuccessMessage('Authentication successful! Navigating to workspace...');
 
-    // 3. RESOLVE AND DECODE TARGET REDIRECT URL
+    // 3. Resolve Redirect Target
     let target = userRole === 'FARMER' ? '/farmer/dashboard' : '/consumer/explore';
 
     if (rawRedirect) {
@@ -88,16 +96,17 @@ export default function LoginPage() {
           target = decoded;
         }
       } catch {
-        // Fallback to default role route
+        // Fallback to role-based default
       }
     }
 
-    // 4. BROWSER REDIRECT (Sends fresh cookies to middleware)
+    // 4. Clean Browser Navigation
     setTimeout(() => {
       window.location.href = target;
-    }, 400);
+    }, 500);
   };
 
+  // Mobile OTP: Dispatch Verification Code
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -110,6 +119,7 @@ export default function LoginPage() {
 
     const formattedNumber = `+91${cleanPhone.slice(-10)}`;
     setLoading(true);
+    setLoadingText('Dispatching SMS verification code...');
 
     try {
       const appVerifier = setupRecaptcha('recaptcha-container');
@@ -117,15 +127,18 @@ export default function LoginPage() {
       setConfirmationResult(confirmation);
       setOtpStep('OTP');
     } catch (err: any) {
-      console.warn('Firebase SMS notice:', err?.code || err?.message);
+      console.warn('Firebase SMS provider notice:', err?.code || err?.message);
+      // Auto-fallback for restricted test regions or quota limits
       setIsTestBypass(true);
       setOtpStep('OTP');
+      setOtp('123456');
       setErrorMessage(null);
     } finally {
       setLoading(false);
     }
   };
 
+  // Mobile OTP: Verify and Exchange for JWT
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -136,6 +149,7 @@ export default function LoginPage() {
     }
 
     setLoading(true);
+    setLoadingText('Confirming verification code...');
 
     try {
       const cleanPhone = phone.replace(/\D/g, '').slice(-10);
@@ -146,7 +160,9 @@ export default function LoginPage() {
         throw new Error('Invalid test OTP. Enter 123456 to verify.');
       }
 
-      // Try backend phone endpoint with graceful fallback
+      setLoadingText('Securing session tokens...');
+
+      // Call dedicated phone login endpoint with fallback
       let res: any;
       try {
         res = await fetchApi('/auth/login-phone', {
@@ -154,7 +170,6 @@ export default function LoginPage() {
           body: JSON.stringify({ phone: cleanPhone, role }),
         });
       } catch {
-        // Fallback: Authenticate via standard login endpoint
         res = await fetchApi('/auth/login', {
           method: 'POST',
           body: JSON.stringify({
@@ -172,15 +187,16 @@ export default function LoginPage() {
       if (token) {
         handleAuthSuccess(token, user);
       } else {
-        throw new Error('Authentication failed: No session token received.');
+        throw new Error('Login failed: Token not received from server.');
       }
     } catch (err: any) {
-      setErrorMessage(err?.message || 'Verification failed. Please try again.');
+      setErrorMessage(err?.message || 'Verification failed. Please check the code.');
     } finally {
       setLoading(false);
     }
   };
 
+  // Email / Password Handler
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -191,17 +207,28 @@ export default function LoginPage() {
     }
 
     setLoading(true);
+    setLoadingText('Authenticating credentials...');
 
     try {
-      const res = await fetchApi('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({
-          identifier: emailOrPhone.trim(),
-          email: emailOrPhone.trim(),
-          password,
-          role,
-        }),
-      });
+      let res: any;
+      try {
+        res = await fetchApi('/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({
+            identifier: emailOrPhone.trim(),
+            email: emailOrPhone.trim(),
+            password,
+            role,
+          }),
+        });
+      } catch (backendErr: any) {
+        // Fallback for Firebase-authenticated email users
+        if (emailOrPhone.includes('@')) {
+          await signInWithEmailAndPassword(auth, emailOrPhone.trim(), password);
+        } else {
+          throw backendErr;
+        }
+      }
 
       const token = res?.data?.token || res?.token;
       const user = res?.data?.user || res?.user;
@@ -209,10 +236,14 @@ export default function LoginPage() {
       if (token && user) {
         handleAuthSuccess(token, user);
       } else {
-        throw new Error('Invalid credentials. Please verify your details.');
+        throw new Error('Invalid credentials. Please verify your phone/email and password.');
       }
     } catch (err: any) {
-      setErrorMessage(err?.message || 'Login failed. Please check your credentials.');
+      if (err?.message?.includes('Failed to fetch') || err?.name === 'TypeError') {
+        setErrorMessage('Cannot reach backend server. Please verify your Express backend is running on port 5000 (`npm run dev` in backend directory).');
+      } else {
+        setErrorMessage(err?.message || 'Login failed. Please check your credentials.');
+      }
     } finally {
       setLoading(false);
     }
@@ -221,29 +252,32 @@ export default function LoginPage() {
   const handleQuickSeed = (seedRole: 'FARMER' | 'CONSUMER') => {
     setActiveTab('PASSWORD');
     setRole(seedRole);
+    setErrorMessage(null);
     if (seedRole === 'FARMER') {
       setEmailOrPhone('farmer@farmconnect.com');
       setPassword('password123');
     } else {
-      setEmailOrPhone('buyer@farmconnect.com');
+      setEmailOrPhone('consumer@farmconnect.com');
       setPassword('password123');
     }
   };
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12">
-      <div className="bg-white rounded-3xl border border-stone-200 max-w-md w-full p-6 sm:p-10 shadow-2xl space-y-6">
+    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 transition-all duration-300">
+      <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-stone-200/90 max-w-md w-full p-6 sm:p-10 shadow-2xl space-y-6 transition-all duration-300">
+        
+        {/* Invisible reCAPTCHA Anchor */}
         <div id="recaptcha-container" />
 
         {/* Header */}
-        <div className="text-center space-y-1.5">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto mb-2">
-            <Sprout className="w-6 h-6" />
+        <div className="text-center space-y-2">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto shadow-xs transition-transform duration-300 hover:scale-105">
+            <Sprout className="w-7 h-7 text-emerald-700" />
           </div>
-          <h1 className="text-2xl font-black text-stone-900 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight">
             Welcome to FarmConnect
           </h1>
-          <p className="text-xs text-stone-500">
+          <p className="text-xs sm:text-sm text-stone-500">
             Direct Karnataka farm-to-door agricultural exchange.
           </p>
         </div>
@@ -253,9 +287,9 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={() => { setActiveTab('PASSWORD'); setErrorMessage(null); }}
-            className={`py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+            className={`py-2.5 rounded-xl text-xs font-black transition-all duration-200 flex items-center justify-center gap-1.5 ${
               activeTab === 'PASSWORD'
-                ? 'bg-white text-stone-900 shadow-sm'
+                ? 'bg-white text-stone-900 shadow-sm scale-[1.01]'
                 : 'text-stone-500 hover:text-stone-900'
             }`}
           >
@@ -264,9 +298,9 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={() => { setActiveTab('OTP'); setErrorMessage(null); }}
-            className={`py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+            className={`py-2.5 rounded-xl text-xs font-black transition-all duration-200 flex items-center justify-center gap-1.5 ${
               activeTab === 'OTP'
-                ? 'bg-white text-stone-900 shadow-sm'
+                ? 'bg-white text-stone-900 shadow-sm scale-[1.01]'
                 : 'text-stone-500 hover:text-stone-900'
             }`}
           >
@@ -278,47 +312,47 @@ export default function LoginPage() {
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
-            onClick={() => setRole('CONSUMER')}
-            className={`py-2 rounded-xl text-xs font-bold border transition-all ${
-              role === 'CONSUMER'
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                : 'bg-white border-stone-200 text-stone-400'
+            onClick={() => setRole('FARMER')}
+            className={`py-2.5 rounded-xl text-xs font-bold border transition-all duration-200 flex items-center justify-center gap-1.5 ${
+              role === 'FARMER'
+                ? 'bg-emerald-50 border-emerald-400 text-emerald-900 shadow-xs'
+                : 'bg-white border-stone-200 text-stone-400 hover:text-stone-600'
             }`}
           >
-            Buyer (Consumer)
+            <Sprout className="w-3.5 h-3.5" /> Cultivator (Farmer)
           </button>
           <button
             type="button"
-            onClick={() => setRole('FARMER')}
-            className={`py-2 rounded-xl text-xs font-bold border transition-all ${
-              role === 'FARMER'
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                : 'bg-white border-stone-200 text-stone-400'
+            onClick={() => setRole('CONSUMER')}
+            className={`py-2.5 rounded-xl text-xs font-bold border transition-all duration-200 flex items-center justify-center gap-1.5 ${
+              role === 'CONSUMER'
+                ? 'bg-emerald-50 border-emerald-400 text-emerald-900 shadow-xs'
+                : 'bg-white border-stone-200 text-stone-400 hover:text-stone-600'
             }`}
           >
-            Cultivator (Farmer)
+            <ShoppingBag className="w-3.5 h-3.5" /> Buyer (Consumer)
           </button>
         </div>
 
         {/* Alerts */}
         {errorMessage && (
-          <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-2.5 text-xs text-red-700 animate-in fade-in duration-150">
-            <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-            <span className="font-semibold">{errorMessage}</span>
+          <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-3 text-xs text-red-700 animate-in fade-in duration-200">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
+            <span className="font-semibold leading-relaxed">{errorMessage}</span>
           </div>
         )}
 
         {isTestBypass && activeTab === 'OTP' && (
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-2 text-xs text-amber-900">
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-2 text-xs text-amber-900 animate-in fade-in duration-150">
             <KeyRound className="w-4 h-4 shrink-0 text-amber-600" />
             <span>SMS region restricted. Enter test code <strong>123456</strong>.</span>
           </div>
         )}
 
         {successMessage && (
-          <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-2.5 text-xs text-emerald-800 animate-in fade-in duration-150">
+          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-xs text-emerald-800 animate-in fade-in duration-200">
             <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-            <span className="font-semibold">{successMessage}</span>
+            <span className="font-semibold leading-relaxed">{successMessage}</span>
           </div>
         )}
 
@@ -326,7 +360,7 @@ export default function LoginPage() {
         {activeTab === 'PASSWORD' && (
           <form onSubmit={handlePasswordLogin} className="space-y-4">
             <div>
-              <label className="text-[11px] font-bold uppercase text-stone-700 block mb-1">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-stone-700 block mb-1">
                 Email or Mobile Number
               </label>
               <input
@@ -335,31 +369,40 @@ export default function LoginPage() {
                 value={emailOrPhone}
                 onChange={(e) => setEmailOrPhone(e.target.value)}
                 placeholder="farmer@farmconnect.com"
-                className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600"
+                className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-900 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600 transition-all duration-200"
               />
             </div>
 
             <div>
-              <label className="text-[11px] font-bold uppercase text-stone-700 block mb-1">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-stone-700 block mb-1">
                 Password
               </label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-900 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600 transition-all duration-200 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-              Sign In
+              {loading ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <ArrowRight className="w-4 h-4" />}
+              {loading ? loadingText : 'Sign In'}
             </button>
           </form>
         )}
@@ -369,7 +412,7 @@ export default function LoginPage() {
           otpStep === 'PHONE' ? (
             <form onSubmit={handleSendOtp} className="space-y-4">
               <div>
-                <label className="text-[11px] font-bold uppercase text-stone-700 block mb-1">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-stone-700 block mb-1">
                   Mobile Number
                 </label>
                 <div className="flex gap-2">
@@ -383,7 +426,7 @@ export default function LoginPage() {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="8073477125"
-                    className="flex-1 px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600"
+                    className="flex-1 px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-900 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600 transition-all duration-200"
                   />
                 </div>
               </div>
@@ -391,16 +434,16 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
+                className="w-full py-3.5 bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
               >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-                Send Verification Code
+                {loading ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <ArrowRight className="w-4 h-4" />}
+                {loading ? loadingText : 'Send Verification Code'}
               </button>
             </form>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               <div>
-                <label className="text-[11px] font-bold uppercase text-stone-700 block mb-1">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-stone-700 block mb-1">
                   Enter 6-Digit Verification Code
                 </label>
                 <input
@@ -411,23 +454,23 @@ export default function LoginPage() {
                   placeholder="123456"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                  className="w-full text-center tracking-widest text-lg font-black py-2.5 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600"
+                  className="w-full text-center tracking-widest text-lg font-black py-2.5 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600 transition-all duration-200"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
+                className="w-full py-3.5 bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
               >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                Verify & Sign In
+                {loading ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <CheckCircle2 className="w-4 h-4" />}
+                {loading ? loadingText : 'Verify & Sign In'}
               </button>
 
               <button
                 type="button"
                 onClick={() => setOtpStep('PHONE')}
-                className="w-full text-center text-xs font-bold text-stone-500 hover:text-stone-800"
+                className="w-full text-center text-xs font-bold text-stone-500 hover:text-stone-800 transition-colors"
               >
                 Change Phone Number
               </button>
@@ -444,14 +487,14 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => handleQuickSeed('FARMER')}
-              className="px-2.5 py-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded-xl text-[11px] font-bold text-stone-700 flex items-center justify-center gap-1"
+              className="px-2.5 py-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded-xl text-[11px] font-bold text-stone-700 flex items-center justify-center gap-1 transition-all active:scale-95"
             >
               <Sparkles className="w-3 h-3 text-emerald-600" /> Cultivator Seed
             </button>
             <button
               type="button"
               onClick={() => handleQuickSeed('CONSUMER')}
-              className="px-2.5 py-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded-xl text-[11px] font-bold text-stone-700 flex items-center justify-center gap-1"
+              className="px-2.5 py-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded-xl text-[11px] font-bold text-stone-700 flex items-center justify-center gap-1 transition-all active:scale-95"
             >
               <Sparkles className="w-3 h-3 text-blue-600" /> Buyer Seed
             </button>
@@ -464,6 +507,7 @@ export default function LoginPage() {
             Register here
           </Link>
         </p>
+
       </div>
     </div>
   );

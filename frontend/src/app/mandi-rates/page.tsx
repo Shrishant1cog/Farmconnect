@@ -6,21 +6,21 @@ import {
   TrendingUp, TrendingDown, Minus, Search, 
   Building2, Sparkles, ArrowRight, Filter, Info,
   Download, ArrowUpDown, CheckCircle2, ChevronRight,
-  Scale, X, MapPin, Calendar, HelpCircle, Layers
+  Scale, X, MapPin, Calendar, Layers
 } from 'lucide-react';
 
-interface MandiRecord {
+export interface MandiRecord {
   id: string;
   commodity: string;
   variety: string;
-  category: 'Vegetables' | 'Fruits' | 'Grains & Millets' | 'Spices & Cash Crops' | 'Pulses' | 'Plantation';
+  category: 'Vegetables' | 'Fruits' | 'Grains & Millets' | 'Spices & Cash Crops' | 'Pulses' | 'Oilseeds' | 'Plantation';
   state: string;
   district: string;
   market: string;
-  minPrice: number;       // ₹ per Quintal (100kg)
-  maxPrice: number;       // ₹ per Quintal
-  modalPrice: number;     // ₹ per Quintal
-  farmConnectPrice: number; // Direct farmer rate
+  minPrice: number;         // ₹ per Quintal (100kg)
+  maxPrice: number;         // ₹ per Quintal
+  modalPrice: number;       // ₹ per Quintal
+  farmConnectPrice: number; // Direct farmer gate rate
   arrivalQtyTonnes: number;
   trend: 'UP' | 'DOWN' | 'STABLE';
   trendPercent: number;
@@ -30,11 +30,13 @@ interface MandiRecord {
 }
 
 const ALL_INDIA_MANDI_DATA: MandiRecord[] = [
-  // --- VEGETABLES ---
+  // ==========================================
+  // 1. VEGETABLES
+  // ==========================================
   {
     id: 'veg-1',
     commodity: 'Tomato (Nati / Local)',
-    variety: 'Desi Heirloom',
+    variety: 'Desi Heirloom Red',
     category: 'Vegetables',
     state: 'Karnataka',
     district: 'Kolar',
@@ -47,7 +49,7 @@ const ALL_INDIA_MANDI_DATA: MandiRecord[] = [
     trend: 'UP',
     trendPercent: 8.5,
     lastUpdated: 'Today, 06:30 AM',
-    gradeSpec: 'Grade-A Firm Red, 65mm+ diameter, zero puncture',
+    gradeSpec: 'Grade-A Firm Red, 65mm+ diameter, zero puncture, clean crates',
     tradingHours: '05:00 AM - 11:30 AM',
   },
   {
@@ -66,7 +68,7 @@ const ALL_INDIA_MANDI_DATA: MandiRecord[] = [
     trend: 'STABLE',
     trendPercent: 0,
     lastUpdated: 'Today, 07:15 AM',
-    gradeSpec: 'Naturally ripened, Brix 4.8%+, zero chemical residue',
+    gradeSpec: 'Naturally ripened, Brix 4.8%+, zero chemical residue certified',
     tradingHours: '06:00 AM - 12:00 PM',
   },
   {
@@ -104,7 +106,7 @@ const ALL_INDIA_MANDI_DATA: MandiRecord[] = [
     trend: 'UP',
     trendPercent: 5.1,
     lastUpdated: 'Today, 06:00 AM',
-    gradeSpec: '55mm+ Export grade, cured 72hrs on field bed',
+    gradeSpec: '55mm+ Export grade, cured 72hrs on field bed, double layer skins',
     tradingHours: '06:00 AM - 03:00 PM',
   },
   {
@@ -129,7 +131,7 @@ const ALL_INDIA_MANDI_DATA: MandiRecord[] = [
   {
     id: 'veg-6',
     commodity: 'Green Capsicum (Bell Pepper)',
-    variety: 'Indra Hybrid',
+    variety: 'Indra Hybrid Dark Green',
     category: 'Vegetables',
     state: 'Karnataka',
     district: 'Belagavi',
@@ -145,8 +147,162 @@ const ALL_INDIA_MANDI_DATA: MandiRecord[] = [
     gradeSpec: '3-4 Lobed, dark gloss green, 150g-220g single piece weight',
     tradingHours: '06:30 AM - 11:30 AM',
   },
+  {
+    id: 'veg-7',
+    commodity: 'Green Chilli (Guntur Teja)',
+    variety: 'Teja Pungent Hot',
+    category: 'Vegetables',
+    state: 'Andhra Pradesh',
+    district: 'Guntur',
+    market: 'Guntur Mirchi Yard',
+    minPrice: 6500,
+    maxPrice: 8800,
+    modalPrice: 7600,
+    farmConnectPrice: 7200,
+    arrivalQtyTonnes: 310,
+    trend: 'UP',
+    trendPercent: 4.2,
+    lastUpdated: 'Today, 06:15 AM',
+    gradeSpec: 'Dark emerald green, 8-10cm, unbroken calyx, SHU 45,000+',
+    tradingHours: '06:00 AM - 01:00 PM',
+  },
+  {
+    id: 'veg-8',
+    commodity: 'Garlic (Desi Ooty / Mandsaur)',
+    variety: 'Mandsaur Silver Bold',
+    category: 'Vegetables',
+    state: 'Madhya Pradesh',
+    district: 'Mandsaur',
+    market: 'Mandsaur Krishi Mandi',
+    minPrice: 14500,
+    maxPrice: 21000,
+    modalPrice: 18200,
+    farmConnectPrice: 17500,
+    arrivalQtyTonnes: 185,
+    trend: 'DOWN',
+    trendPercent: -3.6,
+    lastUpdated: 'Today, 07:30 AM',
+    gradeSpec: 'Pure white outer papery skin, 40mm+ bulb, dry root plate',
+    tradingHours: '08:00 AM - 02:00 PM',
+  },
+  {
+    id: 'veg-9',
+    commodity: 'Fresh Ginger (Shimoga Rio)',
+    variety: 'Rio-De-Janeiro Wet',
+    category: 'Vegetables',
+    state: 'Karnataka',
+    district: 'Shivamogga',
+    market: 'Shivamogga APMC',
+    minPrice: 5800,
+    maxPrice: 8400,
+    modalPrice: 7200,
+    farmConnectPrice: 6900,
+    arrivalQtyTonnes: 75,
+    trend: 'UP',
+    trendPercent: 5.5,
+    lastUpdated: 'Today, 06:50 AM',
+    gradeSpec: 'Fleshy rhizomes, washed clean, low fibre, moisture 80%',
+    tradingHours: '07:00 AM - 12:30 PM',
+  },
+  {
+    id: 'veg-10',
+    commodity: 'Cauliflower (Snowball)',
+    variety: 'Pusa Snowball K-1',
+    category: 'Vegetables',
+    state: 'Karnataka',
+    district: 'Hassan',
+    market: 'Hassan APMC Yard',
+    minPrice: 1200,
+    maxPrice: 1900,
+    modalPrice: 1600,
+    farmConnectPrice: 1500,
+    arrivalQtyTonnes: 85,
+    trend: 'DOWN',
+    trendPercent: -2.4,
+    lastUpdated: 'Today, 07:00 AM',
+    gradeSpec: 'Compact curd, pristine white, jacket leaf protection, 800g+',
+    tradingHours: '05:30 AM - 11:00 AM',
+  },
+  {
+    id: 'veg-11',
+    commodity: 'Cabbage (Green Golden Acre)',
+    variety: 'Golden Acre Compact',
+    category: 'Vegetables',
+    state: 'Karnataka',
+    district: 'Chikkaballapura',
+    market: 'Chikkaballapura Yard',
+    minPrice: 900,
+    maxPrice: 1400,
+    modalPrice: 1150,
+    farmConnectPrice: 1100,
+    arrivalQtyTonnes: 120,
+    trend: 'STABLE',
+    trendPercent: 0,
+    lastUpdated: 'Today, 06:10 AM',
+    gradeSpec: 'Firm solid heads, 1.0kg - 1.5kg, zero pest perforations',
+    tradingHours: '05:00 AM - 10:30 AM',
+  },
+  {
+    id: 'veg-12',
+    commodity: 'Okra / Bhindi (Ladyfinger)',
+    variety: 'Radhika F1 Dark Green',
+    category: 'Vegetables',
+    state: 'Gujarat',
+    district: 'Surat',
+    market: 'Surat APMC Yard',
+    minPrice: 2600,
+    maxPrice: 3800,
+    modalPrice: 3250,
+    farmConnectPrice: 3100,
+    arrivalQtyTonnes: 60,
+    trend: 'UP',
+    trendPercent: 4.8,
+    lastUpdated: 'Today, 07:20 AM',
+    gradeSpec: 'Tender 8-10cm pods, bright green, easily breakable tips',
+    tradingHours: '06:00 AM - 11:30 AM',
+  },
+  {
+    id: 'veg-13',
+    commodity: 'Brinjal (Udupi Mattu Gulla)',
+    variety: 'Mattu Gulla GI Tagged',
+    category: 'Vegetables',
+    state: 'Karnataka',
+    district: 'Udupi',
+    market: 'Udupi Regulated Market',
+    minPrice: 3400,
+    maxPrice: 4600,
+    modalPrice: 4100,
+    farmConnectPrice: 4000,
+    arrivalQtyTonnes: 25,
+    trend: 'UP',
+    trendPercent: 7.2,
+    lastUpdated: 'Today, 08:10 AM',
+    gradeSpec: 'Spherical green with light white stripes, unique aroma, seedless core',
+    tradingHours: '06:30 AM - 11:00 AM',
+  },
+  {
+    id: 'veg-14',
+    commodity: 'Carrot (Ooty Red Early)',
+    variety: 'Kuroda Deep Orange',
+    category: 'Vegetables',
+    state: 'Tamil Nadu',
+    district: 'The Nilgiris',
+    market: 'Mettupalayam APMC',
+    minPrice: 2800,
+    maxPrice: 4200,
+    modalPrice: 3600,
+    farmConnectPrice: 3450,
+    arrivalQtyTonnes: 110,
+    trend: 'UP',
+    trendPercent: 3.9,
+    lastUpdated: 'Today, 07:05 AM',
+    gradeSpec: 'Washed, cylindrical tap roots, zero fork split, tender core',
+    tradingHours: '06:00 AM - 12:00 PM',
+  },
 
-  // --- GRAINS & MILLETS ---
+  // ==========================================
+  // 2. GRAINS & MILLETS
+  // ==========================================
   {
     id: 'grain-1',
     commodity: 'Finger Millet (Mandya Ragi)',
@@ -169,7 +325,7 @@ const ALL_INDIA_MANDI_DATA: MandiRecord[] = [
   {
     id: 'grain-2',
     commodity: 'Sona Masoori Organic Paddy',
-    variety: 'BPT-5204 Raw',
+    variety: 'BPT-5204 Raw Paddy',
     category: 'Grains & Millets',
     state: 'Karnataka',
     district: 'Raichur',
@@ -187,8 +343,8 @@ const ALL_INDIA_MANDI_DATA: MandiRecord[] = [
   },
   {
     id: 'grain-3',
-    commodity: 'Sharbati Wheat',
-    variety: 'Sehore Golden MP',
+    commodity: 'Sharbati Wheat (MP Prime)',
+    variety: 'Sehore Golden C-306',
     category: 'Grains & Millets',
     state: 'Madhya Pradesh',
     district: 'Sehore',
@@ -226,7 +382,7 @@ const ALL_INDIA_MANDI_DATA: MandiRecord[] = [
   {
     id: 'grain-5',
     commodity: 'Yellow Maize / Corn',
-    variety: 'Bio-9681 Single Cross',
+    variety: 'Bio-9681 Feed Grade',
     category: 'Grains & Millets',
     state: 'Karnataka',
     district: 'Davanagere',
@@ -242,8 +398,303 @@ const ALL_INDIA_MANDI_DATA: MandiRecord[] = [
     gradeSpec: 'Dry cob harvest, Moisture <13.5%, Aflatoxin <20ppb',
     tradingHours: '08:00 AM - 02:00 PM',
   },
+  {
+    id: 'grain-6',
+    commodity: 'Sorghum / Jowar (Maldandi)',
+    variety: 'M-35-1 Maldandi Bold',
+    category: 'Grains & Millets',
+    state: 'Karnataka',
+    district: 'Vijayapura',
+    market: 'Bijapur Grain Mandi',
+    minPrice: 4400,
+    maxPrice: 5800,
+    modalPrice: 5200,
+    farmConnectPrice: 5050,
+    arrivalQtyTonnes: 80,
+    trend: 'UP',
+    trendPercent: 3.1,
+    lastUpdated: 'Today, 07:15 AM',
+    gradeSpec: 'Pearly white bold grain, sweet rotis profile, insect-damaged <0.5%',
+    tradingHours: '08:00 AM - 01:30 PM',
+  },
+  {
+    id: 'grain-7',
+    commodity: 'Pearl Millet (Bajra Desi)',
+    variety: 'Desi Hybrid GHB-538',
+    category: 'Grains & Millets',
+    state: 'Rajasthan',
+    district: 'Jaipur',
+    market: 'Chomu Mandi Jaipur',
+    minPrice: 2200,
+    maxPrice: 2800,
+    modalPrice: 2550,
+    farmConnectPrice: 2450,
+    arrivalQtyTonnes: 320,
+    trend: 'STABLE',
+    trendPercent: 0,
+    lastUpdated: 'Today, 06:55 AM',
+    gradeSpec: 'Uniform grey seeds, moisture 11%, zero ergot sclerotia',
+    tradingHours: '07:30 AM - 02:00 PM',
+  },
+  {
+    id: 'grain-8',
+    commodity: 'Foxtail Millet (Navane)',
+    variety: 'HMT-100 Native Yellow',
+    category: 'Grains & Millets',
+    state: 'Karnataka',
+    district: 'Ballari',
+    market: 'Ballari APMC Yard',
+    minPrice: 4600,
+    maxPrice: 5700,
+    modalPrice: 5150,
+    farmConnectPrice: 5000,
+    arrivalQtyTonnes: 45,
+    trend: 'UP',
+    trendPercent: 4.5,
+    lastUpdated: 'Today, 08:00 AM',
+    gradeSpec: 'Dehulled golden grains, gluten free, moisture <10%',
+    tradingHours: '08:30 AM - 01:00 PM',
+  },
+  {
+    id: 'grain-9',
+    commodity: 'Barley / Jau (Malting Grade)',
+    variety: 'DWRB-101 2-Row',
+    category: 'Grains & Millets',
+    state: 'Haryana',
+    district: 'Hisar',
+    market: 'Hisar Anaj Mandi',
+    minPrice: 2100,
+    maxPrice: 2750,
+    modalPrice: 2450,
+    farmConnectPrice: 2400,
+    arrivalQtyTonnes: 210,
+    trend: 'DOWN',
+    trendPercent: -1.2,
+    lastUpdated: 'Today, 07:40 AM',
+    gradeSpec: 'Plump grains >90%, protein 10-11.5%, germination capacity >98%',
+    tradingHours: '08:00 AM - 03:00 PM',
+  },
 
-  // --- FRUITS ---
+  // ==========================================
+  // 3. PULSES (DALS)
+  // ==========================================
+  {
+    id: 'pulse-1',
+    commodity: 'Tur / Arhar Dal (Red Gram)',
+    variety: 'Kalaburagi Desi Red',
+    category: 'Pulses',
+    state: 'Karnataka',
+    district: 'Kalaburagi',
+    market: 'Gulbarga APMC Yard',
+    minPrice: 8800,
+    maxPrice: 10400,
+    modalPrice: 9600,
+    farmConnectPrice: 9400,
+    arrivalQtyTonnes: 340,
+    trend: 'DOWN',
+    trendPercent: -2.7,
+    lastUpdated: 'Today, 06:50 AM',
+    gradeSpec: 'Hard spherical seed, moisture <10%, nil weevil damage',
+    tradingHours: '07:00 AM - 02:30 PM',
+  },
+  {
+    id: 'pulse-2',
+    commodity: 'Chana (Bengal Gram Desi)',
+    variety: 'Desi Bold Grade-1',
+    category: 'Pulses',
+    state: 'Rajasthan',
+    district: 'Bikaner',
+    market: 'Bikaner Anaj Mandi',
+    minPrice: 5600,
+    maxPrice: 6350,
+    modalPrice: 6050,
+    farmConnectPrice: 5900,
+    arrivalQtyTonnes: 470,
+    trend: 'UP',
+    trendPercent: 1.5,
+    lastUpdated: 'Today, 07:10 AM',
+    gradeSpec: 'Golden brown seed coat, moisture 9.5%, purity 99%',
+    tradingHours: '08:00 AM - 03:00 PM',
+  },
+  {
+    id: 'pulse-3',
+    commodity: 'Green Gram (Moong Whole)',
+    variety: 'Shining Green Desi',
+    category: 'Pulses',
+    state: 'Karnataka',
+    district: 'Gadag',
+    market: 'Gadag APMC Yard',
+    minPrice: 7800,
+    maxPrice: 8900,
+    modalPrice: 8450,
+    farmConnectPrice: 8300,
+    arrivalQtyTonnes: 190,
+    trend: 'UP',
+    trendPercent: 2.3,
+    lastUpdated: 'Today, 06:40 AM',
+    gradeSpec: 'Medium lustrous green grain, 0.5% refractions max',
+    tradingHours: '07:30 AM - 01:00 PM',
+  },
+  {
+    id: 'pulse-4',
+    commodity: 'Black Gram (Urad Whole)',
+    variety: 'Latur Special Bold',
+    category: 'Pulses',
+    state: 'Maharashtra',
+    district: 'Latur',
+    market: 'Latur Dal Mandi',
+    minPrice: 7200,
+    maxPrice: 8600,
+    modalPrice: 7950,
+    farmConnectPrice: 7800,
+    arrivalQtyTonnes: 260,
+    trend: 'UP',
+    trendPercent: 3.0,
+    lastUpdated: 'Today, 07:25 AM',
+    gradeSpec: 'Uniform dull black seeds, high protein, moisture <11%',
+    tradingHours: '07:30 AM - 02:00 PM',
+  },
+  {
+    id: 'pulse-5',
+    commodity: 'Masoor (Small Red Lentil)',
+    variety: 'Bundelkhand Small Red',
+    category: 'Pulses',
+    state: 'Madhya Pradesh',
+    district: 'Sagar',
+    market: 'Sagar Krishi Mandi',
+    minPrice: 5900,
+    maxPrice: 6800,
+    modalPrice: 6400,
+    farmConnectPrice: 6250,
+    arrivalQtyTonnes: 155,
+    trend: 'STABLE',
+    trendPercent: 0,
+    lastUpdated: 'Today, 08:00 AM',
+    gradeSpec: 'Clean round seeds, orange interior cotyledon, foreign matter <1%',
+    tradingHours: '08:00 AM - 02:30 PM',
+  },
+  {
+    id: 'pulse-6',
+    commodity: 'Kabuli Chana (Dollar Chickpea)',
+    variety: 'Mexican Dollar 12mm+',
+    category: 'Pulses',
+    state: 'Madhya Pradesh',
+    district: 'Indore',
+    market: 'Indore Sanwer Mandi',
+    minPrice: 11500,
+    maxPrice: 14200,
+    modalPrice: 12900,
+    farmConnectPrice: 12500,
+    arrivalQtyTonnes: 110,
+    trend: 'UP',
+    trendPercent: 4.4,
+    lastUpdated: 'Today, 07:50 AM',
+    gradeSpec: 'Extra bold count 42-44 seeds/oz, milky white, nil wrinkle',
+    tradingHours: '08:30 AM - 03:00 PM',
+  },
+
+  // ==========================================
+  // 4. OILSEEDS
+  // ==========================================
+  {
+    id: 'oil-1',
+    commodity: 'Mustard Seed (Yellow Sarson)',
+    variety: 'Bio-902 Pusa Jai Kisan',
+    category: 'Oilseeds',
+    state: 'Rajasthan',
+    district: 'Bharatpur',
+    market: 'Bharatpur Mandi',
+    minPrice: 5100,
+    maxPrice: 5950,
+    modalPrice: 5650,
+    farmConnectPrice: 5500,
+    arrivalQtyTonnes: 540,
+    trend: 'UP',
+    trendPercent: 2.5,
+    lastUpdated: 'Today, 06:30 AM',
+    gradeSpec: 'Oil content 41.5%+, Moisture 7%, Clean machine-sorted',
+    tradingHours: '08:00 AM - 03:00 PM',
+  },
+  {
+    id: 'oil-2',
+    commodity: 'Groundnut / Peanut (In-Shell)',
+    variety: 'GG-20 Saurashtra Bold',
+    category: 'Oilseeds',
+    state: 'Gujarat',
+    district: 'Junagadh',
+    market: 'Junagadh Yard',
+    minPrice: 6200,
+    maxPrice: 7600,
+    modalPrice: 6900,
+    farmConnectPrice: 6800,
+    arrivalQtyTonnes: 390,
+    trend: 'DOWN',
+    trendPercent: -1.5,
+    lastUpdated: 'Today, 07:15 AM',
+    gradeSpec: '2-seeded well-filled pods, shelling outturn 70%+, moisture 8%',
+    tradingHours: '07:30 AM - 02:00 PM',
+  },
+  {
+    id: 'oil-3',
+    commodity: 'Soyabean (Yellow)',
+    variety: 'JS-335 Malwa Yellow',
+    category: 'Oilseeds',
+    state: 'Madhya Pradesh',
+    district: 'Ujjain',
+    market: 'Ujjain Anaj Mandi',
+    minPrice: 4200,
+    maxPrice: 4950,
+    modalPrice: 4620,
+    farmConnectPrice: 4500,
+    arrivalQtyTonnes: 780,
+    trend: 'DOWN',
+    trendPercent: -2.0,
+    lastUpdated: 'Today, 06:45 AM',
+    gradeSpec: 'Moisture 10%, oil content 19.5%, damaged kernels <2%',
+    tradingHours: '08:00 AM - 03:30 PM',
+  },
+  {
+    id: 'oil-4',
+    commodity: 'Sunflower Seed',
+    variety: 'KBSH-41 High Oil Hybrid',
+    category: 'Oilseeds',
+    state: 'Karnataka',
+    district: 'Koppal',
+    market: 'Gangavathi APMC',
+    minPrice: 4900,
+    maxPrice: 5800,
+    modalPrice: 5350,
+    farmConnectPrice: 5200,
+    arrivalQtyTonnes: 85,
+    trend: 'STABLE',
+    trendPercent: 0,
+    lastUpdated: 'Today, 07:05 AM',
+    gradeSpec: 'Black striped achenes, oil 40%+, moisture <9%',
+    tradingHours: '08:00 AM - 01:30 PM',
+  },
+  {
+    id: 'oil-5',
+    commodity: 'Sesame Seed (Til / White)',
+    variety: 'Gujarat Til-2 Export Grade',
+    category: 'Oilseeds',
+    state: 'Gujarat',
+    district: 'Rajkot',
+    market: 'Rajkot Bedi Mandi',
+    minPrice: 12500,
+    maxPrice: 16200,
+    modalPrice: 14500,
+    farmConnectPrice: 14100,
+    arrivalQtyTonnes: 65,
+    trend: 'UP',
+    trendPercent: 5.2,
+    lastUpdated: 'Today, 07:55 AM',
+    gradeSpec: 'Purity 99.9% Sortex cleaned, Natural white, Moisture 5%',
+    tradingHours: '08:30 AM - 02:00 PM',
+  },
+
+  // ==========================================
+  // 5. FRUITS
+  // ==========================================
   {
     id: 'fruit-1',
     commodity: 'Banana (Yelakki / Elakki Bale)',
@@ -265,6 +716,25 @@ const ALL_INDIA_MANDI_DATA: MandiRecord[] = [
   },
   {
     id: 'fruit-2',
+    commodity: 'Banana (Robusta / Grand Naine)',
+    variety: 'G9 Cavendish Commercial',
+    category: 'Fruits',
+    state: 'Maharashtra',
+    district: 'Jalgaon',
+    market: 'Jalgaon Banana Mandi',
+    minPrice: 1400,
+    maxPrice: 2200,
+    modalPrice: 1850,
+    farmConnectPrice: 1750,
+    arrivalQtyTonnes: 820,
+    trend: 'DOWN',
+    trendPercent: -3.1,
+    lastUpdated: 'Today, 06:00 AM',
+    gradeSpec: 'Calliper 38-42mm, 8-9 hands/bunch, zero crown scar',
+    tradingHours: '05:00 AM - 01:00 PM',
+  },
+  {
+    id: 'fruit-3',
     commodity: 'Pomegranate (Bhagwa Kesar)',
     variety: 'Deep Ruby Bhagwa',
     category: 'Fruits',
@@ -283,7 +753,7 @@ const ALL_INDIA_MANDI_DATA: MandiRecord[] = [
     tradingHours: '07:00 AM - 01:00 PM',
   },
   {
-    id: 'fruit-3',
+    id: 'fruit-4',
     commodity: 'Papaya (Red Lady 786)',
     variety: 'Red Lady F1 Taiwan',
     category: 'Fruits',
@@ -301,8 +771,124 @@ const ALL_INDIA_MANDI_DATA: MandiRecord[] = [
     gradeSpec: '1.2kg - 1.8kg, color break stage 1, latex dry',
     tradingHours: '06:00 AM - 11:30 AM',
   },
+  {
+    id: 'fruit-5',
+    commodity: 'Mango (Alphonso / Hapus)',
+    variety: 'Devgad / Ratnagiri GI',
+    category: 'Fruits',
+    state: 'Maharashtra',
+    district: 'Ratnagiri',
+    market: 'Ratnagiri Mango Yard',
+    minPrice: 28000,
+    maxPrice: 48000,
+    modalPrice: 38000,
+    farmConnectPrice: 36000,
+    arrivalQtyTonnes: 45,
+    trend: 'UP',
+    trendPercent: 9.4,
+    lastUpdated: 'Today, 06:15 AM',
+    gradeSpec: '250g-300g fruit, grass packed wooden petis, sponge-tissue free',
+    tradingHours: '06:00 AM - 12:00 PM',
+  },
+  {
+    id: 'fruit-6',
+    commodity: 'Mango (Banganapalli / Benishan)',
+    variety: 'Banganapalli Sweet',
+    category: 'Fruits',
+    state: 'Andhra Pradesh',
+    district: 'Krishna',
+    market: 'Nuzvid Mango Market',
+    minPrice: 4200,
+    maxPrice: 6800,
+    modalPrice: 5400,
+    farmConnectPrice: 5100,
+    arrivalQtyTonnes: 260,
+    trend: 'DOWN',
+    trendPercent: -2.8,
+    lastUpdated: 'Today, 07:20 AM',
+    gradeSpec: 'Oblong 350g-450g, fiberless maize yellow flesh, naturally ripened',
+    tradingHours: '06:30 AM - 01:00 PM',
+  },
+  {
+    id: 'fruit-7',
+    commodity: 'Apple (Royal Delicious)',
+    variety: 'Himachal Royal Red',
+    category: 'Fruits',
+    state: 'Himachal Pradesh',
+    district: 'Shimla',
+    market: 'Dhali Mandi Shimla',
+    minPrice: 7500,
+    maxPrice: 12500,
+    modalPrice: 9800,
+    farmConnectPrice: 9200,
+    arrivalQtyTonnes: 410,
+    trend: 'UP',
+    trendPercent: 4.2,
+    lastUpdated: 'Today, 08:30 AM',
+    gradeSpec: 'Extra large 75mm+, 100% color strike, tray packed cartons',
+    tradingHours: '07:00 AM - 03:00 PM',
+  },
+  {
+    id: 'fruit-8',
+    commodity: 'Grapes (Thompson Seedless)',
+    variety: 'Tas-A-Ganesh Export Spec',
+    category: 'Fruits',
+    state: 'Maharashtra',
+    district: 'Sangli',
+    market: 'Sangli Grape Yard',
+    minPrice: 5800,
+    maxPrice: 8500,
+    modalPrice: 7100,
+    farmConnectPrice: 6800,
+    arrivalQtyTonnes: 190,
+    trend: 'UP',
+    trendPercent: 3.5,
+    lastUpdated: 'Today, 07:45 AM',
+    gradeSpec: 'Berry size 18mm+, Brix 18%+, green turgid pedicel, sulphur checked',
+    tradingHours: '07:00 AM - 01:30 PM',
+  },
+  {
+    id: 'fruit-9',
+    commodity: 'Nagpur Orange (Mandarin)',
+    variety: 'Ambia Bahar Sweet',
+    category: 'Fruits',
+    state: 'Maharashtra',
+    district: 'Nagpur',
+    market: 'Kalamna Mandi Nagpur',
+    minPrice: 3200,
+    maxPrice: 5400,
+    modalPrice: 4300,
+    farmConnectPrice: 4100,
+    arrivalQtyTonnes: 320,
+    trend: 'DOWN',
+    trendPercent: -1.7,
+    lastUpdated: 'Today, 06:40 AM',
+    gradeSpec: 'Loose jacket rind, high juice content >45%, seed count <8',
+    tradingHours: '06:00 AM - 02:00 PM',
+  },
+  {
+    id: 'fruit-10',
+    commodity: 'Guava (Allahabad Safeda)',
+    variety: 'Safeda Sweet Crisp',
+    category: 'Fruits',
+    state: 'Uttar Pradesh',
+    district: 'Prayagraj',
+    market: 'Mundera Mandi Prayagraj',
+    minPrice: 2200,
+    maxPrice: 3400,
+    modalPrice: 2800,
+    farmConnectPrice: 2650,
+    arrivalQtyTonnes: 140,
+    trend: 'STABLE',
+    trendPercent: 0,
+    lastUpdated: 'Today, 07:15 AM',
+    gradeSpec: 'Round white flesh, soft seeds, 180g-240g, smooth yellowish peel',
+    tradingHours: '06:30 AM - 12:00 PM',
+  },
 
-  // --- SPICES & CASH CROPS ---
+  // ==========================================
+  // 6. SPICES & CASH CROPS
+  // ==========================================
   {
     id: 'spice-1',
     commodity: 'Byadgi Chilli (Kaddi / Stemless)',
@@ -379,67 +965,86 @@ const ALL_INDIA_MANDI_DATA: MandiRecord[] = [
     gradeSpec: 'Litre weight 550g+, moisture 10.5%, zero light berries',
     tradingHours: '08:30 AM - 01:30 PM',
   },
-
-  // --- PULSES ---
   {
-    id: 'pulse-1',
-    commodity: 'Tur / Arhar Dal (Red Gram)',
-    variety: 'Kalaburagi Desi Red',
-    category: 'Pulses',
-    state: 'Karnataka',
-    district: 'Kalaburagi',
-    market: 'Gulbarga APMC Yard',
-    minPrice: 8800,
-    maxPrice: 10400,
-    modalPrice: 9600,
-    farmConnectPrice: 9400,
-    arrivalQtyTonnes: 340,
-    trend: 'DOWN',
-    trendPercent: -2.7,
-    lastUpdated: 'Today, 06:50 AM',
-    gradeSpec: 'Hard spherical seed, moisture <10%, nil weevil damage',
-    tradingHours: '07:00 AM - 02:30 PM',
-  },
-  {
-    id: 'pulse-2',
-    commodity: 'Chana (Bengal Gram)',
-    variety: 'Desi Bold Grade-1',
-    category: 'Pulses',
-    state: 'Rajasthan',
-    district: 'Bikaner',
-    market: 'Bikaner Anaj Mandi',
-    minPrice: 5600,
-    maxPrice: 6350,
-    modalPrice: 6050,
-    farmConnectPrice: 5900,
-    arrivalQtyTonnes: 470,
+    id: 'spice-5',
+    commodity: 'Cumin Seed / Jeera (Unjha)',
+    variety: 'Unjha Machine Clean Europe Quality',
+    category: 'Spices & Cash Crops',
+    state: 'Gujarat',
+    district: 'Mehsana',
+    market: 'Unjha APMC Mandi',
+    minPrice: 24000,
+    maxPrice: 31500,
+    modalPrice: 28200,
+    farmConnectPrice: 27500,
+    arrivalQtyTonnes: 420,
     trend: 'UP',
-    trendPercent: 1.5,
-    lastUpdated: 'Today, 07:10 AM',
-    gradeSpec: 'Golden brown seed coat, moisture 9.5%, purity 99%',
+    trendPercent: 5.6,
+    lastUpdated: 'Today, 06:40 AM',
+    gradeSpec: 'Volatile oil 3.2%+, purity 99.5%, moisture <8.5%, zero dust',
     tradingHours: '08:00 AM - 03:00 PM',
   },
   {
-    id: 'pulse-3',
-    commodity: 'Green Gram (Moong Whole)',
-    variety: 'Shining Green Desi',
-    category: 'Pulses',
-    state: 'Karnataka',
-    district: 'Gadag',
-    market: 'Gadag APMC Yard',
-    minPrice: 7800,
-    maxPrice: 8900,
-    modalPrice: 8450,
-    farmConnectPrice: 8300,
-    arrivalQtyTonnes: 190,
+    id: 'spice-6',
+    commodity: 'Coriander Seed (Dhania Badami)',
+    variety: 'Hadoti Eagle / Badami',
+    category: 'Spices & Cash Crops',
+    state: 'Rajasthan',
+    district: 'Kota',
+    market: 'Ramganj Mandi Kota',
+    minPrice: 7200,
+    maxPrice: 9400,
+    modalPrice: 8350,
+    farmConnectPrice: 8100,
+    arrivalQtyTonnes: 280,
+    trend: 'DOWN',
+    trendPercent: -2.2,
+    lastUpdated: 'Today, 07:10 AM',
+    gradeSpec: 'Greenish brown whole split-free balls, moisture 9%, aroma intense',
+    tradingHours: '08:00 AM - 02:00 PM',
+  },
+  {
+    id: 'spice-7',
+    commodity: 'Fennel Seed (Saunf Extra Bold)',
+    variety: 'Abu Road Green Bold',
+    category: 'Spices & Cash Crops',
+    state: 'Gujarat',
+    district: 'Patan',
+    market: 'Patan APMC Yard',
+    minPrice: 11000,
+    maxPrice: 16500,
+    modalPrice: 13800,
+    farmConnectPrice: 13200,
+    arrivalQtyTonnes: 90,
     trend: 'UP',
-    trendPercent: 2.3,
-    lastUpdated: 'Today, 06:40 AM',
-    gradeSpec: 'Medium lustrous green grain, 0.5% refractions max',
-    tradingHours: '07:30 AM - 01:00 PM',
+    trendPercent: 2.1,
+    lastUpdated: 'Today, 08:20 AM',
+    gradeSpec: 'Bright greenish hue, sweet licorice taste, moisture <9%',
+    tradingHours: '08:30 AM - 02:30 PM',
+  },
+  {
+    id: 'spice-8',
+    commodity: 'Cloves (Kanyakumari / Zanzibar)',
+    variety: 'Nagercoil Hand Picked Head',
+    category: 'Spices & Cash Crops',
+    state: 'Tamil Nadu',
+    district: 'Kanyakumari',
+    market: 'Nagercoil Spices Yard',
+    minPrice: 82000,
+    maxPrice: 96000,
+    modalPrice: 89000,
+    farmConnectPrice: 87500,
+    arrivalQtyTonnes: 12,
+    trend: 'STABLE',
+    trendPercent: 0,
+    lastUpdated: 'Today, 09:00 AM',
+    gradeSpec: 'Whole buds with crown head intact, oil content >18%, deep brown',
+    tradingHours: '09:00 AM - 01:00 PM',
   },
 
-  // --- PLANTATION ---
+  // ==========================================
+  // 7. PLANTATION & COMMERCIAL
+  // ==========================================
   {
     id: 'plant-1',
     commodity: 'Arabica Coffee (Parchment)',
@@ -456,11 +1061,30 @@ const ALL_INDIA_MANDI_DATA: MandiRecord[] = [
     trend: 'UP',
     trendPercent: 5.4,
     lastUpdated: 'Today, 08:30 AM',
-    gradeSpec: 'Screen 17 (6.65mm), moisture 10.5%, zero stinkers',
+    gradeSpec: 'Screen 17 (6.65mm), moisture 10.5%, zero stinkers, cup quality fine',
     tradingHours: '09:00 AM - 03:00 PM',
   },
   {
     id: 'plant-2',
+    commodity: 'Robusta Coffee (Cherry)',
+    variety: 'Robusta Cherry-AB',
+    category: 'Plantation',
+    state: 'Karnataka',
+    district: 'Kodagu',
+    market: 'Madikeri Trading Center',
+    minPrice: 11000,
+    maxPrice: 14800,
+    modalPrice: 13200,
+    farmConnectPrice: 12900,
+    arrivalQtyTonnes: 62,
+    trend: 'UP',
+    trendPercent: 3.8,
+    lastUpdated: 'Today, 08:45 AM',
+    gradeSpec: 'Clean dry processed berries, moisture 11%, zero black beans',
+    tradingHours: '09:00 AM - 03:30 PM',
+  },
+  {
+    id: 'plant-3',
     commodity: 'Arecanut (Rashi / Red Supari)',
     variety: 'Malnad Rashi Supari',
     category: 'Plantation',
@@ -477,7 +1101,83 @@ const ALL_INDIA_MANDI_DATA: MandiRecord[] = [
     lastUpdated: 'Today, 07:50 AM',
     gradeSpec: 'Boiled dried red betelnut, sound boiled kernel, nil fungal spots',
     tradingHours: '09:30 AM - 02:00 PM',
-  }
+  },
+  {
+    id: 'plant-4',
+    commodity: 'Coconut & Copra (Milling Grade)',
+    variety: 'Tiptur Tall Copra',
+    category: 'Plantation',
+    state: 'Karnataka',
+    district: 'Tumakuru',
+    market: 'Tiptur APMC Yard',
+    minPrice: 9400,
+    maxPrice: 11800,
+    modalPrice: 10600,
+    farmConnectPrice: 10400,
+    arrivalQtyTonnes: 210,
+    trend: 'UP',
+    trendPercent: 1.9,
+    lastUpdated: 'Today, 07:15 AM',
+    gradeSpec: 'Dry cup shape, oil 68%+, moisture <6%, white meat',
+    tradingHours: '08:00 AM - 02:00 PM',
+  },
+  {
+    id: 'plant-5',
+    commodity: 'Raw Cotton (Kapas Shankar-6)',
+    variety: 'Shankar-6 29mm Staple',
+    category: 'Plantation',
+    state: 'Gujarat',
+    district: 'Rajkot',
+    market: 'Rajkot Cotton Yard',
+    minPrice: 6600,
+    maxPrice: 7850,
+    modalPrice: 7350,
+    farmConnectPrice: 7200,
+    arrivalQtyTonnes: 850,
+    trend: 'DOWN',
+    trendPercent: -1.4,
+    lastUpdated: 'Today, 06:20 AM',
+    gradeSpec: 'Micronaire 3.8-4.2, Ginning turnout 35%, Trash <3%',
+    tradingHours: '07:30 AM - 04:00 PM',
+  },
+  {
+    id: 'plant-6',
+    commodity: 'Sugarcane Jaggery / Gur',
+    variety: 'Mandya Organic Bucket Gur',
+    category: 'Plantation',
+    state: 'Karnataka',
+    district: 'Mandya',
+    market: 'Mandya Jaggery Yard',
+    minPrice: 3800,
+    maxPrice: 4800,
+    modalPrice: 4350,
+    farmConnectPrice: 4200,
+    arrivalQtyTonnes: 140,
+    trend: 'UP',
+    trendPercent: 2.7,
+    lastUpdated: 'Today, 07:35 AM',
+    gradeSpec: 'Chemical free vegetable clarificant, deep golden amber, sucrose >80%',
+    tradingHours: '07:00 AM - 01:00 PM',
+  },
+  {
+    id: 'plant-7',
+    commodity: 'Tea (Assam CTC Orthodox)',
+    variety: 'BOP / BP Grade-1',
+    category: 'Plantation',
+    state: 'Assam',
+    district: 'Dibrugarh',
+    market: 'Guwahati Tea Auction Centre',
+    minPrice: 18500,
+    maxPrice: 28000,
+    modalPrice: 23500,
+    farmConnectPrice: 22800,
+    arrivalQtyTonnes: 190,
+    trend: 'UP',
+    trendPercent: 4.8,
+    lastUpdated: 'Today, 09:30 AM',
+    gradeSpec: 'Grainy black CTC leaves, golden liquor bloom, brisk malt flavor',
+    tradingHours: '09:00 AM - 04:00 PM',
+  },
 ];
 
 export default function MandiRatesPage() {
@@ -491,7 +1191,7 @@ export default function MandiRatesPage() {
   // Unit Mode: Quintal (100 kg) or KG (1 kg)
   const [priceUnitMode, setPriceUnitMode] = useState<'QUINTAL' | 'KG'>('KG');
 
-  // Quick Scope Filter: All India vs Karnataka Yards
+  // Scope Filter: All India vs Karnataka Yards
   const [scopeFilter, setScopeFilter] = useState<'ALL' | 'KARNATAKA'>('ALL');
 
   // Inspection Modal Drawer
@@ -507,18 +1207,22 @@ export default function MandiRatesPage() {
     'Vegetables', 
     'Fruits', 
     'Grains & Millets', 
+    'Pulses',
+    'Oilseeds',
     'Spices & Cash Crops', 
-    'Pulses', 
     'Plantation'
   ];
 
   // Filter and Sort Pipeline
   const filteredData = useMemo(() => {
     return ALL_INDIA_MANDI_DATA.filter((item) => {
+      const targetQuery = search.toLowerCase();
       const matchSearch = 
-        item.commodity.toLowerCase().includes(search.toLowerCase()) ||
-        item.market.toLowerCase().includes(search.toLowerCase()) ||
-        item.district.toLowerCase().includes(search.toLowerCase());
+        item.commodity.toLowerCase().includes(targetQuery) ||
+        item.market.toLowerCase().includes(targetQuery) ||
+        item.district.toLowerCase().includes(targetQuery) ||
+        item.state.toLowerCase().includes(targetQuery) ||
+        item.variety.toLowerCase().includes(targetQuery);
 
       const matchState = 
         scopeFilter === 'KARNATAKA' 
@@ -557,7 +1261,7 @@ export default function MandiRatesPage() {
     return `₹${valInQuintal.toLocaleString()}`;
   };
 
-  const getUnitSuffix = () => (priceUnitMode === 'KG' ? '/kg' : '/quintal');
+  const getUnitSuffix = () => (priceUnitMode === 'KG' ? '/kg' : '/qtl');
 
   // CSV Exporter
   const handleExportCSV = () => {
@@ -582,39 +1286,39 @@ export default function MandiRatesPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `farmconnect_mandi_benchmarks_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `farmconnect_all_india_mandi_benchmarks_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8 animate-in fade-in duration-300">
       
       {/* 1. Header Hero Banner */}
-      <div className="bg-white/90 backdrop-blur-md rounded-3xl p-6 sm:p-8 border border-stone-200/90 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="bg-white/90 backdrop-blur-md rounded-3xl p-6 sm:p-8 border border-stone-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-200">
         <div>
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className="px-3 py-0.5 rounded-full bg-emerald-100 text-emerald-950 border border-emerald-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5 text-emerald-700" /> APMC Price Intelligence Terminal
             </span>
             <span className="px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-600 text-[10px] font-bold">
-              Karnataka & All-India Yards
+              60+ Indian Agricultural Commodities
             </span>
           </div>
           <h1 className="text-2xl sm:text-4xl font-black text-stone-900 tracking-tight">
-            Mandi Wholesale Benchmark Rates
+            All-India Mandi Benchmark Rates
           </h1>
-          <p className="text-stone-500 text-xs sm:text-sm mt-1 max-w-2xl">
-            Live modal auction rates from regulated market committees across Karnataka and major regional trading yards. Verify prices before procurement to secure fair farm-gate transactions.
+          <p className="text-stone-500 text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed">
+            Real-time modal auction rates across major regulated market committees in Karnataka, Maharashtra, Punjab, UP, MP, Gujarat, Rajasthan, and Kerala. Verify modal indices before procurement.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
           <button
             type="button"
             onClick={handleExportCSV}
-            className="px-4 py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs rounded-2xl flex items-center gap-2 transition-colors border border-stone-200"
+            className="px-4 py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs rounded-2xl flex items-center gap-2 transition-colors border border-stone-200 active:scale-95"
             title="Export filtered records to CSV"
           >
             <Download className="w-4 h-4" /> Export CSV
@@ -624,31 +1328,31 @@ export default function MandiRatesPage() {
             href="/consumer/explore"
             className="px-6 py-3.5 bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/15 transition-all active:scale-95 shrink-0"
           >
-            Procure From Cultivators <ArrowRight className="w-4 h-4" />
+            Procure Direct <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
       </div>
 
-      {/* 2. Key APMC Market KPIs */}
+      {/* 2. Key Market KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs">
+        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs transition-transform duration-200 hover:scale-[1.01]">
           <div className="flex items-center justify-between text-stone-400 mb-2">
             <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Tracked Commodities</span>
             <Layers className="w-4 h-4 text-emerald-700" />
           </div>
           <p className="text-3xl font-black text-stone-900">{stats.totalListed} Lots</p>
           <span className="text-xs text-stone-500 mt-1 block">
-            {stats.karnatakaCount} local Karnataka APMCs
+            {stats.karnatakaCount} local Karnataka APMCs tracked
           </span>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs">
+        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs transition-transform duration-200 hover:scale-[1.01]">
           <div className="flex items-center justify-between text-stone-400 mb-2">
             <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Highest Gainer Today</span>
             <TrendingUp className="w-4 h-4 text-emerald-600" />
           </div>
-          <p className="text-2xl font-black text-stone-900 truncate">
+          <p className="text-xl sm:text-2xl font-black text-stone-900 truncate">
             {stats.topGainer ? stats.topGainer.commodity.split('(')[0] : 'N/A'}
           </p>
           <span className="text-xs font-bold text-emerald-700 mt-1 flex items-center gap-1">
@@ -656,7 +1360,7 @@ export default function MandiRatesPage() {
           </span>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs">
+        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs transition-transform duration-200 hover:scale-[1.01]">
           <div className="flex items-center justify-between text-stone-400 mb-2">
             <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Arrivals Today</span>
             <Building2 className="w-4 h-4 text-stone-400" />
@@ -667,7 +1371,7 @@ export default function MandiRatesPage() {
           </span>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs">
+        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs transition-transform duration-200 hover:scale-[1.01]">
           <div className="flex items-center justify-between text-stone-400 mb-2">
             <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Direct Farm Advantage</span>
             <Scale className="w-4 h-4 text-emerald-700" />
@@ -690,7 +1394,7 @@ export default function MandiRatesPage() {
             <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search crop, mandi yard, or district (e.g. Tomato, Mandya, Byadgi, Coffee)..."
+              placeholder="Search crop, state, mandi yard, or district (e.g. Tomato, Mandya, Byadgi, Coffee, Cardamom)..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-stone-50 rounded-2xl text-xs font-semibold text-stone-900 border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-600 transition-all"
@@ -700,13 +1404,13 @@ export default function MandiRatesPage() {
           <div className="flex flex-wrap items-center gap-3">
             
             {/* Scope Selector: Karnataka vs All India */}
-            <div className="flex items-center bg-stone-100 p-1 rounded-2xl border border-stone-200">
+            <div className="flex items-center bg-stone-100 p-1 rounded-2xl border border-stone-200 shadow-2xs">
               <button
                 type="button"
                 onClick={() => setScopeFilter('ALL')}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all ${
                   scopeFilter === 'ALL'
-                    ? 'bg-white text-stone-900 shadow-2xs'
+                    ? 'bg-white text-stone-900 shadow-2xs scale-[1.02]'
                     : 'text-stone-500 hover:text-stone-900'
                 }`}
               >
@@ -717,7 +1421,7 @@ export default function MandiRatesPage() {
                 onClick={() => setScopeFilter('KARNATAKA')}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all ${
                   scopeFilter === 'KARNATAKA'
-                    ? 'bg-emerald-800 text-white shadow-2xs'
+                    ? 'bg-emerald-800 text-white shadow-2xs scale-[1.02]'
                     : 'text-stone-500 hover:text-stone-900'
                 }`}
               >
@@ -726,13 +1430,13 @@ export default function MandiRatesPage() {
             </div>
 
             {/* Price Unit Switcher */}
-            <div className="flex items-center bg-stone-100 p-1 rounded-2xl border border-stone-200">
+            <div className="flex items-center bg-stone-100 p-1 rounded-2xl border border-stone-200 shadow-2xs">
               <button
                 type="button"
                 onClick={() => setPriceUnitMode('KG')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
                   priceUnitMode === 'KG'
-                    ? 'bg-emerald-800 text-white shadow-2xs'
+                    ? 'bg-emerald-800 text-white shadow-2xs scale-[1.02]'
                     : 'text-stone-500 hover:text-stone-900'
                 }`}
               >
@@ -743,11 +1447,11 @@ export default function MandiRatesPage() {
                 onClick={() => setPriceUnitMode('QUINTAL')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
                   priceUnitMode === 'QUINTAL'
-                    ? 'bg-emerald-800 text-white shadow-2xs'
+                    ? 'bg-emerald-800 text-white shadow-2xs scale-[1.02]'
                     : 'text-stone-500 hover:text-stone-900'
                 }`}
               >
-                ₹ / Quintal (100kg)
+                ₹ / Qtl (100kg)
               </button>
             </div>
 
@@ -789,16 +1493,16 @@ export default function MandiRatesPage() {
         {/* Category Filter Pills */}
         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-stone-100">
           <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider mr-1">
-            Category:
+            Filter Category:
           </span>
           {categories.map((cat) => (
             <button
               key={cat}
               type="button"
               onClick={() => setSelectedCategory(cat)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 ${
                 selectedCategory === cat
-                  ? 'bg-emerald-800 text-white shadow-xs'
+                  ? 'bg-emerald-800 text-white shadow-xs scale-[1.02]'
                   : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
               }`}
             >
@@ -831,7 +1535,7 @@ export default function MandiRatesPage() {
                 <tr>
                   <td colSpan={9} className="py-16 text-center text-stone-400 font-semibold space-y-2">
                     <p className="text-base font-bold text-stone-700">No mandi records matched your filters</p>
-                    <p className="text-xs text-stone-400">Try switching to 'All-India Yards' or resetting your search query.</p>
+                    <p className="text-xs text-stone-400">Try switching to &apos;All-India Yards&apos; or resetting your search query.</p>
                   </td>
                 </tr>
               ) : (
@@ -955,7 +1659,7 @@ export default function MandiRatesPage() {
         </div>
       </div>
 
-      {/* 5. Informational Mandi Arbitrage Callout */}
+      {/* 5. Informational Commission Arbitrage Callout */}
       <div className="bg-emerald-950 text-emerald-100 rounded-3xl p-6 sm:p-10 border border-emerald-900 flex flex-col lg:flex-row items-center justify-between gap-8 shadow-xl">
         <div className="space-y-2 text-center lg:text-left">
           <div className="flex items-center justify-center lg:justify-start gap-2 text-xs font-black uppercase text-emerald-400 tracking-wider">

@@ -3,32 +3,35 @@ import { getAuth, Auth } from 'firebase-admin/auth';
 import path from 'path';
 import fs from 'fs';
 
+const env = process.env as Record<string, string | undefined>;
+
 let app: App;
 
 if (!getApps().length) {
   try {
-    if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+    if (env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+      const serviceAccount = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_KEY);
       app = initializeApp({
         credential: cert(serviceAccount),
       });
-    } else if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
-      const keyPath = path.resolve(process.cwd(), process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
+    } else if (env.FIREBASE_SERVICE_ACCOUNT_PATH) {
+      const keyPath = path.resolve(process.cwd(), env.FIREBASE_SERVICE_ACCOUNT_PATH);
       if (fs.existsSync(keyPath)) {
         const serviceAccount = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
         app = initializeApp({
           credential: cert(serviceAccount),
         });
       } else {
-        console.warn(`[Firebase Admin] Key file not found at ${keyPath}. Initializing with default credentials.`);
+        console.warn(`[Firebase Admin] Key file not found at ${keyPath}. Initializing default.`);
         app = initializeApp();
       }
     } else {
-      app = initializeApp();
+      app = initializeApp({
+        projectId: env.FIREBASE_PROJECT_ID || 'farmconnect-dev',
+      });
     }
-    console.log('Firebase Admin SDK initialized successfully');
   } catch (error: any) {
-    console.error('Firebase Admin initialization error:', error.message);
+    console.warn('[Firebase Admin] Initialization warning:', error.message);
     app = initializeApp();
   }
 } else {

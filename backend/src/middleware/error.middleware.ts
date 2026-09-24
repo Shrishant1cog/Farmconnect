@@ -1,11 +1,8 @@
-import { Request, Response, NextFunction } from "express";
-import { ZodError } from "zod";
-import { Prisma } from "@prisma/client";
-import { JsonWebTokenError, TokenExpiredError } from "jsonwebtoken";
+import { Request, Response, NextFunction } from 'express';
+import { ZodError } from 'zod';
+import { Prisma } from '@prisma/client';
+import { JsonWebTokenError, TokenExpiredError } from 'jsonwebtoken';
 
-/**
- * Custom operational error class for explicit business rule rejections
- */
 export class AppError extends Error {
   public readonly statusCode: number;
   public readonly isOperational: boolean;
@@ -17,119 +14,124 @@ export class AppError extends Error {
     this.isOperational = true;
     this.code = code;
     Object.setPrototypeOf(this, new.target.prototype);
-    Error.captureStackTrace(this, this.constructor);
+
+    if (typeof (Error as any).captureStackTrace === 'function') {
+      (Error as any).captureStackTrace(this, this.constructor);
+    }
   }
 }
 
-/**
- * Centralized Application Error Interceptor
- */
 export function errorMiddleware(
-  error: Error,
+  error: any,
   _req: Request,
   res: Response,
   _next: NextFunction
-): Response {
-  // 1. Known Operational Errors (Explicitly thrown by business logic)
+): void {
   if (error instanceof AppError) {
-    return res.status(error.statusCode).json({
+    res.status(error.statusCode).json({
       success: false,
-      code: error.code || "OPERATIONAL_ERROR",
+      code: error.code || 'OPERATIONAL_ERROR',
       message: error.message,
     });
+    return;
   }
 
-  // 2. Zod Request Body / Query Validation Failures
-  if (error instanceof ZodError) {
-    const formattedErrors = error.issues.map((issue) => ({
-      field: issue.path.join("."),
+  if (error instanceof ZodError || error?.name === 'ZodError') {
+    const formattedErrors = (error.issues || []).map((issue: any) => ({
+      field: Array.isArray(issue.path) ? issue.path.join('.') : 'field',
       message: issue.message,
     }));
 
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
-      code: "VALIDATION_ERROR",
-      message: "Request payload validation failed",
+      code: 'VALIDATION_ERROR',
+      message: 'Request payload validation failed',
       errors: formattedErrors,
     });
+    return;
   }
 
-  // 3. Prisma Database Errors
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+  if (error instanceof Prisma.PrismaClientKnownRequestError || error?.name === 'PrismaClientKnownRequestError') {
     switch (error.code) {
-      case "P2002": {
-        // Unique constraint violation (e.g. duplicate email, unique slug)
-        const target = (error.meta?.target as string[])?.join(", ") || "field";
-        return res.status(409).json({
+      case 'P2002': {
+        const target = Array.isArray(error.meta?.target)
+          ? error.meta.target.join(', ')
+          : (error.meta?.target as string) || 'field';
+        res.status(409).json({
           success: false,
-          code: "DUPLICATE_RESOURCE",
+          code: 'DUPLICATE_RESOURCE',
           message: `A record with this ${target} already exists.`,
         });
+        return;
       }
-      case "P2025": {
-        // Record not found during update/delete
-        return res.status(404).json({
+      case 'P2025': {
+        res.status(404).json({
           success: false,
-          code: "RESOURCE_NOT_FOUND",
-          message: "The requested record was not found or has already been removed.",
+          code: 'RESOURCE_NOT_FOUND',
+          message: 'The requested record was not found or has already been removed.',
         });
+        return;
       }
-      case "P2003": {
-        // Foreign key constraint failure
-        return res.status(400).json({
+      case 'P2003': {
+        res.status(400).json({
           success: false,
-          code: "FOREIGN_KEY_VIOLATION",
-          message: "Invalid relation reference: target dependency does not exist.",
+          code: 'FOREIGN_KEY_VIOLATION',
+          message: 'Invalid relational reference: target dependency does not exist.',
         });
+        return;
       }
-      default:
-        // Other Prisma query errors
-        return res.status(400).json({
+      default: {
+        res.status(400).json({
           success: false,
-          code: `DB_QUERY_ERROR_${error.code}`,
-          message: "Database operation failed. Please verify submitted parameters.",
+          code: `DB_QUERY_ERROR_${error.code || 'UNKNOWN'}`,
+          message: 'Database operation failed. Please verify submitted parameters.',
         });
+        return;
+      }
     }
   }
 
-  // 4. JWT & Authentication Errors
-  if (error instanceof TokenExpiredError) {
-    return res.status(401).json({
+  if (error instanceof TokenExpiredError || error?.name === 'TokenExpiredError') {
+    res.status(401).json({
       success: false,
-      code: "AUTH_TOKEN_EXPIRED",
-      message: "Session token has expired. Please sign in again.",
+      code: 'AUTH_TOKEN_EXPIRED',
+      message: 'Session token has expired. Please sign in again.',
     });
+    return;
   }
 
-  if (error instanceof JsonWebTokenError) {
-    return res.status(401).json({
+  if (error instanceof JsonWebTokenError || error?.name === 'JsonWebTokenError') {
+    res.status(401).json({
       success: false,
-      code: "AUTH_TOKEN_INVALID",
-      message: "Access token is malformed or invalid.",
+      code: 'AUTH_TOKEN_INVALID',
+      message: 'Access token is malformed or invalid.',
     });
+    return;
   }
 
-  // 5. Malformed JSON Body (Client sent invalid JSON syntax)
-  if ("type" in error && (error as any).type === "entity.parse.failed") {
-    return res.status(400).json({
+  if (error?.type === 'entity.parse.failed' || (error instanceof SyntaxError && 'body' in error)) {
+    res.status(400).json({
       success: false,
-      code: "MALFORMED_JSON",
-      message: "Invalid JSON syntax provided in request body.",
+      code: 'MALFORMED_JSON',
+      message: 'Invalid JSON syntax provided in request body.',
     });
+    return;
   }
 
-  // 6. Generic / Unhandled Internal Errors (500)
-  // Log complete error server-side for diagnostic auditing
-  console.error("💥 Unhandled Server Exception:", error);
+  console.error('[Unhandled Server Exception]:', error);
 
-  const isProduction = process.env.NODE_ENV === "production";
+  const rawEnv = process.env as Record<string, string | undefined>;
+  const isProduction = rawEnv.NODE_ENV === 'production';
 
-  return res.status(500).json({
+  res.status(error.status || error.statusCode || 500).json({
     success: false,
-    code: "INTERNAL_SERVER_ERROR",
+    code: 'INTERNAL_SERVER_ERROR',
     message: isProduction
-      ? "An unexpected internal server error occurred. Please try again later."
-      : error.message,
+      ? 'An unexpected internal server error occurred. Please try again later.'
+      : error.message || 'Internal Server Error',
     ...(isProduction ? {} : { stack: error.stack }),
   });
 }
+
+export const errorHandler = errorMiddleware;
+export default errorMiddleware;

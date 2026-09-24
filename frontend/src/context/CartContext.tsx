@@ -4,6 +4,19 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useCall
 import { calculateDistanceKm } from '../lib/utils';
 import { fetchApi } from '../lib/api';
 
+export type ContainerType = 
+  | 'STANDARD_CRATE' 
+  | 'COLD_CHAIN_REFRIGERATED' 
+  | 'MOISTURE_CONTROLLED' 
+  | 'VENTILATED_JUTE';
+
+export const CONTAINER_COST_MAP: Record<ContainerType, number> = {
+  STANDARD_CRATE: 0.45,
+  COLD_CHAIN_REFRIGERATED: 1.25,
+  MOISTURE_CONTROLLED: 0.85,
+  VENTILATED_JUTE: 0.30,
+};
+
 export interface CartItem {
   id?: string;
   productId: string;
@@ -16,7 +29,8 @@ export interface CartItem {
   quantityUnit: string;
   unit?: string;
   availableStock: number;
-  containerType?: 'STANDARD_CRATE' | 'COLD_CHAIN_REFRIGERATED' | 'MOISTURE_CONTROLLED' | 'VENTILATED_JUTE';
+  minOrderKg?: number;
+  containerType?: ContainerType;
   containerCostPerKg?: number;
   imageUrl?: string;
   farmerLat?: number;
@@ -31,6 +45,7 @@ export type AddToCartItem = Omit<CartItem, 'quantity' | 'productId' | 'priceUnit
   priceUnit?: string;
   quantityUnit?: string;
   availableStock?: number;
+  minOrderKg?: number;
 };
 
 export interface DestinationCoords {
@@ -54,9 +69,23 @@ export interface CartContextType {
   grandTotal: number;
   totalItemsCount: number;
   distanceKm: number;
+  
+  // Enhanced Wholesale & Logistics Capabilities
+  volumeDiscountPercent: number;
+  volumeDiscountAmount: number;
+  netProduceCost: number;
+  estimatedDeliveryText: string;
+  estimatedDeliveryHours: number;
+  isMinOrderMet: boolean;
+  minOrderDeficitKg: number;
+  lastRemovedItem: CartItem | null;
+  
+  // Actions
   addToCart: (item: AddToCartItem, quantity?: number) => boolean;
   updateQuantity: (productId: string, quantity: number) => void;
+  updateContainerType: (productId: string, containerType: ContainerType) => void;
   removeFromCart: (productId: string) => void;
+  restoreLastRemovedItem: () => void;
   clearCart: () => void;
   setDeliveryDestination: (dest: DestinationCoords | null) => void;
   refreshFreightQuote: () => Promise<void>;
@@ -88,6 +117,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [destination, setDestination] = useState<DestinationCoords | null>(null);
   const [serverTransportCost, setServerTransportCost] = useState<number | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [lastRemovedItem, setLastRemovedItem] = useState<CartItem | null>(null);
 
   // 1. Hydrate cart and destination from localStorage on client mount
   useEffect(() => {
@@ -158,9 +188,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const resolvedQuantity = Math.min(requestedQty, resolvedAvailableStock);
 
     const safeFarmerPrice = Math.max(0, Number(product.farmerPrice) || 0);
+    const containerType: ContainerType = product.containerType || 'STANDARD_CRATE';
     const safeContainerCost = product.containerCostPerKg !== undefined 
       ? Number(product.containerCostPerKg) 
-      : 0.45;
+      : CONTAINER_COST_MAP[containerType];
 
     const normalizedItem: CartItem = {
       ...product,
@@ -171,8 +202,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       quantityUnit: resolvedQuantityUnit,
       unit: product.unit || resolvedPriceUnit,
       availableStock: resolvedAvailableStock,
-      containerType: product.containerType || 'STANDARD_CRATE',
-      containerCostPerKg: isNaN(safeContainerCost) ? 0.45 : safeContainerCost,
+      minOrderKg: Number(product.minOrderKg) || 10,
+      containerType,
+      containerCostPerKg: isNaN(safeContainerCost) ? CONTAINER_COST_MAP[containerType] : safeContainerCost,
       quantity: resolvedQuantity,
       farmerLat: product.farmerLat !== undefined ? Number(product.farmerLat) : 12.5218,
       farmerLon: product.farmerLon !== undefined ? Number(product.farmerLon) : 76.8951,
@@ -216,7 +248,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateQuantity = useCallback((productId: string, quantity: number) => {
     const numericQty = Number(quantity);
     if (isNaN(numericQty) || numericQty <= 0) {
-      setItems((prev) => prev.filter((i) => (i.productId || i.id) !== productId));
+      setItems((prev) => {
+        const itemToRemove = prev.find((i) => (i.productId || i.id) === productId);
+        if (itemToRemove) setLastRemovedItem(itemToRemove);
+        return prev.filter((i) => (i.productId || i.id) !== productId);
+      });
       setServerTransportCost(null);
       return;
     }
@@ -233,14 +269,42 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setServerTransportCost(null);
   }, []);
 
+  const updateContainerType = useCallback((productId: string, containerType: ContainerType) => {
+    const costPerKg = CONTAINER_COST_MAP[containerType] || 0.45;
+    setItems((prev) =>
+      prev.map((item) => {
+        if ((item.productId || item.id) === productId) {
+          return {
+            ...item,
+            containerType,
+            containerCostPerKg: costPerKg,
+          };
+        }
+        return item;
+      })
+    );
+  }, []);
+
   const removeFromCart = useCallback((productId: string) => {
-    setItems((prev) => prev.filter((i) => (i.productId || i.id) !== productId));
+    setItems((prev) => {
+      const itemToRemove = prev.find((i) => (i.productId || i.id) === productId);
+      if (itemToRemove) setLastRemovedItem(itemToRemove);
+      return prev.filter((i) => (i.productId || i.id) !== productId);
+    });
     setServerTransportCost(null);
   }, []);
+
+  const restoreLastRemovedItem = useCallback(() => {
+    if (!lastRemovedItem) return;
+    setItems((prev) => [...prev, lastRemovedItem]);
+    setLastRemovedItem(null);
+    setServerTransportCost(null);
+  }, [lastRemovedItem]);
 
   const clearCart = useCallback(() => {
     setItems([]);
     setServerTransportCost(null);
+    setLastRemovedItem(null);
   }, []);
 
   const setDeliveryDestination = useCallback((dest: DestinationCoords | null) => {
@@ -274,6 +338,23 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return acc + price * qty;
     }, 0);
   }, [items]);
+
+  // Volume wholesale discount tier
+  const volumeDiscountPercent = useMemo(() => {
+    if (totalWeightKg >= 500) return 8; // 8% bulk farm direct discount
+    if (totalWeightKg >= 250) return 5; // 5% wholesale discount
+    if (totalWeightKg >= 100) return 2; // 2% commercial lot discount
+    return 0;
+  }, [totalWeightKg]);
+
+  const volumeDiscountAmount = useMemo(() => {
+    if (volumeDiscountPercent === 0) return 0;
+    return Math.round((totalItemsCost * volumeDiscountPercent) / 100);
+  }, [totalItemsCost, volumeDiscountPercent]);
+
+  const netProduceCost = useMemo(() => {
+    return Math.max(0, totalItemsCost - volumeDiscountAmount);
+  }, [totalItemsCost, volumeDiscountAmount]);
 
   const containerCost = useMemo(() => {
     return items.reduce((acc, item) => {
@@ -310,12 +391,35 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [items, distanceKm, totalWeightKg, serverTransportCost]);
 
   const grandTotal = useMemo(() => {
-    return Math.round((totalItemsCost + transportCost + containerCost) * 100) / 100;
-  }, [totalItemsCost, transportCost, containerCost]);
+    return Math.round((netProduceCost + transportCost + containerCost) * 100) / 100;
+  }, [netProduceCost, transportCost, containerCost]);
 
   const totalItemsCount = useMemo(() => {
     return items.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
   }, [items]);
+
+  // Minimum order validation
+  const requiredMinOrderKg = useMemo(() => {
+    return items.reduce((max, item) => Math.max(max, Number(item.minOrderKg) || 10), 0);
+  }, [items]);
+
+  const isMinOrderMet = totalWeightKg >= requiredMinOrderKg;
+  const minOrderDeficitKg = Math.max(0, requiredMinOrderKg - totalWeightKg);
+
+  // Delivery estimation
+  const estimatedDeliveryHours = useMemo(() => {
+    if (distanceKm <= 0) return 24;
+    if (distanceKm <= 50) return 6;   // Intra-district
+    if (distanceKm <= 150) return 14; // Regional
+    return 28;                         // Inter-district state-wide
+  }, [distanceKm]);
+
+  const estimatedDeliveryText = useMemo(() => {
+    if (distanceKm <= 0) return 'Standard Direct Farm Dispatch';
+    if (distanceKm <= 50) return 'Same-Day Farm-Gate Pickup (4-8 hrs)';
+    if (distanceKm <= 150) return 'Next-Morning Express Truck (12-18 hrs)';
+    return 'Inter-District Cold Freight (24-36 hrs)';
+  }, [distanceKm]);
 
   const refreshFreightQuote = useCallback(async () => {
     if (!destination || items.length === 0) return;
@@ -358,9 +462,23 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         grandTotal,
         totalItemsCount,
         distanceKm,
+
+        // Enhanced Fields
+        volumeDiscountPercent,
+        volumeDiscountAmount,
+        netProduceCost,
+        estimatedDeliveryText,
+        estimatedDeliveryHours,
+        isMinOrderMet,
+        minOrderDeficitKg,
+        lastRemovedItem,
+
+        // Actions
         addToCart,
         updateQuantity,
+        updateContainerType,
         removeFromCart,
+        restoreLastRemovedItem,
         clearCart,
         setDeliveryDestination,
         refreshFreightQuote,

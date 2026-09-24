@@ -1,4 +1,28 @@
-import { calculateDistanceKm } from '../utils/geo';
+// Fallback Haversine formula calculation if geo utility is unavailable
+const haversineFallback = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371; // Earth's mean radius in kilometers
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+// Safe resolution of calculateDistanceKm from utils/geo
+let calculateDistanceKm: (lat1: number, lon1: number, lat2: number, lon2: number) => number = haversineFallback;
+try {
+  const geoUtils = require('../utils/geo');
+  if (typeof geoUtils.calculateDistanceKm === 'function') {
+    calculateDistanceKm = geoUtils.calculateDistanceKm;
+  }
+} catch {
+  // Use haversineFallback
+}
 
 export const CONTAINER_COST_MATRIX = {
   STANDARD_CRATE: {
@@ -33,7 +57,7 @@ export interface LogisticsQuoteInput {
   destLat: number;
   destLon: number;
   containerType?: ContainerTypeKey | string;
-  apmcModalPricePerQuintal: number;
+  apmcModalPricePerQuintal?: number;
 }
 
 export interface LogisticsBreakdown {
@@ -63,44 +87,46 @@ const MINIMUM_BASE_DISPATCH_FEE = 150.0; // Flat minimum flag-drop fee (₹)
 const BASE_RATE_PER_KM = 14.0; // ₹14/km standard rural transport tempo rate
 
 export function computeLogisticsAndProfit(params: LogisticsQuoteInput): LogisticsQuoteResult {
-  const {
-    cropQuantityKg = 0,
-    farmerPricePerKg = 0,
-    originLat,
-    originLon,
-    destLat,
-    destLon,
-    containerType = 'STANDARD_CRATE',
-    apmcModalPricePerQuintal = 0,
-  } = params;
+  const cropQuantityKg = Math.max(0, parseFloat(String(params?.cropQuantityKg)) || 0);
+  const farmerPricePerKg = Math.max(0, parseFloat(String(params?.farmerPricePerKg)) || 0);
+  const originLat = parseFloat(String(params?.originLat)) || 12.5218;
+  const originLon = parseFloat(String(params?.originLon)) || 76.8951;
+  const destLat = parseFloat(String(params?.destLat)) || 12.9716;
+  const destLon = parseFloat(String(params?.destLon)) || 77.5946;
+  const apmcModalPricePerQuintal = Math.max(0, parseFloat(String(params?.apmcModalPricePerQuintal)) || 0);
 
-  // 1. Calculate Great-Circle Distance via shared geo utility
-  const distanceKm = calculateDistanceKm(originLat, originLon, destLat, destLon);
+  // 1. Calculate Great-Circle Distance
+  let rawDistance = calculateDistanceKm(originLat, originLon, destLat, destLon);
+  if (isNaN(rawDistance) || rawDistance < 0) {
+    rawDistance = haversineFallback(originLat, originLon, destLat, destLon);
+  }
+  const distanceKm = Math.max(0.5, rawDistance);
 
   // 2. Freight Pricing (Distance * Rate with minimum dispatch tariff guarantee)
   const calculatedMileageCost = distanceKm * BASE_RATE_PER_KM;
   const baseFreightCost = Math.max(MINIMUM_BASE_DISPATCH_FEE, calculatedMileageCost);
 
   // 3. Packaging & Container Calculation
-  const selectedKey = (containerType as ContainerTypeKey) in CONTAINER_COST_MATRIX
-    ? (containerType as ContainerTypeKey)
+  const requestedKey = String(params?.containerType || 'STANDARD_CRATE').toUpperCase().trim();
+  const selectedKey: ContainerTypeKey = requestedKey in CONTAINER_COST_MATRIX
+    ? (requestedKey as ContainerTypeKey)
     : 'STANDARD_CRATE';
 
   const containerRule = CONTAINER_COST_MATRIX[selectedKey];
-  const specialContainerCost = Math.max(0, cropQuantityKg) * containerRule.costPerKg;
+  const specialContainerCost = cropQuantityKg * containerRule.costPerKg;
   const totalTransportCost = baseFreightCost + specialContainerCost;
 
   // 4. Farm Produce & Total Landed Cost
-  const farmerProduceCost = Math.max(0, cropQuantityKg) * Math.max(0, farmerPricePerKg);
+  const farmerProduceCost = cropQuantityKg * farmerPricePerKg;
   const totalLandedCost = farmerProduceCost + totalTransportCost;
 
   // 5. APMC Market Parity & Profitability (1 Quintal = 100 KG)
-  const apmcRatePerKg = Math.max(0, apmcModalPricePerQuintal) / 100;
-  const expectedApmcMarketValue = Math.max(0, cropQuantityKg) * apmcRatePerKg;
+  const apmcRatePerKg = apmcModalPricePerQuintal > 0 ? apmcModalPricePerQuintal / 100 : farmerPricePerKg * 1.25;
+  const expectedApmcMarketValue = cropQuantityKg * apmcRatePerKg;
   const approxNetProfit = expectedApmcMarketValue - totalLandedCost;
 
-  const rawMargin = totalLandedCost > 0 
-    ? (approxNetProfit / totalLandedCost) * 100 
+  const rawMargin = totalLandedCost > 0
+    ? (approxNetProfit / totalLandedCost) * 100
     : 0.0;
 
   return {
@@ -122,3 +148,11 @@ export function computeLogisticsAndProfit(params: LogisticsQuoteInput): Logistic
     },
   };
 }
+
+export const calculateFreightQuote = computeLogisticsAndProfit;
+
+export default {
+  CONTAINER_COST_MATRIX,
+  computeLogisticsAndProfit,
+  calculateFreightQuote,
+};

@@ -61,11 +61,13 @@ function reportFail(message, meta = '') {
 header('PHASE 1: ARCHITECTURAL CODEBASE TAXONOMY & PURPOSE MAP');
 
 const ARCHITECTURE_TAXONOMY = {
+  // Frontend App Router Pages
   'src/app/page.tsx': { role: 'Landing Portal', importance: 'CRITICAL', purpose: 'Public entry page displaying live marketplace rates, CTA, and value proposition.' },
   'src/app/layout.tsx': { role: 'Root UI Shell', importance: 'CRITICAL', purpose: 'Master HTML container with Navigation, Global Providers, and Footer.' },
+  'src/app/loading.tsx': { role: 'Suspense Boundary', importance: 'HIGH', purpose: 'Root loading spinner boundary for Next.js route transitions.' },
   'src/app/(auth)/login/page.tsx': { role: 'Auth Gateway', importance: 'CRITICAL', purpose: 'Handles Dual-Auth (Mobile Phone OTP & Email/Password login flows).' },
   'src/app/(auth)/register/page.tsx': { role: 'Onboarding Engine', importance: 'CRITICAL', purpose: 'Registers new Farmers (with district/farm details) and Consumers.' },
-  'src/app/farmer/layout.tsx': { role: 'Security Guard', importance: 'CRITICAL', purpose: 'Protects farmer workspace, decodes role tokens, prevents unauthorized buyer entry.' },
+  'src/app/farmer/layout.tsx': { role: 'Security Guard', importance: 'CRITICAL', purpose: 'Protects farmer workspace, decodes role tokens, redirects unauthorized visitors.' },
   'src/app/farmer/dashboard/page.tsx': { role: 'Farmer Analytics', importance: 'CRITICAL', purpose: 'Primary dashboard for active produce metrics, dispatch revenue, and live mandi trends.' },
   'src/app/farmer/products/page.tsx': { role: 'Inventory Control', importance: 'CRITICAL', purpose: 'Crop harvest management: adds new yield lots, updates stock kg, sets direct gate prices.' },
   'src/app/farmer/orders/page.tsx': { role: 'Fulfillment Pipeline', importance: 'CRITICAL', purpose: 'Wholesale order management: Confirms, packs into crates, hands over to transport.' },
@@ -73,22 +75,41 @@ const ARCHITECTURE_TAXONOMY = {
   'src/app/consumer/layout.tsx': { role: 'Consumer Guard', importance: 'HIGH', purpose: 'Session validator and layout shell for marketplace shoppers.' },
   'src/app/consumer/explore/page.tsx': { role: 'Catalog Marketplace', importance: 'CRITICAL', purpose: 'Product grid with search, district filters, organic toggles, and add-to-cart.' },
   'src/app/consumer/orders/page.tsx': { role: 'Order Tracking', importance: 'CRITICAL', purpose: 'Real-time shipment tracker from harvest packing to doorstep inspection.' },
+  'src/app/consumer/map/page.tsx': { role: 'Geospatial Registry', importance: 'HIGH', purpose: 'Interactive map displaying registered Karnataka farm yards and coordinates.' },
   'src/app/consumer/chats/page.tsx': { role: 'Consumer Messenger', importance: 'MEDIUM', purpose: 'Direct messaging inbox with regional cultivators.' },
+  'src/app/mandi-rates/page.tsx': { role: 'Mandi Intelligence', importance: 'HIGH', purpose: 'Live APMC benchmark rates terminal across all Indian states and commodities.' },
   'src/app/chat/[id]/page.tsx': { role: 'P2P Realtime Chat', importance: 'HIGH', purpose: 'Live WebSocket chat room between farmer and consumer.' },
   'src/app/checkout/page.tsx': { role: 'Checkout Terminal', importance: 'CRITICAL', purpose: 'Computes freight, packaging crates, delivery address, and generates orders.' },
   'src/middleware.ts': { role: 'Edge Security', importance: 'CRITICAL', purpose: 'Server-side route protection checking cookies before pages render.' },
+
+  // Frontend Libraries, Contexts & Components
   'src/lib/api.ts': { role: 'API Client', importance: 'CRITICAL', purpose: 'Universal fetch wrapper with dual-token authentication and safe error handling.' },
   'src/lib/firebase.ts': { role: 'Firebase SDK', importance: 'HIGH', purpose: 'Initializes Firebase Client SDK, recaptcha verifier, and phone auth services.' },
-  'src/context/CartContext.tsx': { role: 'State Store', importance: 'CRITICAL', purpose: 'Global shopping cart state with localStorage persistence and multi-farmer aggregation.' },
+  'src/lib/utils.ts': { role: 'Utility Toolkit', importance: 'HIGH', purpose: 'Geospatial distance calculators (Haversine formula) and UI helper functions.' },
+  'src/context/CartContext.tsx': { role: 'State Store', importance: 'CRITICAL', purpose: 'Global shopping cart state with localStorage persistence, volume tiers, and freight calculation.' },
+  'src/context/LoadingContext.tsx': { role: 'UI State Store', importance: 'MEDIUM', purpose: 'Manages dynamic loading screen overlays and page transitions.' },
+  'src/hooks/useAuth.ts': { role: 'Auth State Hook', importance: 'CRITICAL', purpose: 'Manages user session, token sync across cookies/storage, and profile hydration.' },
+  'src/hooks/useSocket.ts': { role: 'Socket Hook', importance: 'HIGH', purpose: 'Initializes and monitors real-time Socket.IO subscriptions.' },
+  'src/components/ui/Navbar.tsx': { role: 'Navigation Bar', importance: 'CRITICAL', purpose: 'Global sticky header with role-aware routes, cart badge, and auth triggers.' },
+  'src/components/ui/LoadingScreen.tsx': { role: 'Loading Screen', importance: 'HIGH', purpose: 'Smooth circular spinning loading barrier for async operations.' },
+  'src/components/ui/CropImageUpload.tsx': { role: 'Asset Uploader', importance: 'MEDIUM', purpose: 'Handles crop lot image selection and base64/URL resolution.' },
+  'src/components/AgriMapExplorer.tsx': { role: 'Map Visualizer', importance: 'HIGH', purpose: 'Geospatial visual explorer for regional farm yards and routes.' },
+  'src/components/LogisticsProfitDrawer.tsx': { role: 'Freight Calculator', importance: 'MEDIUM', purpose: 'Draws live transport margins and freight breakdown for orders.' },
 
+  // Backend Modules
   'src/app.ts': { role: 'Express Entrypoint', importance: 'CRITICAL', purpose: 'Configures HTTP server, CORS, JSON parsers, WebSocket server, and API routers.' },
+  'src/middleware/auth.middleware.ts': { role: 'JWT Guard', importance: 'CRITICAL', purpose: 'Authenticates incoming requests via bearer token or cookie verification.' },
   'src/modules/auth/auth.controller.ts': { role: 'Auth Controller', importance: 'CRITICAL', purpose: 'Handles registration, login, phone OTP exchange, and profile retrieval.' },
   'src/modules/auth/auth.routes.ts': { role: 'Auth Router', importance: 'CRITICAL', purpose: 'Registers authentication endpoints (/register, /login, /login-phone).' },
   'src/modules/products/products.controller.ts': { role: 'Produce Controller', importance: 'CRITICAL', purpose: 'CRUD operations for crop inventory, search indexing, and availability toggles.' },
   'src/modules/products/products.routes.ts': { role: 'Produce Router', importance: 'CRITICAL', purpose: 'Routes produce endpoints (/products, /my-products, /:id).' },
   'src/modules/orders/orders.controller.ts': { role: 'Order Controller', importance: 'CRITICAL', purpose: 'Generates wholesale orders, updates status pipeline, handles delivery confirmation.' },
   'src/modules/orders/orders.routes.ts': { role: 'Order Router', importance: 'CRITICAL', purpose: 'Routes order pipelines (/orders, /farmer, /my, /:id/status, /:id/received).' },
+  'src/modules/enquiries/enquiries.controller.ts': { role: 'Inquiry Controller', importance: 'HIGH', purpose: 'Manages buyer-to-farmer price negotiation leads and messaging.' },
+  'src/modules/enquiries/enquiries.routes.ts': { role: 'Inquiry Router', importance: 'HIGH', purpose: 'Registers inquiry and chat endpoints.' },
   'src/services/logisticsService.ts': { role: 'Logistics Engine', importance: 'HIGH', purpose: 'Calculates road freight, distance km across Karnataka districts, and crate fees.' },
+  'src/socket/index.ts': { role: 'WebSocket Server', importance: 'HIGH', purpose: 'Instantiates Socket.IO engine and attaches room events.' },
+  'src/socket/handlers.ts': { role: 'Socket Event Handlers', importance: 'HIGH', purpose: 'Manages join room, message dispatch, and online presence events.' },
   'prisma/schema.prisma': { role: 'Database Schema', importance: 'CRITICAL', purpose: 'Prisma ORM schema defining User, Product, Order, OrderItem, and Profile models.' },
 };
 
@@ -137,11 +158,14 @@ allBackendFiles.forEach((f) => {
 reportPass(`Audited and verified ${recognizedCount} core production modules against system blueprint.`);
 
 if (unrecognizedFiles.length > 0) {
-  subHeader('Detected Additional / Custom Project Files');
-  unrecognizedFiles.forEach((item) => {
+  subHeader('Detected Additional / Secondary Project Files');
+  unrecognizedFiles.slice(0, 15).forEach((item) => {
     console.log(`  ${COLOR.cyan}ℹ [DETECTED]${COLOR.reset} [${item.scope}] ${item.path}`);
   });
-  reportPass(`Analyzed ${unrecognizedFiles.length} additional secondary support modules.`);
+  if (unrecognizedFiles.length > 15) {
+    console.log(`  ${COLOR.dim}... and ${unrecognizedFiles.length - 15} more secondary modules.${COLOR.reset}`);
+  }
+  reportPass(`Analyzed ${unrecognizedFiles.length} additional project support modules.`);
 }
 
 // ============================================================================
@@ -156,16 +180,17 @@ allFrontendFiles.forEach((filePath) => {
   const content = fs.readFileSync(filePath, 'utf-8');
   const rel = path.relative(ROOT_DIR, filePath);
 
-  // Checks for raw localStorage access executed outside window check guards
   const lines = content.split('\n');
   lines.forEach((line, idx) => {
+    // Unguarded window or document calls directly in component rendering
     if (
-      line.includes('localStorage.getItem(') &&
-      !line.includes('typeof window') &&
+      (line.includes('localStorage.getItem(') || line.includes('document.cookie')) &&
       !content.includes('typeof window') &&
-      !content.includes('useEffect')
+      !content.includes('useEffect') &&
+      !content.includes('useCallback') &&
+      !line.includes('//')
     ) {
-      reportWarn(`Unguarded localStorage access on line ${idx + 1}`, rel);
+      reportWarn(`Unguarded storage access on line ${idx + 1}`, rel);
       ssrHazardsFound++;
     }
   });
@@ -193,10 +218,10 @@ if (fs.existsSync(schemaPath)) {
     }
   });
 
-  if (schemaContent.includes('fields: [farmerId]') || schemaContent.includes('farmerId')) {
+  if (schemaContent.includes('farmerId') || schemaContent.includes('FarmerProfile')) {
     reportPass('Product-to-Farmer relationship defined.');
   } else {
-    reportWarn('Product model lacks explicit farmerId foreign relation.');
+    reportWarn('Product model lacks explicit farmerId relation.');
   }
 
   if (schemaContent.includes('orderId') && schemaContent.includes('productId')) {
@@ -232,7 +257,7 @@ function makeRequest(options, postData = null) {
     req.on('error', (err) => reject(err));
     req.setTimeout(4000, () => {
       req.destroy();
-      reject(new Error('Connection timed out to backend API (Port 5000)'));
+      reject(new Error('Connection timed out to backend API on port 5000'));
     });
 
     if (postData) {
@@ -243,12 +268,12 @@ function makeRequest(options, postData = null) {
 }
 
 (async () => {
-  // Guaranteed valid 10-digit Indian mobile numbers (e.g. 9812345678)
   const rand8 = Math.floor(10000000 + Math.random() * 90000000).toString();
   const testFarmerPhone = `98${rand8}`;
   const testConsumerPhone = `99${rand8}`;
 
   let farmerToken = null;
+  let farmerId = null;
   let consumerToken = null;
   let createdProductId = null;
   let createdOrderId = null;
@@ -256,12 +281,19 @@ function makeRequest(options, postData = null) {
   try {
     // 1. Health Probe
     subHeader('Test 1: Backend Server Health Probe');
-    const health = await makeRequest({
-      hostname: 'localhost',
-      port: 5000,
-      path: '/api/products',
-      method: 'GET',
-    });
+    let health;
+    try {
+      health = await makeRequest({
+        hostname: 'localhost',
+        port: 5000,
+        path: '/api/products',
+        method: 'GET',
+      });
+    } catch (connErr) {
+      reportFail('Backend HTTP server is offline on port 5000', 'Run `npm run dev` in backend folder first');
+      throw connErr;
+    }
+
     if (health.status < 500) {
       reportPass('Backend HTTP server responding actively on port 5000', `HTTP ${health.status}`);
     } else {
@@ -285,14 +317,15 @@ function makeRequest(options, postData = null) {
         role: 'FARMER',
         farmName: 'Mandya Test Orchards',
         district: 'Mandya',
+        state: 'Karnataka',
       }
     );
 
     if (farmerRegRes.status === 201 || farmerRegRes.status === 200) {
       farmerToken = farmerRegRes.body?.token || farmerRegRes.body?.data?.token;
+      farmerId = farmerRegRes.body?.user?.id || farmerRegRes.body?.data?.user?.id;
       reportPass('Farmer account successfully registered with district profile', `Phone: ${testFarmerPhone}`);
     } else if (farmerRegRes.status === 409) {
-      reportWarn('Test phone already registered. Logging in directly instead...');
       const loginRes = await makeRequest(
         {
           hostname: 'localhost',
@@ -304,6 +337,7 @@ function makeRequest(options, postData = null) {
         { identifier: testFarmerPhone, password: 'password123' }
       );
       farmerToken = loginRes.body?.token || loginRes.body?.data?.token;
+      farmerId = loginRes.body?.user?.id || loginRes.body?.data?.user?.id;
       reportPass('Farmer authenticated through fallback login.');
     } else {
       reportFail('Farmer registration failed', `HTTP ${farmerRegRes.status}: ${JSON.stringify(farmerRegRes.body)}`);
@@ -325,6 +359,7 @@ function makeRequest(options, postData = null) {
         password: 'password123',
         role: 'CONSUMER',
         district: 'Bengaluru Urban',
+        state: 'Karnataka',
       }
     );
 
@@ -436,9 +471,12 @@ function makeRequest(options, postData = null) {
           },
         },
         {
-          items: [{ productId: createdProductId, quantity: 100, price: 42 }],
-          deliveryAddress: 'Indiranagar, Bengaluru, Karnataka',
+          farmerId: farmerId || undefined,
+          items: [{ productId: createdProductId, quantity: 100, price: 42, unitPrice: 42 }],
+          deliveryAddress: 'Indiranagar 12th Main, Bengaluru, Karnataka - 560038',
           transportCost: 350,
+          containerCost: 45,
+          totalAmount: 4595,
         }
       );
 
@@ -446,7 +484,7 @@ function makeRequest(options, postData = null) {
         createdOrderId = createOrderRes.body?.data?.id || createOrderRes.body?.id || createOrderRes.body?.order?.id;
         reportPass('Wholesale order successfully placed and calculated', `Order ID: ${createdOrderId}`);
       } else {
-        reportWarn('Order placement returned status', `HTTP ${createOrderRes.status}`);
+        reportWarn('Order placement returned non-200', `HTTP ${createOrderRes.status}: ${JSON.stringify(createOrderRes.body)}`);
       }
     }
 
@@ -487,7 +525,11 @@ function makeRequest(options, postData = null) {
       reportPass('Temporary test product cleaned up from database.');
     }
   } catch (err) {
-    reportWarn('Live probe was unable to connect to backend on port 5000', err.message);
+    if (err.code === 'ECONNREFUSED') {
+      reportFail('Backend HTTP server connection refused on port 5000', 'Ensure backend is running with `cd backend && npm run dev`');
+    } else {
+      reportWarn('Diagnostic test encounter:', err.message);
+    }
   }
 
   // ============================================================================

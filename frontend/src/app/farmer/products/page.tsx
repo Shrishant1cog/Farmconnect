@@ -6,7 +6,7 @@ import {
   Plus, Search, Package, Sprout, TrendingUp, Edit3, 
   Trash2, CheckCircle2, AlertCircle, X, Layers, Scale, 
   IndianRupee, Calendar, Sparkles, Filter, RefreshCw, 
-  ArrowUpRight, AlertTriangle, Loader2 
+  ArrowUpRight, AlertTriangle, Loader2, Check 
 } from 'lucide-react';
 import { fetchApi } from '../../../lib/api';
 import { useAuth } from '../../../hooks/useAuth';
@@ -124,6 +124,8 @@ export default function FarmerProductsPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<FarmerProduct | null>(null);
+  const [deletingProduct, setDeletingProduct] = useState<FarmerProduct | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -138,6 +140,12 @@ export default function FarmerProductsPage() {
     imageUrl: '',
     isOrganic: false,
   });
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timer = setTimeout(() => setToastMessage(null), 3000);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
 
   const getAuthToken = () => {
     if (typeof window === 'undefined') return null;
@@ -155,7 +163,7 @@ export default function FarmerProductsPage() {
         backendProducts = res?.data || res?.products || (Array.isArray(res) ? res : []);
       } catch {
         if (token) {
-          const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
+          const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
           const res = await fetch(`${baseUrl}/products/my-products`, {
             headers: { Authorization: `Bearer ${token}` }
           });
@@ -176,24 +184,28 @@ export default function FarmerProductsPage() {
           mandiBenchmarkPerKg: Number(p.mandiBenchmarkPerKg ?? p.farmerPrice ?? 0),
           harvestDate: p.harvestDate || (p.createdAt ? p.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]),
           grade: p.grade || (p.isOrganic ? 'Organic Certified' : 'Grade-A Export'),
-          status: p.quantityAvailable <= 0 ? 'SOLD_OUT' : p.quantityAvailable < 200 ? 'LOW_STOCK' : 'ACTIVE',
+          status: (Number(p.quantityAvailable ?? p.quantityKg ?? 0) <= 0) ? 'SOLD_OUT' : (Number(p.quantityAvailable ?? p.quantityKg ?? 0) < 200) ? 'LOW_STOCK' : 'ACTIVE',
           location: p.location || 'Karnataka Farm',
           imageUrl: p.imageUrl || '',
           isOrganic: Boolean(p.isOrganic),
         }));
         setProducts(mapped);
-        localStorage.setItem('farmconnect_farmer_products', JSON.stringify(mapped));
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('farmconnect_farmer_products', JSON.stringify(mapped));
+        }
       } else {
-        const saved = localStorage.getItem('farmconnect_farmer_products');
+        const saved = typeof window !== 'undefined' ? localStorage.getItem('farmconnect_farmer_products') : null;
         if (saved) {
           setProducts(JSON.parse(saved));
         } else {
           setProducts(INITIAL_SEED_PRODUCTS);
-          localStorage.setItem('farmconnect_farmer_products', JSON.stringify(INITIAL_SEED_PRODUCTS));
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('farmconnect_farmer_products', JSON.stringify(INITIAL_SEED_PRODUCTS));
+          }
         }
       }
     } catch {
-      const saved = localStorage.getItem('farmconnect_farmer_products');
+      const saved = typeof window !== 'undefined' ? localStorage.getItem('farmconnect_farmer_products') : null;
       setProducts(saved ? JSON.parse(saved) : INITIAL_SEED_PRODUCTS);
     } finally {
       setLoading(false);
@@ -220,7 +232,7 @@ export default function FarmerProductsPage() {
     return {
       totalLots,
       totalWeightTonnes: (totalWeightKg / 1000).toFixed(1),
-      totalValue: totalValue.toLocaleString(),
+      totalValue: Math.round(totalValue).toLocaleString(),
       activeLots,
     };
   }, [products]);
@@ -248,6 +260,7 @@ export default function FarmerProductsPage() {
 
     const updated = products.map((p) => (p.id === id ? { ...p, status: nextStatus } : p));
     saveProducts(updated);
+    setToastMessage(`Lot marked as ${nextStatus === 'ACTIVE' ? 'Active' : 'Sold Out'}.`);
 
     try {
       await fetchApi(`/products/${id}`, {
@@ -255,20 +268,22 @@ export default function FarmerProductsPage() {
         body: JSON.stringify({ isAvailable: isNowAvailable })
       });
     } catch {
-      // Local state already updated
+      // Local optimistic state preserved
     }
   };
 
-  const handleDeleteProduct = async (id: string) => {
-    if (!confirm('Are you sure you want to remove this harvest listing?')) return;
-
+  const confirmDelete = async () => {
+    if (!deletingProduct) return;
+    const id = deletingProduct.id;
     const updated = products.filter((p) => p.id !== id);
     saveProducts(updated);
+    setDeletingProduct(null);
+    setToastMessage('Harvest listing removed.');
 
     try {
       await fetchApi(`/products/${id}`, { method: 'DELETE' });
     } catch {
-      // Local state already updated
+      // Local optimistic state preserved
     }
   };
 
@@ -313,7 +328,7 @@ export default function FarmerProductsPage() {
     setIsSubmitting(true);
 
     const price = parseFloat(formData.pricePerKg) || 10;
-    const mandiRate = parseFloat(formData.mandiBenchmarkPerKg) || price;
+    const mandiRate = parseFloat(formData.mandiBenchmarkPerKg) || Math.round(price * 1.05);
     const qty = parseFloat(formData.quantityKg) || 100;
     const minOrder = parseFloat(formData.minOrderKg) || 10;
 
@@ -322,16 +337,19 @@ export default function FarmerProductsPage() {
     else if (qty < 200) computedStatus = 'LOW_STOCK';
 
     const userDistrict = (user as any)?.district || 'Mandya';
+    const finalImageUrl = formData.imageUrl || resolveFallback(formData.name, formData.isOrganic);
 
     const payload = {
       title: formData.name.trim(),
-      description: `${formData.variety} • Grade: ${formData.grade}`,
+      description: `${formData.variety.trim()} • Grade: ${formData.grade}`,
       farmerPrice: price,
       priceUnit: 'PER_KG',
       quantityAvailable: qty,
       quantityUnit: 'KG',
+      minOrderKg: minOrder,
       isOrganic: formData.isOrganic || formData.grade === 'Organic Certified',
-      imageUrl: formData.imageUrl || '',
+      imageUrl: finalImageUrl,
+      location: `${userDistrict}, Karnataka`,
     };
 
     try {
@@ -362,13 +380,14 @@ export default function FarmerProductsPage() {
               harvestDate: formData.harvestDate,
               grade: formData.grade,
               status: computedStatus,
-              imageUrl: formData.imageUrl,
+              imageUrl: finalImageUrl,
               isOrganic: formData.isOrganic,
             };
           }
           return p;
         });
         saveProducts(updated);
+        setToastMessage('Harvest details updated successfully!');
       } else {
         let createdId = `prod-${Date.now()}`;
         try {
@@ -396,15 +415,16 @@ export default function FarmerProductsPage() {
           grade: formData.grade,
           status: computedStatus,
           location: `${userDistrict}, Karnataka`,
-          imageUrl: formData.imageUrl,
+          imageUrl: finalImageUrl,
           isOrganic: formData.isOrganic,
         };
         saveProducts([newProduct, ...products]);
+        setToastMessage('Fresh harvest lot published!');
       }
 
       setIsModalOpen(false);
     } catch (err: any) {
-      alert(err.message || 'Error publishing produce listing.');
+      setToastMessage(err.message || 'Error publishing produce listing.');
     } finally {
       setIsSubmitting(false);
     }
@@ -412,7 +432,7 @@ export default function FarmerProductsPage() {
 
   const displayPrice = (pricePerKg: number) => {
     if (unitMode === 'QUINTAL') {
-      return `₹${(pricePerKg * 100).toLocaleString()}/qtl`;
+      return `₹${Math.round(pricePerKg * 100).toLocaleString()}/qtl`;
     }
     return `₹${pricePerKg}/kg`;
   };
@@ -425,12 +445,20 @@ export default function FarmerProductsPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-200">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-300">
       
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 bg-stone-900 text-white rounded-2xl border border-stone-800 shadow-2xl flex items-center gap-2.5 text-xs font-bold animate-in slide-in-from-bottom-5 duration-200">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* 1. Header Banner */}
-      <div className="bg-white/90 backdrop-blur-md rounded-3xl p-6 sm:p-8 border border-stone-200/90 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="bg-white/95 backdrop-blur-md rounded-3xl p-6 sm:p-8 border border-stone-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-200">
         <div>
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className="px-3 py-0.5 rounded-full bg-emerald-100 text-emerald-950 border border-emerald-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
               <Sprout className="w-3.5 h-3.5 text-emerald-700" /> Cultivator Inventory Control
             </span>
@@ -441,7 +469,7 @@ export default function FarmerProductsPage() {
           <h1 className="text-2xl sm:text-4xl font-black text-stone-900 tracking-tight">
             Active Produce & Harvest Lots
           </h1>
-          <p className="text-stone-500 text-xs sm:text-sm mt-1 max-w-2xl">
+          <p className="text-stone-500 text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed">
             Manage your crop inventory, update wholesale dispatch quantities, and benchmark your direct gate prices against live APMC mandi auction modal rates.
           </p>
         </div>
@@ -449,19 +477,20 @@ export default function FarmerProductsPage() {
         <div className="flex flex-wrap items-center gap-3 shrink-0">
           <button
             onClick={loadProducts}
-            className="p-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-2xl transition-colors"
+            disabled={loading}
+            className="p-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-2xl transition-all active:scale-95 flex items-center justify-center shadow-2xs"
             title="Refresh Inventory"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-700' : ''}`} />
           </button>
 
-          <div className="flex items-center bg-stone-100 p-1 rounded-2xl border border-stone-200">
+          <div className="flex items-center bg-stone-100 p-1 rounded-2xl border border-stone-200 shadow-2xs">
             <button
               type="button"
               onClick={() => setUnitMode('KG')}
               className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
                 unitMode === 'KG'
-                  ? 'bg-emerald-800 text-white shadow-2xs'
+                  ? 'bg-emerald-800 text-white shadow-2xs scale-[1.02]'
                   : 'text-stone-600 hover:text-stone-900'
               }`}
             >
@@ -472,7 +501,7 @@ export default function FarmerProductsPage() {
               onClick={() => setUnitMode('QUINTAL')}
               className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
                 unitMode === 'QUINTAL'
-                  ? 'bg-emerald-800 text-white shadow-2xs'
+                  ? 'bg-emerald-800 text-white shadow-2xs scale-[1.02]'
                   : 'text-stone-600 hover:text-stone-900'
               }`}
             >
@@ -483,7 +512,7 @@ export default function FarmerProductsPage() {
           <button
             type="button"
             onClick={openNewListingModal}
-            className="px-5 py-3 bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center gap-2 shadow-lg shadow-emerald-950/15 transition-all active:scale-95"
+            className="px-5 py-3 bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center gap-2 shadow-lg shadow-emerald-950/15 transition-all duration-200 active:scale-95"
           >
             <Plus className="w-4 h-4 stroke-[3]" /> List New Harvest
           </button>
@@ -492,7 +521,7 @@ export default function FarmerProductsPage() {
 
       {/* 2. Key Metrics Bar */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs">
+        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs transition-transform duration-200 hover:scale-[1.01]">
           <div className="flex items-center justify-between text-stone-400 mb-2">
             <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Live Active Lots</span>
             <Layers className="w-4 h-4 text-emerald-700" />
@@ -503,7 +532,7 @@ export default function FarmerProductsPage() {
           </span>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs">
+        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs transition-transform duration-200 hover:scale-[1.01]">
           <div className="flex items-center justify-between text-stone-400 mb-2">
             <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Harvest Volume</span>
             <Scale className="w-4 h-4 text-emerald-700" />
@@ -514,7 +543,7 @@ export default function FarmerProductsPage() {
           </span>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs">
+        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs transition-transform duration-200 hover:scale-[1.01]">
           <div className="flex items-center justify-between text-stone-400 mb-2">
             <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Inventory Valuation</span>
             <IndianRupee className="w-4 h-4 text-emerald-700" />
@@ -525,7 +554,7 @@ export default function FarmerProductsPage() {
           </span>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs">
+        <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs transition-transform duration-200 hover:scale-[1.01]">
           <div className="flex items-center justify-between text-stone-400 mb-2">
             <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Mandi Benchmark</span>
             <TrendingUp className="w-4 h-4 text-emerald-700" />
@@ -551,7 +580,7 @@ export default function FarmerProductsPage() {
             />
           </div>
 
-          <div className="w-full md:w-52">
+          <div className="w-full md:w-56">
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
@@ -568,16 +597,16 @@ export default function FarmerProductsPage() {
         {/* Category Pills */}
         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-stone-100">
           <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider mr-1">
-            Filter Crop:
+            Filter Commodity:
           </span>
           {['ALL', 'Vegetables', 'Fruits', 'Grains & Millets', 'Spices & Cash Crops', 'Pulses'].map((cat) => (
             <button
               key={cat}
               type="button"
               onClick={() => setSelectedCategory(cat)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 ${
                 selectedCategory === cat
-                  ? 'bg-emerald-800 text-white shadow-xs'
+                  ? 'bg-emerald-800 text-white shadow-xs scale-[1.02]'
                   : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
               }`}
             >
@@ -590,14 +619,14 @@ export default function FarmerProductsPage() {
       {/* 4. Product Cards Grid */}
       {loading ? (
         <div className="min-h-[35vh] flex flex-col items-center justify-center text-emerald-800 gap-3">
-          <Loader2 className="w-8 h-8 animate-spin" />
-          <span className="font-bold tracking-widest text-xs uppercase text-stone-500">
+          <Loader2 className="w-8 h-8 animate-spin text-emerald-700" />
+          <span className="font-bold tracking-widest text-xs uppercase text-stone-400">
             Syncing Crop Inventory...
           </span>
         </div>
       ) : filteredProducts.length === 0 ? (
         <div className="bg-white rounded-3xl border border-stone-200 p-12 text-center max-w-md mx-auto space-y-4">
-          <div className="w-16 h-16 rounded-3xl bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto border border-emerald-100">
+          <div className="w-16 h-16 rounded-3xl bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto border border-emerald-100 shadow-2xs">
             <Package className="w-8 h-8" />
           </div>
           <div className="space-y-1">
@@ -609,7 +638,7 @@ export default function FarmerProductsPage() {
           <button
             type="button"
             onClick={openNewListingModal}
-            className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs"
+            className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs active:scale-95"
           >
             Create First Produce Listing
           </button>
@@ -646,7 +675,7 @@ export default function FarmerProductsPage() {
                   )}
                 </div>
 
-                {/* Card Top */}
+                {/* Card Body */}
                 <div className="p-6 space-y-4">
                   {/* Category & Status */}
                   <div className="flex items-center justify-between gap-2">
@@ -722,7 +751,7 @@ export default function FarmerProductsPage() {
                   <button
                     type="button"
                     onClick={() => toggleStockStatus(product.id)}
-                    className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-colors ${
+                    className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all active:scale-95 ${
                       product.status === 'ACTIVE'
                         ? 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
                         : 'bg-emerald-800 border-emerald-800 text-white hover:bg-emerald-900'
@@ -742,7 +771,7 @@ export default function FarmerProductsPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleDeleteProduct(product.id)}
+                      onClick={() => setDeletingProduct(product)}
                       className="p-2 rounded-xl text-stone-400 hover:text-red-700 hover:bg-red-50 transition-colors"
                       title="Delete Listing"
                     >
@@ -759,7 +788,7 @@ export default function FarmerProductsPage() {
 
       {/* 5. Add / Edit Produce Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-stone-950/75 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-stone-950/75 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-all duration-200 animate-in fade-in">
           <div className="bg-white rounded-3xl max-w-lg w-full border border-stone-200 shadow-2xl p-6 sm:p-8 space-y-6 max-h-[92vh] overflow-y-auto">
             
             <div className="flex items-start justify-between">
@@ -774,7 +803,7 @@ export default function FarmerProductsPage() {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-2 text-stone-400 hover:text-stone-700 rounded-xl hover:bg-stone-100"
+                className="p-2 text-stone-400 hover:text-stone-700 rounded-xl hover:bg-stone-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -933,6 +962,20 @@ export default function FarmerProductsPage() {
                 </div>
               </div>
 
+              {/* Organic Checkbox */}
+              <label className="flex items-center gap-2.5 p-3 bg-emerald-50/60 rounded-xl border border-emerald-200/80 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.isOrganic}
+                  onChange={(e) => setFormData({ ...formData, isOrganic: e.target.checked })}
+                  className="w-4 h-4 rounded text-emerald-700 border-stone-300 focus:ring-emerald-600"
+                />
+                <div>
+                  <span className="text-xs font-bold text-emerald-950 block">Certified Organic Produce</span>
+                  <span className="text-[11px] text-stone-500 block">Cultivated with zero chemical pesticides or artificial fertilizers.</span>
+                </div>
+              </label>
+
               {/* Actions */}
               <div className="flex gap-3 pt-3 border-t border-stone-100">
                 <button
@@ -949,7 +992,7 @@ export default function FarmerProductsPage() {
                   className="flex-1 py-3 bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5"
                 >
                   {isSubmitting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
                   ) : (
                     <>
                       {editingProduct ? 'Save Updates' : 'Publish Produce'}{' '}
@@ -960,6 +1003,36 @@ export default function FarmerProductsPage() {
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Delete Confirmation Modal */}
+      {deletingProduct && (
+        <div className="fixed inset-0 bg-stone-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-all duration-200 animate-in fade-in">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-sm w-full border border-stone-200 shadow-2xl text-center space-y-4">
+            <div>
+              <h3 className="text-base font-black text-stone-900">Remove Harvest Lot?</h3>
+              <p className="text-xs text-stone-500 mt-1 leading-relaxed">
+                Are you sure you want to remove <strong>{deletingProduct.name}</strong>? Buyers will no longer be able to place wholesale orders for this batch.
+              </p>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeletingProduct(null)}
+                className="flex-1 py-2.5 bg-stone-100 text-stone-700 font-bold rounded-xl text-xs hover:bg-stone-200 transition-colors"
+              >
+                Keep Listing
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="flex-1 py-2.5 bg-red-700 hover:bg-red-800 text-white font-black uppercase tracking-wider rounded-xl text-xs shadow-xs transition-all active:scale-95 flex items-center justify-center gap-1"
+              >
+                Yes, Remove
+              </button>
+            </div>
           </div>
         </div>
       )}

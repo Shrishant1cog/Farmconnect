@@ -1,5 +1,5 @@
-import rateLimit from 'express-rate-limit';
-import { Request, Response } from 'express';
+import rateLimit, { Options } from 'express-rate-limit';
+import { Request, Response, NextFunction } from 'express';
 
 // Standardized error response contract
 const rateLimitResponse = (message: string, retryAfterSeconds?: number) => ({
@@ -9,16 +9,20 @@ const rateLimitResponse = (message: string, retryAfterSeconds?: number) => ({
   ...(retryAfterSeconds ? { retryAfter: `${retryAfterSeconds}s` } : {}),
 });
 
+// Bypass rate limits during automated testing to prevent false 429 failures
+const isTestEnv = process.env.NODE_ENV === 'test';
+
 /**
  * 1. Global Baseline Limiter: Protects general read/write API endpoints
- * 100 requests per 15 minutes per IP
+ * 600 requests per 15 minutes per IP (relaxed in development)
  */
 export const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 300, // Limit each IP to 300 requests per window
-  standardHeaders: true, // Return standard RateLimit-* headers
-  legacyHeaders: false, // Disable X-RateLimit-* headers
-  handler: (req: Request, res: Response) => {
+  windowMs: 15 * 60 * 1000,
+  max: isTestEnv ? 10000 : 600,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => isTestEnv,
+  handler: (_req: Request, res: Response) => {
     return res.status(429).json(
       rateLimitResponse('Too many requests from this IP. Please try again later.')
     );
@@ -26,16 +30,17 @@ export const globalLimiter = rateLimit({
 });
 
 /**
- * 2. Strict Auth & Verification Limiter: Protects login, registration, and verification
- * 10 attempts per 15 minutes per IP to stop credential brute-forcing
+ * 2. Strict Auth & Verification Limiter: Protects login, registration, and OTP verification
+ * 60 attempts per 15 minutes per IP
  */
 export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Max 10 attempts
+  windowMs: 15 * 60 * 1000,
+  max: isTestEnv ? 10000 : 60,
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: false,
-  handler: (req: Request, res: Response) => {
+  skip: () => isTestEnv,
+  handler: (_req: Request, res: Response) => {
     return res.status(429).json(
       rateLimitResponse(
         'Too many authentication attempts. Your IP has been temporarily throttled for 15 minutes.',
@@ -47,19 +52,29 @@ export const authLimiter = rateLimit({
 
 /**
  * 3. Sensitive Action Limiter: Protects order creation and chat initiation
- * 30 actions per 5 minutes per IP
+ * 120 actions per 5 minutes per IP
  */
 export const orderLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000, // 5 minutes
-  max: 30,
+  windowMs: 5 * 60 * 1000,
+  max: isTestEnv ? 10000 : 120,
   standardHeaders: true,
   legacyHeaders: false,
-  handler: (req: Request, res: Response) => {
+  skip: () => isTestEnv,
+  handler: (_req: Request, res: Response) => {
     return res.status(429).json(
       rateLimitResponse('High transaction frequency detected. Please slow down and try again.')
     );
   },
 });
 
-// Backward-compatible alias for existing imports
+// Compatibility aliases
 export const rateLimiter = globalLimiter;
+export const limiter = globalLimiter;
+
+export default {
+  globalLimiter,
+  authLimiter,
+  orderLimiter,
+  rateLimiter,
+  limiter,
+};

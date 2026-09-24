@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import Navbar from '../components/ui/Navbar';
 import Providers from '../components/Providers';
 import HarvestBackground from '../components/ui/HarvestBackground';
+import { ModalProvider } from '../context/ModalContext';
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -56,7 +57,7 @@ export default function RootLayout({
           Skip to main harvest content
         </a>
 
-        {/* Global Harvest Visualizer (Hardware-accelerated, non-blocking) */}
+        {/* Global Harvest Visualizer */}
         <div 
           aria-hidden="true" 
           className="fixed inset-0 -z-50 pointer-events-none overflow-hidden select-none transform-gpu will-change-transform"
@@ -65,27 +66,29 @@ export default function RootLayout({
         </div>
 
         <Providers>
-          {/* Global Navigation */}
-          <header className="relative z-30">
-            <Navbar />
-          </header>
+          <ModalProvider>
+            {/* Global Navigation */}
+            <header className="relative z-30">
+              <Navbar />
+            </header>
 
-          {/* Primary Viewport Area */}
-          <main id="main-content" className="flex-1 w-full relative z-10 flex flex-col">
-            {children}
-          </main>
+            {/* Primary Viewport Area */}
+            <main id="main-content" className="flex-1 w-full relative z-10 flex flex-col">
+              {children}
+            </main>
 
-          {/* Platform Footer */}
-          <footer className="bg-stone-950/95 backdrop-blur-md text-stone-400 text-xs py-8 border-t border-stone-800/80 text-center relative z-20 mt-auto">
-            <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <p className="tracking-tight">
-                © 2026 <strong>FarmConnect Karnataka</strong>. Transparent farm-to-door direct marketplace.
-              </p>
-              <p className="text-stone-500 font-medium">
-                Prices listed are direct <strong className="text-emerald-500">Farmer Listed Prices</strong> with zero broker deduction.
-              </p>
-            </div>
-          </footer>
+            {/* Platform Footer */}
+            <footer className="bg-stone-950/95 backdrop-blur-md text-stone-400 text-xs py-8 border-t border-stone-800/80 text-center relative z-20 mt-auto">
+              <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <p className="tracking-tight">
+                  © 2026 <strong>FarmConnect Karnataka</strong>. Transparent farm-to-door direct marketplace.
+                </p>
+                <p className="text-stone-500 font-medium">
+                  Prices listed are direct <strong className="text-emerald-500">Farmer Listed Prices</strong> with zero broker deduction.
+                </p>
+              </div>
+            </footer>
+          </ModalProvider>
         </Providers>
       </body>
     </html>

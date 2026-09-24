@@ -276,15 +276,34 @@ export default function RegisterPage() {
       const user = res?.user || res?.data?.user;
 
       if (token) {
+        // Store both token formats
         localStorage.setItem('farmconnect_token', token);
-        localStorage.setItem('farmconnect_user', JSON.stringify(user));
-      }
+        localStorage.setItem('fc_token', token);
 
-      if (typeof auth?.login === 'function') {
-        try {
-          await auth.login(cleanPhone, password.trim());
-        } catch {
-          // fallback
+        const assignedRole = user?.role || role;
+        localStorage.setItem('farmconnect_role', assignedRole);
+
+        const finalUser = user || {
+          id: '',
+          email: cleanEmail,
+          name: name.trim(),
+          phone: cleanPhone,
+          role: assignedRole,
+        };
+        localStorage.setItem('fc_user', JSON.stringify(finalUser));
+        localStorage.setItem('farmconnect_user', JSON.stringify(finalUser));
+
+        // Set cookies required by Next.js middleware
+        document.cookie = `farmconnect_token=${token}; path=/; max-age=86400; SameSite=Lax`;
+        document.cookie = `farmconnect_role=${assignedRole}; path=/; max-age=86400; SameSite=Lax`;
+
+        // Notify useAuth with token and user object
+        if (typeof auth?.login === 'function') {
+          try {
+            auth.login(token, finalUser);
+          } catch {
+            // fallback
+          }
         }
       }
 

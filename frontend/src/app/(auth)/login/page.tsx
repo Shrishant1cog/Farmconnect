@@ -84,15 +84,40 @@ export default function LoginPage() {
   };
 
   const persistSession = (token: string, user: any) => {
+    const userRole = user.role || 'CONSUMER';
+
+    // 1. Store keys used by middleware and page routing
     localStorage.setItem('farmconnect_token', token);
+    localStorage.setItem('farmconnect_role', userRole);
     localStorage.setItem('farmconnect_user', JSON.stringify(user));
+
+    // 2. Store keys used by socket, modals, and internal hooks
+    localStorage.setItem('fc_token', token);
+    localStorage.setItem('fc_user', JSON.stringify(user));
+
+    // 3. Set persistent cookies for Next.js middleware
     document.cookie = `farmconnect_token=${token}; path=/; max-age=604800; SameSite=Lax`;
-    document.cookie = `farmconnect_role=${user.role}; path=/; max-age=604800; SameSite=Lax`;
+    document.cookie = `farmconnect_role=${userRole}; path=/; max-age=604800; SameSite=Lax`;
+
+    // 4. Update the global auth state
+    if (typeof auth?.login === 'function') {
+      try {
+        auth.login(token, user);
+      } catch {
+        // fallback
+      }
+    }
   };
 
   // Determine correct destination based on role and sanity check redirectPath
   const resolveTargetDestination = (resolvedRole: string): string => {
-    const isFarmer = resolvedRole.toUpperCase() === 'FARMER';
+    const roleUpper = resolvedRole.toUpperCase();
+
+    if (roleUpper === 'ADMIN') {
+      return redirectPath && redirectPath.startsWith('/admin') ? redirectPath : '/admin/dashboard';
+    }
+
+    const isFarmer = roleUpper === 'FARMER';
     const defaultDestination = isFarmer ? '/farmer/dashboard' : '/consumer/explore';
 
     if (redirectPath) {

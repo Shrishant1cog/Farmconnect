@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: farmconnect-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: farmconnect
+      POSTGRES_PASSWORD: farmconnect
+      POSTGRES_DB: farmconnect
+    ports:
+      - "5432:5432"
+    volumes:
+      - farmconnect-postgres:/var/lib/postgresql/data
+
+volumes:
+  farmconnect-postgres:

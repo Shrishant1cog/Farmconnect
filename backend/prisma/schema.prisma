@@ -1,0 +1,357 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum Role {
+  FARMER
+  CONSUMER
+  ADMIN
+}
+
+enum ContainerType {
+  STANDARD_CRATE
+  COLD_CHAIN_REFRIGERATED
+  MOISTURE_CONTROLLED
+  VENTILATED_JUTE
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  DISPATCHED
+  DELIVERED
+  CANCELLED
+}
+
+enum EnquiryStatus {
+  OPEN
+  NEGOTIATING
+  ACCEPTED
+  CLOSED
+}
+
+enum ComplaintStatus {
+  PENDING
+  INVESTIGATING
+  RESOLVED
+  DISMISSED
+}
+
+// ============================================================================
+// AUTHENTICATION & USER PROFILES
+// ============================================================================
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  phone        String
+  role         Role     @default(CONSUMER)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  farmerProfile   FarmerProfile?
+  consumerProfile ConsumerProfile?
+
+  // Order Relations
+// ✔️ Correct
+orders Order[] @relation("ConsumerOrders")
+
+  // Chat & Negotiation Relations
+  sentEnquiries   Enquiry[]     @relation("ConsumerEnquiries")
+  enquiryMessages Message[]     @relation("UserEnquiryMessages")
+  sentMessages    ChatMessage[] @relation("SentMessages")
+  receivedMessages ChatMessage[] @relation("ReceivedMessages")
+
+  // Support & System Relations
+  notifications   Notification[]
+  complaintsMade  Complaint[]   @relation("UserComplaints")
+
+  @@index([email])
+  @@index([role])
+  @@index([phone])
+}
+
+model FarmerProfile {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farmName          String
+  bio               String?
+  district          String
+  state             String   @default("Karnataka")
+  addressLine       String?
+  latitude          Float
+  longitude         Float
+  isAadhaarVerified Boolean  @default(false)
+  aadhaarMasked     String?
+  isVerified        Boolean  @default(false)
+  profileViews      Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  products     Product[]
+  orders       Order[]           @relation("FarmerOrders")
+  enquiries    Enquiry[]         @relation("FarmerEnquiries")
+  favouritedBy FavouriteFarmer[]
+
+  @@index([district])
+  @@index([latitude, longitude])
+  @@index([isVerified])
+}
+
+model ConsumerProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveryAddress String?
+  district        String?
+  latitude        Float?
+  longitude       Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  favouriteProducts FavouriteProduct[]
+  favouriteFarmers  FavouriteFarmer[]
+
+  @@index([district])
+}
+
+// ============================================================================
+// PRODUCT CATALOG & CATEGORIES
+// ============================================================================
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  products    Product[]
+
+  @@index([slug])
+}
+
+model Product {
+  id          String        @id @default(uuid())
+  farmerId    String
+  farmer      FarmerProfile @relation(fields: [farmerId], references: [id], onDelete: Cascade)
+  categoryId  String
+  category    Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  title              String
+  description        String
+  farmerPrice        Float
+  priceUnit          String        @default("PER_KG")
+  quantityAvailable  Float
+  quantityUnit       String        @default("KG")
+  isAvailable        Boolean       @default(true)
+  isOrganic          Boolean       @default(false)
+  harvestDate        DateTime?
+  containerType      ContainerType @default(STANDARD_CRATE)
+  containerCostPerKg Float         @default(0.0)
+  imageUrl           String?
+  viewCount          Int           @default(0)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  orderItems      OrderItem[]
+  enquiries       Enquiry[]
+  favouritedBy    FavouriteProduct[]
+  priceHistories  PriceHistory[]
+  cropChatTags    ChatMessage[]      @relation("CropChatTag")
+
+  @@index([farmerId, isAvailable])
+  @@index([categoryId])
+  @@index([farmerPrice])
+  @@index([isAvailable])
+  @@index([createdAt])
+}
+
+model PriceHistory {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  oldPrice  Float
+  newPrice  Float
+  changedAt DateTime @default(now())
+
+  @@index([productId, changedAt])
+}
+
+// ============================================================================
+// WHATSAPP-STYLE DIRECT ENQUIRY & MESSAGING
+// ============================================================================
+
+model Enquiry {
+  id         String        @id @default(uuid())
+  productId  String
+  product    Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  consumerId String
+  consumer   User          @relation("ConsumerEnquiries", fields: [consumerId], references: [id], onDelete: Cascade)
+  farmerId   String
+  farmer     FarmerProfile @relation("FarmerEnquiries", fields: [farmerId], references: [id], onDelete: Cascade)
+  subject    String
+  status     EnquiryStatus @default(OPEN)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  messages Message[]
+
+  @@index([farmerId, updatedAt])
+  @@index([consumerId, updatedAt])
+  @@index([productId])
+  @@index([status])
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  enquiryId String
+  enquiry   Enquiry  @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User     @relation("UserEnquiryMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  content   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([enquiryId, createdAt])
+  @@index([senderId])
+}
+
+model ChatMessage {
+  id         String   @id @default(uuid())
+  senderId   String
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId String
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  cropId     String?
+  crop       Product? @relation("CropChatTag", fields: [cropId], references: [id], onDelete: SetNull)
+  message    String
+  createdAt  DateTime @default(now())
+
+  @@index([senderId, receiverId, createdAt])
+  @@index([receiverId])
+  @@index([cropId])
+}
+
+// ============================================================================
+// ORDERS, LOGISTICS & DISPATCH TRACKING
+// ============================================================================
+
+model Order {
+  id              String        @id @default(uuid())
+  consumerId      String
+  consumer        User          @relation("ConsumerOrders", fields: [consumerId], references: [id], onDelete: Restrict)
+  farmerId        String
+  farmer          FarmerProfile @relation("FarmerOrders", fields: [farmerId], references: [id], onDelete: Restrict)
+  status          OrderStatus   @default(PENDING)
+  totalItemsCost  Float
+  transportCost   Float
+  containerCost   Float
+  grandTotal      Float
+  deliveryAddress String
+  items           OrderItem[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([consumerId, createdAt])
+  @@index([farmerId, status, createdAt])
+  @@index([status])
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity  Float
+  unitPrice Float
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+// ============================================================================
+// APMC MANDI MARKET RATES, FAVORITES & COMPLAINTS
+// ============================================================================
+
+model ApmcMarketRate {
+  id           String   @id @default(uuid())
+  state        String
+  district     String
+  marketCenter String
+  commodity    String
+  modalPrice   Float
+  minPrice     Float
+  maxPrice     Float
+  updatedAt    DateTime @default(now())
+
+  @@index([district, commodity])
+  @@index([commodity])
+}
+
+model FavouriteProduct {
+  id         String          @id @default(uuid())
+  consumerId String
+  consumer   ConsumerProfile @relation(fields: [consumerId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt  DateTime        @default(now())
+
+  @@unique([consumerId, productId])
+  @@index([consumerId])
+}
+
+model FavouriteFarmer {
+  id         String          @id @default(uuid())
+  consumerId String
+  consumer   ConsumerProfile @relation(fields: [consumerId], references: [id], onDelete: Cascade)
+  farmerId   String
+  farmer     FarmerProfile   @relation(fields: [farmerId], references: [id], onDelete: Cascade)
+  createdAt  DateTime        @default(now())
+
+  @@unique([consumerId, farmerId])
+  @@index([consumerId])
+}
+
+model Complaint {
+  id          String          @id @default(uuid())
+  reporterId  String
+  reporter    User            @relation("UserComplaints", fields: [reporterId], references: [id], onDelete: Cascade)
+  entityType  String
+  entityId    String
+  reason      String
+  details     String
+  status      ComplaintStatus @default(PENDING)
+  adminNotes  String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([status])
+  @@index([reporterId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead, createdAt])
+}

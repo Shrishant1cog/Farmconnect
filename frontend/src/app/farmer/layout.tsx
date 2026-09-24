@@ -1,82 +1,76 @@
 'use client';
 
-import React, { Suspense, useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { ShieldAlert, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import { Sprout, ShieldAlert, ArrowRight, Loader2 } from 'lucide-react';
 
-export default function FarmerLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const { user, isAuthenticated } = useAuth();
-  const router = useRouter();
+export default function FarmerLayout({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    if (mounted) {
-      if (!isAuthenticated) {
-        router.replace('/login?redirect=/farmer/dashboard');
-      } else if (user?.role !== 'FARMER' && user?.role !== 'ADMIN') {
-        router.replace('/consumer/explore');
-      }
-    }
-  }, [mounted, isAuthenticated, user, router]);
-
-  // Client hydration check
-  if (!mounted) {
+  // 1. Show clean loader while the browser retrieves stored auth state
+  if (!mounted || isLoading) {
     return (
-      <div className="flex-1 w-full min-h-[65vh] flex flex-col items-center justify-center text-emerald-700 gap-4">
-        <div className="relative flex items-center justify-center">
-          <div className="w-16 h-16 rounded-3xl bg-emerald-950/10 border border-emerald-800/20 animate-ping absolute" />
-          <div className="w-14 h-14 rounded-2xl bg-white shadow-xl border border-stone-200 flex items-center justify-center relative z-10">
-            <Sprout className="w-7 h-7 text-emerald-800 animate-bounce" />
-          </div>
-        </div>
-        <div className="text-center space-y-1">
-          <p className="text-xs font-black tracking-widest uppercase text-stone-700">
-            Authenticating Cultivator Session
-          </p>
-          <p className="text-[11px] text-stone-400 font-medium">
-            Verifying agricultural node credentials...
-          </p>
-        </div>
+      <div className="min-h-[75vh] flex flex-col items-center justify-center gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-800" />
+        <p className="text-xs font-bold text-stone-500 uppercase tracking-wider">
+          Verifying Cultivator Credentials...
+        </p>
       </div>
     );
   }
 
-  // Access denied guard for non-farmer accounts
-  if (!isAuthenticated || (user?.role !== 'FARMER' && user?.role !== 'ADMIN')) {
+  // 2. Comprehensive role resolution across all storage schemes
+  const roleFromUser = (user?.role || '').toUpperCase();
+  
+  let roleFromStorage = '';
+  let roleFromFcUser = '';
+  if (typeof window !== 'undefined') {
+    roleFromStorage = (localStorage.getItem('farmconnect_role') || '').toUpperCase();
+    try {
+      const parsedFc = JSON.parse(localStorage.getItem('fc_user') || '{}');
+      roleFromFcUser = (parsedFc?.role || '').toUpperCase();
+    } catch {
+      // Ignore JSON parse errors
+    }
+  }
+
+  const isFarmer = 
+    roleFromUser === 'FARMER' || 
+    roleFromStorage === 'FARMER' || 
+    roleFromFcUser === 'FARMER';
+
+  // 3. Render restricted screen only if definitely confirmed NOT a farmer
+  if (!isFarmer) {
     return (
-      <div className="flex-1 w-full min-h-[60vh] flex items-center justify-center p-4">
-        <div className="bg-white/90 backdrop-blur-md rounded-3xl border border-stone-200/90 p-8 sm:p-10 max-w-md w-full text-center shadow-xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
-          <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center mx-auto shadow-inner">
+      <div className="min-h-[80vh] flex items-center justify-center p-4">
+        <div className="bg-white rounded-3xl border border-stone-200 p-8 max-w-md w-full text-center space-y-5 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto">
             <ShieldAlert className="w-7 h-7" />
           </div>
           <div className="space-y-1.5">
-            <h2 className="text-xl font-black text-stone-900 tracking-tight">
+            <h2 className="text-2xl font-black text-stone-900 tracking-tight">
               Producer Workspace Restricted
             </h2>
             <p className="text-xs text-stone-500 leading-relaxed">
               This module is reserved for registered cultivators. Please sign in with your farmer account to manage crop inventory, customer orders, and wholesale negotiations.
             </p>
           </div>
-          <div className="flex flex-col gap-2.5 pt-2">
+          <div className="space-y-2 pt-2">
             <Link
               href="/login?redirect=/farmer/dashboard"
-              className="w-full py-3 bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-black uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
             >
-              Sign In as Cultivator <ArrowRight className="w-4 h-4" />
+              Sign in as Cultivator <ArrowRight className="w-4 h-4" />
             </Link>
             <Link
               href="/consumer/explore"
-              className="w-full py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs rounded-xl transition-colors"
+              className="w-full py-2.5 text-xs font-bold text-stone-600 hover:text-stone-900 block transition-colors"
             >
               Return to Marketplace
             </Link>
@@ -86,20 +80,5 @@ export default function FarmerLayout({
     );
   }
 
-  return (
-    <div className="w-full flex-1 flex flex-col relative animate-in fade-in duration-300">
-      <Suspense
-        fallback={
-          <div className="flex-1 min-h-[55vh] flex flex-col items-center justify-center text-emerald-800 gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-emerald-700" />
-            <span className="text-[11px] font-black uppercase tracking-widest text-stone-400">
-              Loading Harvest Records...
-            </span>
-          </div>
-        }
-      >
-        <div className="w-full flex-1 flex flex-col">{children}</div>
-      </Suspense>
-    </div>
-  );
+  return <>{children}</>;
 }

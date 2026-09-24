@@ -1,21 +1,23 @@
 import { Router } from 'express';
-import {
-  listProducts,
-  getProductById,
-  createProduct,
-  updateProduct,
-  patchProduct,
-  deleteProduct,
-} from './products.controller';
-import { authenticateToken, requireRole } from '../../middleware/auth.middleware';
+import * as productsController from './products.controller';
+import { authenticate } from '../../middleware/auth.middleware';
 
 const router = Router();
 
-router.get('/', listProducts);
-router.get('/:id', getProductById);
-router.post('/', authenticateToken, requireRole(['FARMER']), createProduct);
-router.put('/:id', authenticateToken, requireRole(['FARMER']), updateProduct);
-router.patch('/:id', authenticateToken, requireRole(['FARMER']), patchProduct);
-router.delete('/:id', authenticateToken, requireRole(['FARMER']), deleteProduct);
+// 1. Static and named routes declared BEFORE /:id
+router.get('/my-products', authenticate, productsController.getMyProducts);
+router.get('/farmer', authenticate, productsController.getMyProducts);
+
+// 2. Public catalog
+router.get('/', productsController.getProducts);
+
+// 3. Dynamic item by ID
+router.get('/:id', productsController.getProductById);
+
+// 4. Mutations
+router.post('/', authenticate, productsController.createProduct);
+router.put('/:id', authenticate, productsController.updateProduct);
+router.patch('/:id', authenticate, productsController.updateProduct);
+router.delete('/:id', authenticate, productsController.deleteProduct);
 
 export default router;

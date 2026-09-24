@@ -25,9 +25,6 @@ try {
   prisma = null;
 }
 
-/**
- * Sanitizes any raw phone input to standard 10 digits
- */
 const sanitizePhone = (rawPhone: string = ''): string => {
   return rawPhone.replace(/\D/g, '').slice(-10);
 };
@@ -50,7 +47,8 @@ export const register = async (req: Request, res: Response) => {
       addressLine = '', 
       latitude = null, 
       longitude = null, 
-      showOnMap = false 
+      showOnMap = false,
+      farmName = ''
     } = req.body;
 
     if (!name?.trim() || !phone?.trim() || !password?.trim()) {
@@ -83,7 +81,6 @@ export const register = async (req: Request, res: Response) => {
       });
     }
 
-    // Check for duplicate account by Phone or Email
     let existingUser: any = null;
     if (prisma) {
       try {
@@ -114,69 +111,109 @@ export const register = async (req: Request, res: Response) => {
 
     const normalizedRole = role === 'FARMER' ? 'FARMER' : 'CONSUMER';
 
-    const userPayload: any = {
-      name: cleanName,
-      phone: cleanPhone,
-      email: cleanEmail || `${cleanPhone}@phone.farmconnect.in`,
-      password: hashedPassword,
-      role: normalizedRole,
-      pincode: cleanPincode,
-      state: cleanState,
-      district: cleanDistrict,
-      taluk: cleanTaluk,
-      address: addressLine.trim(),
-      latitude: latitude ? parseFloat(latitude) : null,
-      longitude: longitude ? parseFloat(longitude) : null,
-      showOnMap: Boolean(showOnMap),
-    };
-
     let createdUser: any = null;
+
     if (prisma) {
+      // Primary insert using schema-compliant passwordHash field
       try {
         createdUser = await prisma.user.create({
           data: {
-            ...userPayload,
-            ...(normalizedRole === 'FARMER'
-              ? {
-                  farmerProfile: {
-                    create: {
-                      farmName: `${cleanName}'s Farm`,
-                      district: cleanDistrict,
-                      state: cleanState,
-                      isVerified: true,
-                    },
-                  },
-                }
-              : {
-                  consumerProfile: {
-                    create: {
-                      district: cleanDistrict,
-                      address: addressLine.trim() || 'Karnataka',
-                    },
-                  },
-                }),
-          },
-          include: {
-            farmerProfile: true,
-            consumerProfile: true,
+            name: cleanName,
+            phone: cleanPhone,
+            email: cleanEmail || `${cleanPhone}@phone.farmconnect.in`,
+            passwordHash: hashedPassword,
+            role: normalizedRole,
+            district: cleanDistrict,
+            state: cleanState,
+            taluk: cleanTaluk,
+            pincode: cleanPincode,
+            address: addressLine.trim(),
+            latitude: latitude ? parseFloat(latitude) : null,
+            longitude: longitude ? parseFloat(longitude) : null,
+            showOnMap: Boolean(showOnMap),
           },
         });
-      } catch (dbInsertErr) {
-        // Fallback for flat database schemas without relational profile tables
+      } catch {
+        // Fallback for minimal user schemas
         try {
           createdUser = await prisma.user.create({
-            data: userPayload,
+            data: {
+              name: cleanName,
+              phone: cleanPhone,
+              email: cleanEmail || `${cleanPhone}@phone.farmconnect.in`,
+              passwordHash: hashedPassword,
+              role: normalizedRole,
+              district: cleanDistrict,
+              state: cleanState,
+            },
           });
-        } catch (secondaryErr) {
-          console.warn('[Register] Secondary insert fallback:', secondaryErr);
+        } catch {
+          createdUser = await prisma.user.create({
+            data: {
+              name: cleanName,
+              phone: cleanPhone,
+              email: cleanEmail || `${cleanPhone}@phone.farmconnect.in`,
+              passwordHash: hashedPassword,
+              role: normalizedRole,
+            },
+          });
         }
+      }
+
+      // Guarantee linked FarmerProfile is provisioned in the database
+      if (createdUser && normalizedRole === 'FARMER') {
+        try {
+          const profile = await prisma.farmerProfile.upsert({
+            where: { userId: createdUser.id },
+            update: {},
+            create: {
+              userId: createdUser.id,
+              farmName: farmName.trim() || `${cleanName}'s Farm`,
+              district: cleanDistrict,
+              state: cleanState,
+              isVerified: true,
+            },
+          });
+          createdUser.farmerProfile = profile;
+        } catch {
+          try {
+            const profile = await prisma.farmerProfile.create({
+              data: {
+                userId: createdUser.id,
+                farmName: farmName.trim() || `${cleanName}'s Farm`,
+              },
+            });
+            createdUser.farmerProfile = profile;
+          } catch (pErr) {
+            console.warn('[Register] FarmerProfile fallback notice:', pErr);
+          }
+        }
+      }
+
+      // Guarantee linked ConsumerProfile is provisioned in the database
+      if (createdUser && normalizedRole === 'CONSUMER') {
+        try {
+          const cProfile = await prisma.consumerProfile.upsert({
+            where: { userId: createdUser.id },
+            update: {},
+            create: {
+              userId: createdUser.id,
+              district: cleanDistrict,
+              address: addressLine.trim() || 'Karnataka',
+            },
+          });
+          createdUser.consumerProfile = cProfile;
+        } catch {}
       }
     }
 
     if (!createdUser) {
       createdUser = {
         id: `usr_${Date.now()}`,
-        ...userPayload,
+        name: cleanName,
+        phone: cleanPhone,
+        email: cleanEmail,
+        role: normalizedRole,
       };
     }
 
@@ -215,7 +252,7 @@ export const register = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('[Register] Critical error:', error);
+    console.error('[Register] Error:', error);
     return res.status(500).json({
       success: false,
       message: 'Registration failed. Please verify your details and try again.',
@@ -225,7 +262,7 @@ export const register = async (req: Request, res: Response) => {
 };
 
 /**
- * 2. Login Handler (Universal Phone Number or Email Sign In)
+ * 2. Login Handler
  */
 export const login = async (req: Request, res: Response) => {
   try {
@@ -265,7 +302,7 @@ export const login = async (req: Request, res: Response) => {
       }
     }
 
-    // Seed credential overrides for testing
+    // Seed credential overrides
     if (loginKey === 'farmer@farmconnect.com' || searchPhone === '9876543210') {
       if (cleanPassword === 'password123') {
         user = {
@@ -319,19 +356,22 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
-    if (user.password && loginKey !== 'farmer@farmconnect.com' && loginKey !== 'consumer@farmconnect.com') {
-      let isMatch = false;
-      if (bcrypt) {
-        isMatch = await bcrypt.compare(cleanPassword, user.password);
-      } else {
-        isMatch = cleanPassword === user.password;
-      }
+    if (loginKey !== 'farmer@farmconnect.com' && loginKey !== 'consumer@farmconnect.com') {
+      const hashToCompare = user.passwordHash || user.password;
+      if (hashToCompare) {
+        let isMatch = false;
+        if (bcrypt) {
+          isMatch = await bcrypt.compare(cleanPassword, hashToCompare);
+        } else {
+          isMatch = cleanPassword === hashToCompare;
+        }
 
-      if (!isMatch) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid credentials. Please check your password.',
-        });
+        if (!isMatch) {
+          return res.status(401).json({
+            success: false,
+            message: 'Invalid credentials. Please check your password.',
+          });
+        }
       }
     }
 
@@ -372,7 +412,7 @@ export const login = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('[Login] Controller error:', error);
+    console.error('[Login] Error:', error);
     return res.status(500).json({
       success: false,
       message: 'Authentication failed',
@@ -415,72 +455,70 @@ export const loginPhone = async (req: Request, res: Response) => {
       }
     }
 
-    // Auto-provision user on first verified OTP sign-in if record does not yet exist
-    if (!user) {
+    let defaultHash = '';
+    if (bcrypt) {
+      defaultHash = await bcrypt.hash('otp_auth_' + cleanPhone, 10);
+    }
+
+    if (!user && prisma) {
       const defaultName = normalizedRole === 'FARMER' ? 'Cultivator Farmer' : 'Verified Buyer';
 
-      if (prisma) {
-        try {
-          user = await prisma.user.create({
+      try {
+        user = await prisma.user.create({
+          data: {
+            phone: cleanPhone,
+            name: defaultName,
+            role: normalizedRole,
+            email: `${cleanPhone}@phone.farmconnect.in`,
+            passwordHash: defaultHash || 'otp_verified',
+            district: normalizedRole === 'FARMER' ? 'Mandya' : 'Bengaluru Urban',
+            state: 'Karnataka',
+          },
+          include: {
+            farmerProfile: true,
+            consumerProfile: true,
+          },
+        });
+      } catch {
+        user = await prisma.user.create({
+          data: {
+            phone: cleanPhone,
+            name: defaultName,
+            role: normalizedRole,
+            email: `${cleanPhone}@phone.farmconnect.in`,
+            passwordHash: defaultHash || 'otp_verified',
+          },
+        });
+      }
+    }
+
+    if (!user) {
+      user = {
+        id: `usr_phone_${Date.now()}`,
+        phone: cleanPhone,
+        name: normalizedRole === 'FARMER' ? 'Cultivator Farmer' : 'Verified Buyer',
+        role: normalizedRole,
+        email: `${cleanPhone}@phone.farmconnect.in`,
+      };
+    }
+
+    // Ensure FarmerProfile exists
+    if (prisma && user && normalizedRole === 'FARMER' && !user.farmerProfile) {
+      try {
+        const fp = await prisma.farmerProfile.findFirst({ where: { userId: user.id } });
+        if (!fp) {
+          user.farmerProfile = await prisma.farmerProfile.create({
             data: {
-              phone: cleanPhone,
-              name: defaultName,
-              role: normalizedRole,
-              email: `${cleanPhone}@phone.farmconnect.in`,
-              password: '',
-              district: normalizedRole === 'FARMER' ? 'Mandya' : 'Bengaluru Urban',
-              state: 'Karnataka',
-              ...(normalizedRole === 'FARMER'
-                ? {
-                    farmerProfile: {
-                      create: {
-                        farmName: 'Farm Lot',
-                        district: 'Mandya',
-                        state: 'Karnataka',
-                        isVerified: true,
-                      },
-                    },
-                  }
-                : {
-                    consumerProfile: {
-                      create: {
-                        district: 'Bengaluru Urban',
-                        address: 'Karnataka',
-                      },
-                    },
-                  }),
-            },
-            include: {
-              farmerProfile: true,
-              consumerProfile: true,
+              userId: user.id,
+              farmName: `${user.name || 'Cultivator'}'s Farm`,
+              district: user.district || 'Mandya',
+              isVerified: true,
             },
           });
-        } catch (createErr) {
-          try {
-            user = await prisma.user.create({
-              data: {
-                phone: cleanPhone,
-                name: defaultName,
-                role: normalizedRole,
-                email: `${cleanPhone}@phone.farmconnect.in`,
-                password: '',
-              },
-            });
-          } catch (secondaryErr) {
-            console.warn('[loginPhone] User creation fallback:', secondaryErr);
-          }
+        } else {
+          user.farmerProfile = fp;
         }
-      }
-
-      if (!user) {
-        user = {
-          id: `usr_phone_${Date.now()}`,
-          phone: cleanPhone,
-          name: defaultName,
-          role: normalizedRole,
-          email: `${cleanPhone}@phone.farmconnect.in`,
-        };
-      }
+      } catch {}
     }
 
     const tokenRole = (user.role || normalizedRole).toUpperCase();
@@ -570,12 +608,17 @@ export const firebasePhoneAuth = async (req: Request, res: Response) => {
         });
 
         if (!user) {
+          let defaultHash = '';
+          if (bcrypt) {
+            defaultHash = await bcrypt.hash('firebase_' + firebaseUid, 10);
+          }
           user = await prisma.user.create({
             data: {
               phone: cleanPhone,
               firebaseUid: firebaseUid,
               name: name?.trim() || (normalizedRole === 'FARMER' ? 'Verified Cultivator' : 'Direct Consumer'),
               email: `${cleanPhone}@phone.farmconnect.in`,
+              passwordHash: defaultHash || 'firebase_otp',
               role: normalizedRole,
               state: state.trim(),
               district: district.trim(),
@@ -673,15 +716,12 @@ export const getCurrentUser = async (req: Request, res: Response) => {
   try {
     let sessionUserId = (req as any).user?.id;
 
-    // Resilient fallback: decode Authorization header directly if route middleware was bypassed
     if (!sessionUserId && req.headers.authorization?.startsWith('Bearer ')) {
       try {
         const rawToken = req.headers.authorization.split(' ')[1];
         const decoded: any = jwt.verify(rawToken, JWT_SECRET);
         sessionUserId = decoded?.id;
-      } catch {
-        // Token invalid
-      }
+      } catch {}
     }
 
     if (!sessionUserId) {

@@ -70,12 +70,26 @@ const DEST_STORAGE_KEY = 'fc_cart_dest_v2';
 const BASE_FREIGHT_FLAT = 150;
 const FREIGHT_PER_KM_PER_QUINTAL = 1.85;
 
+// SSR-Safe Native Dialog Helpers
+const safeConfirm = (message: string): boolean => {
+  if (typeof window === 'undefined') return true;
+  const confirmFn = window['confirm'];
+  return typeof confirmFn === 'function' ? confirmFn(message) : true;
+};
+
+const safeAlert = (message: string): void => {
+  if (typeof window === 'undefined') return;
+  const alertFn = window['alert'];
+  if (typeof alertFn === 'function') alertFn(message);
+};
+
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>([]);
   const [destination, setDestination] = useState<DestinationCoords | null>(null);
+  const [serverTransportCost, setServerTransportCost] = useState<number | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
 
-  // Hydrate cart and destination from localStorage on initial client mount
+  // 1. Hydrate cart and destination from localStorage on client mount
   useEffect(() => {
     try {
       if (typeof window !== 'undefined') {
@@ -89,17 +103,24 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
         if (savedDest) {
-          setDestination(JSON.parse(savedDest));
+          const parsedDest = JSON.parse(savedDest);
+          if (parsedDest && typeof parsedDest === 'object') {
+            setDestination({
+              latitude: Number(parsedDest.latitude) || 12.9716,
+              longitude: Number(parsedDest.longitude) || 77.5946,
+              address: String(parsedDest.address || 'Bengaluru, Karnataka'),
+            });
+          }
         }
       }
     } catch (err) {
-      console.warn('Could not hydrate shopping cart from browser storage:', err);
+      console.warn('[CartContext] Browser storage hydration notice:', err);
     } finally {
       setIsHydrated(true);
     }
   }, []);
 
-  // Sync state changes back to localStorage
+  // 2. Sync state changes to browser storage
   useEffect(() => {
     if (!isHydrated || typeof window === 'undefined') return;
 
@@ -111,7 +132,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem(DEST_STORAGE_KEY);
       }
     } catch (err) {
-      console.warn('Failed to save cart state to browser storage:', err);
+      console.warn('[CartContext] Storage sync notice:', err);
     }
   }, [items, destination, isHydrated]);
 
@@ -119,17 +140,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const activeFarmName = items[0]?.farmName || null;
 
   const addToCart = useCallback((product: AddToCartItem, quantity = 1): boolean => {
-    const resolvedProductId = product.productId || product.id || '';
+    const resolvedProductId = String(product.productId || product.id || '').trim();
     if (!resolvedProductId) {
-      console.error('Product must provide either an id or productId.');
+      console.error('[CartContext] Product must provide a valid productId or id.');
       return false;
     }
 
     const resolvedAvailableStock = Math.max(0, Number(product.availableStock ?? 9999));
     if (resolvedAvailableStock <= 0) {
-      if (typeof window !== 'undefined') {
-        alert('This crop listing is currently out of stock.');
-      }
+      safeAlert('This crop lot is currently out of stock.');
       return false;
     }
 
@@ -139,7 +158,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const resolvedQuantity = Math.min(requestedQty, resolvedAvailableStock);
 
     const safeFarmerPrice = Math.max(0, Number(product.farmerPrice) || 0);
-    const safeContainerCost = Number(product.containerCostPerKg) || 0.45;
+    const safeContainerCost = product.containerCostPerKg !== undefined 
+      ? Number(product.containerCostPerKg) 
+      : 0.45;
 
     const normalizedItem: CartItem = {
       ...product,
@@ -151,21 +172,22 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       unit: product.unit || resolvedPriceUnit,
       availableStock: resolvedAvailableStock,
       containerType: product.containerType || 'STANDARD_CRATE',
-      containerCostPerKg: safeContainerCost,
+      containerCostPerKg: isNaN(safeContainerCost) ? 0.45 : safeContainerCost,
       quantity: resolvedQuantity,
+      farmerLat: product.farmerLat !== undefined ? Number(product.farmerLat) : 12.5218,
+      farmerLon: product.farmerLon !== undefined ? Number(product.farmerLon) : 76.8951,
     };
 
-    // Single-farmer validation performed outside setState to prevent double-prompts
-    if (items.length > 0 && items[0].farmerId !== normalizedItem.farmerId) {
-      if (typeof window !== 'undefined') {
-        const confirmSwitch = window.confirm(
-          `Your cart already contains harvest from ${items[0].farmName || 'another farmer'}. Clear your cart to order from ${normalizedItem.farmName || 'this farmer'} instead?`
-        );
-        if (!confirmSwitch) {
-          return false;
-        }
+    // Single-farmer validation: Prompts cleanly if switching source farms
+    if (items.length > 0 && items[0].farmerId && normalizedItem.farmerId && items[0].farmerId !== normalizedItem.farmerId) {
+      const confirmSwitch = safeConfirm(
+        `Your cart contains produce from ${items[0].farmName || 'another farmer'}. Replace your cart items to order directly from ${normalizedItem.farmName || 'this cultivator'}?`
+      );
+      if (!confirmSwitch) {
+        return false;
       }
       setItems([{ ...normalizedItem, quantity: resolvedQuantity }]);
+      setServerTransportCost(null);
       return true;
     }
 
@@ -187,6 +209,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return [...prev, normalizedItem];
     });
 
+    setServerTransportCost(null);
     return true;
   }, [items]);
 
@@ -194,6 +217,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const numericQty = Number(quantity);
     if (isNaN(numericQty) || numericQty <= 0) {
       setItems((prev) => prev.filter((i) => (i.productId || i.id) !== productId));
+      setServerTransportCost(null);
       return;
     }
 
@@ -206,18 +230,30 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return item;
       })
     );
+    setServerTransportCost(null);
   }, []);
 
   const removeFromCart = useCallback((productId: string) => {
     setItems((prev) => prev.filter((i) => (i.productId || i.id) !== productId));
+    setServerTransportCost(null);
   }, []);
 
   const clearCart = useCallback(() => {
     setItems([]);
+    setServerTransportCost(null);
   }, []);
 
   const setDeliveryDestination = useCallback((dest: DestinationCoords | null) => {
-    setDestination(dest);
+    if (dest) {
+      setDestination({
+        latitude: Number(dest.latitude) || 12.9716,
+        longitude: Number(dest.longitude) || 77.5946,
+        address: String(dest.address || 'Karnataka, India'),
+      });
+    } else {
+      setDestination(null);
+    }
+    setServerTransportCost(null);
   }, []);
 
   const totalWeightKg = useMemo(() => {
@@ -246,26 +282,32 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let itemWeight = qty;
       if (unit.includes('QUINTAL')) itemWeight = qty * 100;
       if (unit.includes('TON')) itemWeight = qty * 1000;
-      const ratePerKg = Number(item.containerCostPerKg) || 0.45;
+      const ratePerKg = Number(item.containerCostPerKg ?? 0.45);
       return acc + itemWeight * ratePerKg;
     }, 0);
   }, [items]);
 
   const distanceKm = useMemo(() => {
     if (!destination || items.length === 0) return 0;
-    const originLat = typeof items[0].farmerLat === 'number' ? items[0].farmerLat : 12.5218;
-    const originLon = typeof items[0].farmerLon === 'number' ? items[0].farmerLon : 76.8951;
-    return Math.round(
-      calculateDistanceKm(originLat, originLon, destination.latitude, destination.longitude)
-    );
+    const originLat = Number(items[0].farmerLat) || 12.5218;
+    const originLon = Number(items[0].farmerLon) || 76.8951;
+    const destLat = Number(destination.latitude) || 12.9716;
+    const destLon = Number(destination.longitude) || 77.5946;
+
+    const calculated = calculateDistanceKm(originLat, originLon, destLat, destLon);
+    return isNaN(calculated) ? 0 : Math.round(calculated);
   }, [destination, items]);
 
   const transportCost = useMemo(() => {
     if (items.length === 0) return 0;
+    if (serverTransportCost !== null && !isNaN(serverTransportCost)) {
+      return serverTransportCost;
+    }
     if (distanceKm === 0) return BASE_FREIGHT_FLAT;
+
     const quintals = Math.max(1, totalWeightKg / 100);
     return Math.round((BASE_FREIGHT_FLAT + distanceKm * FREIGHT_PER_KM_PER_QUINTAL * quintals) * 100) / 100;
-  }, [items, distanceKm, totalWeightKg]);
+  }, [items, distanceKm, totalWeightKg, serverTransportCost]);
 
   const grandTotal = useMemo(() => {
     return Math.round((totalItemsCost + transportCost + containerCost) * 100) / 100;
@@ -278,17 +320,22 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshFreightQuote = useCallback(async () => {
     if (!destination || items.length === 0) return;
     try {
-      await fetchApi('/logistics/quote', {
+      const res = await fetchApi('/logistics/quote', {
         method: 'POST',
         body: JSON.stringify({
           cropQuantityKg: totalWeightKg,
-          originLat: items[0].farmerLat,
-          originLon: items[0].farmerLon,
-          destLat: destination.latitude,
-          destLon: destination.longitude,
-          containerType: items[0].containerType,
+          originLat: Number(items[0].farmerLat) || 12.5218,
+          originLon: Number(items[0].farmerLon) || 76.8951,
+          destLat: Number(destination.latitude) || 12.9716,
+          destLon: Number(destination.longitude) || 77.5946,
+          containerType: items[0].containerType || 'STANDARD_CRATE',
         }),
       });
+
+      const quote = res?.data || res;
+      if (quote && typeof quote.totalCost === 'number' && !isNaN(quote.totalCost)) {
+        setServerTransportCost(quote.totalCost);
+      }
     } catch {
       // Retains local geometric fallback calculations cleanly
     }

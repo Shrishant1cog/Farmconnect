@@ -145,3 +145,5 @@ The root-level `full-system-test.js` and `audit.js` scripts are available for br
 
 
 <!-- final CI verification trigger -->
+
+<!-- Firebase Admin lazy-load verification trigger -->

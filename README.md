@@ -138,24 +138,3 @@ npm test
 
 The root-level `full-system-test.js` and `audit.js` scripts are available for broader local checks after the backend and required services are running.
 
-<!-- Verification branch: dependency lockfile and startup fixes are CI-validated before release packaging. -->
-
-
-<!-- CI verification trigger: repaired branch -->
-
-
-<!-- final CI verification trigger -->
-
-<!-- Firebase Admin lazy-load verification trigger -->
-
-<!-- final verification rerun after lazy Firebase Admin -->
-
-<!-- exact-final-branch-verification -->
-
-<!-- backend product contract verification -->
-
-<!-- final catalog contract verification -->
-
-<!-- final catalog verification rerun -->
-
-<!-- final Windows validator verification -->

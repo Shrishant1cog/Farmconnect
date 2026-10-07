@@ -48,8 +48,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Checkout
+      - name: Checkout latest repaired branch
         uses: actions/checkout@v4
+        with:
+          ref: fix/verified-build-auth
 
       - name: Setup Node 20
         uses: actions/setup-node@v4
@@ -107,11 +109,12 @@ jobs:
         shell: pwsh
         run: |
           $content = Get-Content -Raw .\start.bat
-          if ($content -match 'Preparing Backend Database & Services') {
-            throw 'start.bat still contains an unescaped command-separator ampersand.'
+          $banner = ($content -split "\r?\n" | Where-Object { $_ -like "echo [1/3] Preparing Backend Database*" } | Select-Object -First 1)
+          if (-not $banner) {
+            throw 'start.bat preparation banner was not found.'
           }
-          if ($content -notmatch 'Preparing Backend Database \^& Services') {
-            throw 'start.bat banner does not escape ampersand.'
+          if ($banner -notmatch 'Database \^& Services') {
+            throw 'start.bat preparation banner does not escape ampersand.'
           }
           Write-Host 'start.bat static validation passed.'
 

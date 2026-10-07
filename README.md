@@ -155,3 +155,5 @@ The root-level `full-system-test.js` and `audit.js` scripts are available for br
 <!-- backend product contract verification -->
 
 <!-- final catalog contract verification -->
+
+<!-- final catalog verification rerun -->

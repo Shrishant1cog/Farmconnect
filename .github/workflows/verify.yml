@@ -52,7 +52,7 @@ jobs:
       - name: Checkout latest repaired branch
         uses: actions/checkout@v4
         with:
-          ref: fix/verified-build-auth
+          ref: verify/final
 
       - name: Setup Node 20
         uses: actions/setup-node@v4

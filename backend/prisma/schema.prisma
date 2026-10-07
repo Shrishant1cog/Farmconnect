@@ -156,6 +156,9 @@ model Product {
   priceUnit          String        @default("PER_KG")
   quantityAvailable  Float
   quantityUnit       String        @default("KG")
+  minOrderKg         Float         @default(10)
+  grade              String        @default("Grade-A Export")
+  location           String        @default("Karnataka")
   isAvailable        Boolean       @default(true)
   isOrganic          Boolean       @default(false)
   harvestDate        DateTime?

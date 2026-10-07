@@ -2,7 +2,7 @@
 
 ## Runtime
 
-- Node.js 20 or newer
+- Node.js 22 or newer
 - npm 10 or newer
 - Docker Desktop, if using the included PostgreSQL container
 - A Firebase project with Authentication enabled for client and admin authentication

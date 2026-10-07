@@ -157,3 +157,5 @@ The root-level `full-system-test.js` and `audit.js` scripts are available for br
 <!-- final catalog contract verification -->
 
 <!-- final catalog verification rerun -->
+
+<!-- final Windows validator verification -->

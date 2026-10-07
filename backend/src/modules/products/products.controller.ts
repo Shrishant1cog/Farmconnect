@@ -55,6 +55,7 @@ export const createProduct = async (req: Request, res: Response) => {
       isOrganic = false,
       location = 'Karnataka',
       imageUrl = '',
+      categoryId,
       farmName,
       district,
       state,
@@ -69,71 +70,86 @@ export const createProduct = async (req: Request, res: Response) => {
       });
     }
 
-    const parsedPrice = parseFloat(String(farmerPrice)) || 0;
-    const parsedQty = parseFloat(String(quantityAvailable)) || 0;
-    const parsedMinOrder = parseFloat(String(minOrderKg)) || 10;
-    const parsedLat = parseFloat(String(latitude)) || 12.5218;
-    const parsedLon = parseFloat(String(longitude)) || 76.8951;
+    const parsedPrice = Number(farmerPrice);
+    const parsedQty = Number(quantityAvailable);
+    const parsedMinOrder = Number(minOrderKg);
 
-    // Resolve or auto-heal linked FarmerProfile in database
-    let farmerProfile: any = null;
-    try {
-      farmerProfile = await db.farmerProfile.findFirst({
-        where: { OR: [{ userId }, { id: userId }] },
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+      return res.status(400).json({ success: false, message: 'Farmer price must be a valid non-negative number.' });
+    }
+    if (!Number.isFinite(parsedQty) || parsedQty < 0) {
+      return res.status(400).json({ success: false, message: 'Quantity available must be a valid non-negative number.' });
+    }
+    if (!Number.isFinite(parsedMinOrder) || parsedMinOrder <= 0) {
+      return res.status(400).json({ success: false, message: 'Minimum order quantity must be greater than zero.' });
+    }
+
+    // Resolve the farmer profile belonging to this authenticated user.
+    let farmerProfile = await db.farmerProfile.findUnique({ where: { userId } });
+
+    if (!farmerProfile) {
+      const user = await db.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        return res.status(401).json({ success: false, message: 'Authenticated user no longer exists.' });
+      }
+
+      farmerProfile = await db.farmerProfile.create({
+        data: {
+          userId,
+          farmName: String(farmName || `${user.name || 'Cultivator'}'s Farm`),
+          district: String(district || 'Mandya'),
+          state: String(state || 'Karnataka'),
+          latitude: Number.isFinite(Number(latitude)) ? Number(latitude) : 12.5218,
+          longitude: Number.isFinite(Number(longitude)) ? Number(longitude) : 76.8951,
+          isVerified: true,
+        },
       });
+    }
 
-      if (!farmerProfile) {
-        const user = await db.user.findUnique({ where: { id: userId } });
-        farmerProfile = await db.farmerProfile.create({
+    // The UI does not currently collect a category. Keep the endpoint usable by
+    // falling back to the standard Vegetables category when categoryId is absent.
+    let resolvedCategoryId = typeof categoryId === 'string' ? categoryId.trim() : '';
+    if (resolvedCategoryId) {
+      const category = await db.category.findUnique({ where: { id: resolvedCategoryId } });
+      if (!category) {
+        return res.status(400).json({ success: false, message: 'Selected product category was not found.' });
+      }
+    } else {
+      let defaultCategory = await db.category.findUnique({ where: { slug: 'vegetables' } });
+      if (!defaultCategory) {
+        defaultCategory = await db.category.create({
           data: {
-            userId,
-            farmName: farmName || (user?.name ? `${user.name}'s Farm` : 'Cultivator Farm'),
-            district: String(district || 'Mandya'),
-            state: String(state || 'Karnataka'),
-            latitude: parsedLat,
-            longitude: parsedLon,
-            isVerified: true,
+            name: 'Vegetables',
+            slug: 'vegetables',
+            description: 'Fresh vegetables harvested from local fields',
           },
         });
       }
-    } catch (profileErr) {
-      console.warn('[createProduct] FarmerProfile resolution notice:', profileErr);
+      resolvedCategoryId = defaultCategory.id;
     }
 
-    const resolvedFarmerId = farmerProfile?.id || userId;
-
-    const payload: any = {
-      title: String(title).trim(),
-      description: String(description).trim(),
-      farmerPrice: parsedPrice,
-      priceUnit: String(priceUnit).toUpperCase(),
-      quantityAvailable: parsedQty,
-      quantityUnit: String(quantityUnit).toUpperCase(),
-      minOrderKg: parsedMinOrder,
-      grade: String(grade),
-      isOrganic: Boolean(isOrganic),
-      isAvailable: parsedQty > 0,
-      location: String(location).trim(),
-      imageUrl: String(imageUrl || '').trim(),
-    };
-
-    let product: any = null;
-
-    try {
-      product = await db.product.create({
-        data: {
-          ...payload,
-          farmerId: resolvedFarmerId,
-        },
-      });
-    } catch {
-      product = await db.product.create({
-        data: {
-          ...payload,
-          farmerId: userId,
-        },
-      });
-    }
+    const product = await db.product.create({
+      data: {
+        title: String(title).trim(),
+        description: String(description).trim(),
+        farmerPrice: parsedPrice,
+        priceUnit: String(priceUnit).toUpperCase(),
+        quantityAvailable: parsedQty,
+        quantityUnit: String(quantityUnit).toUpperCase(),
+        minOrderKg: parsedMinOrder,
+        grade: String(grade).trim() || 'Grade-A Export',
+        isOrganic: Boolean(isOrganic),
+        isAvailable: parsedQty > 0,
+        location: String(location).trim() || 'Karnataka',
+        imageUrl: String(imageUrl || '').trim() || null,
+        farmer: { connect: { id: farmerProfile.id } },
+        category: { connect: { id: resolvedCategoryId } },
+      },
+      include: {
+        farmer: { include: { user: { select: { id: true, name: true, phone: true } } } },
+        category: true,
+      },
+    });
 
     return res.status(201).json({
       success: true,
@@ -217,9 +233,9 @@ export const getProducts = async (req: Request, res: Response) => {
     if (search && typeof search === 'string') {
       const q = search.trim();
       whereClause.OR = [
-        { title: { contains: q, mode: 'insensitive' } },
-        { description: { contains: q, mode: 'insensitive' } },
-        { location: { contains: q, mode: 'insensitive' } },
+        { title: { contains: q } },
+        { description: { contains: q } },
+        { location: { contains: q } },
       ];
     }
 
@@ -228,7 +244,7 @@ export const getProducts = async (req: Request, res: Response) => {
     }
 
     if (district && typeof district === 'string') {
-      whereClause.location = { contains: district.trim(), mode: 'insensitive' };
+      whereClause.location = { contains: district.trim() };
     }
 
     let products: any[] = [];
@@ -312,24 +328,53 @@ export const getProductById = async (req: Request, res: Response) => {
 export const updateProduct = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const dataToUpdate = { ...req.body };
-
-    if (dataToUpdate.farmerPrice !== undefined) {
-      dataToUpdate.farmerPrice = parseFloat(String(dataToUpdate.farmerPrice));
+    const existing = await db.product.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
-    if (dataToUpdate.quantityAvailable !== undefined) {
-      dataToUpdate.quantityAvailable = parseFloat(String(dataToUpdate.quantityAvailable));
-      if (dataToUpdate.isAvailable === undefined) {
-        dataToUpdate.isAvailable = dataToUpdate.quantityAvailable > 0;
+
+    const updateBody: Record<string, unknown> = req.body || {};
+    const dataToUpdate: Record<string, unknown> = {};
+
+    const stringFields = ['title', 'description', 'priceUnit', 'quantityUnit', 'grade', 'location', 'imageUrl'];
+    for (const field of stringFields) {
+      if (updateBody[field] !== undefined) {
+        dataToUpdate[field] = field === 'priceUnit' || field === 'quantityUnit'
+          ? String(updateBody[field]).toUpperCase()
+          : String(updateBody[field] ?? '').trim();
       }
     }
-    if (dataToUpdate.minOrderKg !== undefined) {
-      dataToUpdate.minOrderKg = parseFloat(String(dataToUpdate.minOrderKg));
+
+    const numericFields = ['farmerPrice', 'quantityAvailable', 'minOrderKg', 'containerCostPerKg'];
+    for (const field of numericFields) {
+      if (updateBody[field] !== undefined) {
+        const value = Number(updateBody[field]);
+        if (!Number.isFinite(value) || value < 0) {
+          return res.status(400).json({ success: false, message: `${field} must be a valid non-negative number.` });
+        }
+        dataToUpdate[field] = value;
+      }
+    }
+
+    if (updateBody.isOrganic !== undefined) dataToUpdate.isOrganic = Boolean(updateBody.isOrganic);
+    if (updateBody.isAvailable !== undefined) dataToUpdate.isAvailable = Boolean(updateBody.isAvailable);
+    if (updateBody.isAvailable === undefined && updateBody.quantityAvailable !== undefined) {
+      dataToUpdate.isAvailable = Number(dataToUpdate.quantityAvailable) > 0;
+    }
+
+    if (dataToUpdate.farmerPrice !== undefined && Number(dataToUpdate.farmerPrice) !== Number(existing.farmerPrice)) {
+      await db.priceHistory.create({
+        data: {
+          productId: id,
+          oldPrice: Number(existing.farmerPrice),
+          newPrice: Number(dataToUpdate.farmerPrice),
+        },
+      });
     }
 
     const updated = await db.product.update({
       where: { id },
-      data: dataToUpdate,
+      data: dataToUpdate as any,
     });
 
     return res.status(200).json({

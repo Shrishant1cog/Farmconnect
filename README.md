@@ -137,3 +137,5 @@ npm test
 ```
 
 The root-level `full-system-test.js` and `audit.js` scripts are available for broader local checks after the backend and required services are running.
+
+<!-- Verification branch: dependency lockfile and startup fixes are CI-validated before release packaging. -->

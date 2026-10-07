@@ -132,7 +132,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p verification-output
-          git archive --format=zip --output=verification-output/farmconnect-verified-source.zip "$GITHUB_SHA"
+          git archive --format=zip --output=verification-output/farmconnect-verified-source.zip HEAD
           unzip -t verification-output/farmconnect-verified-source.zip
 
       - name: Upload verified source ZIP

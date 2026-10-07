@@ -272,10 +272,15 @@ export const getProducts = async (req: Request, res: Response) => {
       }).catch(() => []);
     }
 
+    const catalogProducts = products.map((product: any) => ({
+      ...product,
+      farmerPriceNotice: 'Farmer Listed Price',
+    }));
+
     return res.status(200).json({
       success: true,
-      data: products,
-      products,
+      data: catalogProducts,
+      products: catalogProducts,
     });
   } catch (error: any) {
     return res.status(500).json({

@@ -151,3 +151,5 @@ The root-level `full-system-test.js` and `audit.js` scripts are available for br
 <!-- final verification rerun after lazy Firebase Admin -->
 
 <!-- exact-final-branch-verification -->
+
+<!-- backend product contract verification -->

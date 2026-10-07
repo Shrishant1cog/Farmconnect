@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "fix/verified-build-auth"
+      - "verify/**"
   pull_request:
 
 permissions:

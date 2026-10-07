@@ -2,25 +2,24 @@
 setlocal enabledelayedexpansion
 title FarmConnect Auto-Host Launcher
 
-:: Force working directory to the batch script location
 cd /d "%~dp0"
 
 echo =======================================================
-echo           STARTING FARMCONNECT WEB PLATFORM            
+echo           STARTING FARMCONNECT WEB PLATFORM
 echo =======================================================
 echo.
 
 :: ---------------------------------------------------------
-:: 1. Backend Setup & Run
+:: 1. Backend Setup ^& Run
 :: ---------------------------------------------------------
-echo [1/3] Preparing Backend Database & Services...
+echo [1/3] Preparing Backend Database ^& Services...
 if not exist "backend\" (
     echo [ERROR] "backend" directory not found. Please run this script from the project root.
     pause
     exit /b 1
 )
 
-cd backend
+cd /d "%~dp0backend"
 
 if not exist node_modules (
     echo Installing backend dependencies...
@@ -29,16 +28,25 @@ if not exist node_modules (
 
 echo Generating Prisma Client...
 call npx prisma generate
+if errorlevel 1 (
+    echo [ERROR] Prisma client generation failed.
+    pause
+    exit /b 1
+)
 
 echo Synchronizing database schema...
-:: Using db push avoids interactive CLI prompts that block startup
 call npx prisma db push
+if errorlevel 1 (
+    echo [ERROR] Database synchronization failed.
+    pause
+    exit /b 1
+)
 
 echo Launching Backend Engine...
-start "FarmConnect Backend (Port 5000)" cmd /k "npm run dev"
+start "FarmConnect Backend (Port 5000)" cmd /k "cd /d ""%~dp0backend"" ^&^& npm run dev"
 
 :: ---------------------------------------------------------
-:: 2. Frontend Setup & Run
+:: 2. Frontend Setup ^& Run
 :: ---------------------------------------------------------
 echo.
 echo [2/3] Preparing Frontend UI...
@@ -50,7 +58,7 @@ if not exist node_modules (
 )
 
 echo Launching Frontend Server...
-start "FarmConnect Frontend (Port 3000)" cmd /k "npm run dev"
+start "FarmConnect Frontend (Port 3000)" cmd /k "cd /d ""%~dp0frontend"" ^&^& npm run dev"
 
 :: ---------------------------------------------------------
 :: 3. Launch in Browser
@@ -60,7 +68,7 @@ echo [3/3] Waiting for servers to initialize...
 timeout /t 6 /nobreak >nul
 
 echo Opening FarmConnect in your default web browser...
-start http://localhost:3000
+start "" "http://localhost:3000"
 
 echo.
 echo =======================================================

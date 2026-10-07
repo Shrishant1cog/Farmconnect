@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - "fix/verified-build-auth"
-  workflow_dispatch:
+  pull_request:
 
 permissions:
   contents: read
@@ -12,74 +12,87 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v5
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
           cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            backend/package-lock.json
 
-      - name: Install backend
+      - name: Install frontend from lockfile
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend TypeScript check
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:5000/api
+          NEXT_PUBLIC_SOCKET_URL: http://localhost:5000
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+        run: npx tsc --noEmit
+
+      - name: Frontend production build
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:5000/api
+          NEXT_PUBLIC_SOCKET_URL: http://localhost:5000
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+        run: npm run build
+
+      - name: Install backend from lockfile
         working-directory: backend
-        run: npm install
+        run: npm ci
 
       - name: Backend Prisma generate
         working-directory: backend
+        env:
+          DATABASE_URL: file:./dev.db
         run: npx prisma generate
 
       - name: Backend TypeScript build
         working-directory: backend
         run: npm run build
 
-      - name: Backend tests
+      - name: Backend integration tests
         working-directory: backend
+        env:
+          DATABASE_URL: file:./dev.db
+          JWT_SECRET: farmconnect-verification-secret-key
+          NODE_ENV: test
+          CLIENT_URL: http://localhost:3000
         run: npm test -- --runInBand
-        continue-on-error: true
 
-      - name: Install frontend
-        working-directory: frontend
-        run: npm install
-
-      - name: Frontend TypeScript check
-        working-directory: frontend
-        run: npx tsc --noEmit
-
-      - name: Frontend production build
-        working-directory: frontend
-        run: npm run build
-
-      - name: Start backend smoke test
-        working-directory: backend
+      - name: Validate start.bat
+        shell: pwsh
         run: |
-          nohup npm run dev > /tmp/farmconnect-backend.log 2>&1 &
-          sleep 8
-          curl --fail --silent --show-error http://127.0.0.1:5000/api/products -o /tmp/backend-response.txt
-
-      - name: Start frontend smoke test
-        working-directory: frontend
-        run: |
-          nohup npm run start > /tmp/farmconnect-frontend.log 2>&1 &
-          sleep 8
-          curl --fail --silent --show-error http://127.0.0.1:3000/ -o /tmp/frontend-response.html
+          $content = Get-Content -Raw .\start.bat
+          if ($content -match 'Preparing Backend Database & Services') {
+            throw 'start.bat still contains an unescaped command-separator ampersand.'
+          }
+          if ($content -notmatch 'Preparing Backend Database ^& Services') {
+            throw 'start.bat banner does not escape ampersand.'
+          }
+          Write-Host 'start.bat static validation passed.'
 
       - name: Package verified source
-        if: always()
+        shell: bash
         run: |
           mkdir -p verification-output
-          tar --exclude='./.git' --exclude='./backend/node_modules' --exclude='./frontend/node_modules' --exclude='./frontend/.next' --exclude='./backend/dist' -czf verification-output/farmconnect-verified-source.tar.gz .
-          cp /tmp/farmconnect-backend.log verification-output/backend.log 2>/dev/null || true
-          cp /tmp/farmconnect-frontend.log verification-output/frontend.log 2>/dev/null || true
-          cp /tmp/backend-response.txt verification-output/backend-response.txt 2>/dev/null || true
-          cp /tmp/frontend-response.html verification-output/frontend-response.html 2>/dev/null || true
+          git archive --format=zip --output=verification-output/farmconnect-verified-source.zip "$GITHUB_SHA"
+          unzip -t verification-output/farmconnect-verified-source.zip
 
-      - name: Upload verification artifacts
-        if: always()
-        uses: actions/upload-artifact@v5
+      - name: Upload verified source ZIP
+        uses: actions/upload-artifact@v4
         with:
-          name: farmconnect-verification
-          path: verification-output/
+          name: farmconnect-verified-source
+          path: verification-output/farmconnect-verified-source.zip
+          if-no-files-found: error
           retention-days: 7

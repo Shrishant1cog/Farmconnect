@@ -153,3 +153,5 @@ The root-level `full-system-test.js` and `audit.js` scripts are available for br
 <!-- exact-final-branch-verification -->
 
 <!-- backend product contract verification -->
+
+<!-- final catalog contract verification -->

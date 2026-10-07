@@ -27,7 +27,7 @@ farmconnect/
 
 ## Prerequisites
 
-Install Node.js 20 or newer and npm 10 or newer. Docker Desktop is required if you want to run the included PostgreSQL service locally. Firebase credentials are required for the authentication features.
+Install Node.js 22 or newer and npm 10 or newer. Docker Desktop is required if you want to run the included PostgreSQL service locally. Firebase credentials are required for the authentication features.
 
 See [REQUIREMENTS.md](REQUIREMENTS.md) for the complete dependency and environment checklist.
 

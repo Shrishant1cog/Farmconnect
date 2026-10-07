@@ -1,4 +1,4 @@
-name: FarmConnect Verification v2
+name: FarmConnect Verification v3
 
 on:
   push:
@@ -7,13 +7,46 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
+  normalize-lockfile:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Regenerate frontend lockfile
+        working-directory: frontend
+        run: npm install --package-lock-only
+
+      - name: Commit normalized lockfile
+        shell: bash
+        run: |
+          if git diff --quiet -- frontend/package-lock.json; then
+            echo "Frontend lockfile already normalized."
+            exit 0
+          fi
+          git config user.name "FarmConnect CI"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/package-lock.json
+          git commit -m "chore: regenerate frontend npm lockfile [skip ci]"
+          git push origin HEAD:${{ github.head_ref || github.ref_name }}
+
   verify:
+    needs: normalize-lockfile
     runs-on: ubuntu-latest
     timeout-minutes: 25
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -77,7 +110,7 @@ jobs:
           if ($content -match 'Preparing Backend Database & Services') {
             throw 'start.bat still contains an unescaped command-separator ampersand.'
           }
-          if ($content -notmatch 'Preparing Backend Database ^& Services') {
+          if ($content -notmatch 'Preparing Backend Database \^& Services') {
             throw 'start.bat banner does not escape ampersand.'
           }
           Write-Host 'start.bat static validation passed.'

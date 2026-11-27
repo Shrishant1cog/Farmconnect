@@ -30,17 +30,23 @@ export function isSupportedLanguage(value: unknown): value is SupportedLanguage 
 }
 
 /**
- * Normalises any user supplied language tag to a supported language code.
- * Unknown or missing values fall back to English instead of failing.
+ * Strictly resolves a user supplied language tag to a supported language
+ * code.
+ *
+ * Unlike {@link normalizeLanguage} this function does **not** fall back to
+ * English: it returns `null` for a value that is not one of the supported
+ * languages. The API uses it to reject a genuinely unsupported code such as
+ * `de` with HTTP 400 while still accepting the regional and alias forms
+ * (`kn-IN`, `hi_IN`, `kannada`, `hindi`).
  */
-export function normalizeLanguage(value: unknown): SupportedLanguage {
+export function resolveSupportedLanguage(value: unknown): SupportedLanguage | null {
   if (typeof value !== 'string') {
-    return DEFAULT_LANGUAGE;
+    return null;
   }
 
   const trimmed = value.trim().toLowerCase();
   if (!trimmed) {
-    return DEFAULT_LANGUAGE;
+    return null;
   }
 
   if (isSupportedLanguage(trimmed)) {
@@ -58,5 +64,13 @@ export function normalizeLanguage(value: unknown): SupportedLanguage {
     return base;
   }
 
-  return DEFAULT_LANGUAGE;
+  return null;
+}
+
+/**
+ * Normalises any user supplied language tag to a supported language code.
+ * Unknown or missing values fall back to English instead of failing.
+ */
+export function normalizeLanguage(value: unknown): SupportedLanguage {
+  return resolveSupportedLanguage(value) ?? DEFAULT_LANGUAGE;
 }

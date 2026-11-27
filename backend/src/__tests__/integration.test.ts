@@ -340,6 +340,35 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
     expect(res.status).toBeGreaterThanOrEqual(400);
   });
 
+  it('LANGUAGE: a regional language code is normalised to the supported code', async () => {
+    // `kn-IN` / `hi_IN` are what an Android device reports, so the account
+    // has to store the canonical code instead of rejecting the request.
+    const regional = await agent
+      .patch('/api/users/me')
+      .set('Authorization', `Bearer ${farmerToken}`)
+      .send({ preferredLanguage: 'kn-IN' });
+
+    expect(regional.status).toBe(200);
+    expect(regional.body.data.preferredLanguage).toBe('kn');
+
+    const stored = await prisma.user.findUnique({
+      where: { id: farmerUserId },
+      select: { preferredLanguage: true },
+    });
+    expect(stored?.preferredLanguage).toBe('kn');
+
+    const unsupported = await agent
+      .patch('/api/users/me')
+      .set('Authorization', `Bearer ${farmerToken}`)
+      .send({ preferredLanguage: 'de-DE' });
+    expect(unsupported.status).toBeGreaterThanOrEqual(400);
+
+    await agent
+      .patch('/api/users/me')
+      .set('Authorization', `Bearer ${farmerToken}`)
+      .send({ preferredLanguage: 'en' });
+  });
+
   it('LANGUAGE: the language preference is included in the login response', async () => {
     await agent
       .patch('/api/users/me')
@@ -352,6 +381,9 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
 
     expect(loginRes.status).toBe(200);
     expect(loginRes.body.data.user.preferredLanguage).toBe('hi');
+    // The value is also exposed at the top level of `data` so a client can
+    // read it without walking into the nested user object.
+    expect(loginRes.body.data.preferredLanguage).toBe('hi');
 
     await agent
       .patch('/api/users/me')

@@ -3,14 +3,35 @@ import { z } from 'zod';
 import { db } from '../../config/db';
 import { AuthenticatedRequest } from '../../middleware/auth.middleware';
 import { getIO } from '../../socket';
-import { normalizeLanguage, SUPPORTED_LANGUAGES } from '../../utils/language';
+import {
+  normalizeLanguage,
+  resolveSupportedLanguage,
+  SUPPORTED_LANGUAGES,
+} from '../../utils/language';
+
+/**
+ * The interface language shared between the website and the Android app.
+ *
+ * Regional (`kn-IN`) and alias (`kannada`) forms are accepted and stored as
+ * the canonical code, while a genuinely unsupported language (`de`) is
+ * rejected with HTTP 400 instead of silently becoming English.
+ */
+const preferredLanguageSchema = z
+  .string()
+  .trim()
+  .min(1, 'Language code must not be empty')
+  .refine(
+    (value) => resolveSupportedLanguage(value) !== null,
+    `Language must be one of: ${SUPPORTED_LANGUAGES.join(', ')}`
+  )
+  .transform((value) => normalizeLanguage(value));
 
 const updateProfileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').optional(),
   phone: z.string().min(10, 'Phone must be at least 10 digits').optional(),
   email: z.string().email('Invalid email address').optional(),
   // Interface language shared between the website and the Android app.
-  preferredLanguage: z.enum(SUPPORTED_LANGUAGES as unknown as [string, ...string[]]).optional(),
+  preferredLanguage: preferredLanguageSchema.optional(),
   // Location & Regional fields
   state: z.string().optional(),
   district: z.string().optional(),

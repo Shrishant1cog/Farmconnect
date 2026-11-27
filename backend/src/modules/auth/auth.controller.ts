@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { db } from '../../config/db';
-import { normalizeLanguage } from '../../utils/language';
+import { normalizeLanguage, resolveSupportedLanguage } from '../../utils/language';
 import { firebaseAdmin } from '../../config/firebaseAdmin';
 
 const JWT_SECRETS = [
@@ -47,7 +47,8 @@ export const register = async (req: Request, res: Response) => {
       latitude = null, 
       longitude = null, 
       showOnMap = false,
-      farmName = ''
+      farmName = '',
+      preferredLanguage
     } = req.body;
 
     if (!name?.trim() || !phone?.trim() || !password?.trim()) {
@@ -80,6 +81,22 @@ export const register = async (req: Request, res: Response) => {
         success: false,
         message: 'Password must be at least 6 characters long',
       });
+    }
+
+    // The account language may be chosen during sign-up. A regional or alias
+    // form (`kn-IN`, `kannada`) is accepted and stored canonically, while a
+    // genuinely unsupported language is rejected instead of silently
+    // becoming English.
+    let requestedLanguage: string | undefined;
+    if (preferredLanguage !== undefined && preferredLanguage !== null && String(preferredLanguage).trim() !== '') {
+      const resolved = resolveSupportedLanguage(preferredLanguage);
+      if (!resolved) {
+        return res.status(400).json({
+          success: false,
+          message: 'Unsupported preferred language. Use one of: en, kn, hi',
+        });
+      }
+      requestedLanguage = resolved;
     }
 
     let existingUser: any = null;
@@ -121,6 +138,7 @@ export const register = async (req: Request, res: Response) => {
           email: cleanEmail || `${cleanPhone}@phone.farmconnect.in`,
           passwordHash: hashedPassword,
           role: normalizedRole as any,
+          ...(requestedLanguage ? { preferredLanguage: requestedLanguage } : {}),
         } as any,
       });
     } catch (createErr) {
@@ -201,9 +219,11 @@ export const register = async (req: Request, res: Response) => {
       success: true,
       token,
       user: safeUser,
+      preferredLanguage: safeUser.preferredLanguage,
       data: {
         token,
         user: safeUser,
+        preferredLanguage: safeUser.preferredLanguage,
       },
     });
   } catch (error: any) {
@@ -336,9 +356,11 @@ export const login = async (req: Request, res: Response) => {
       success: true,
       token,
       user: safeUser,
+      preferredLanguage: safeUser.preferredLanguage,
       data: {
         token,
         user: safeUser,
+        preferredLanguage: safeUser.preferredLanguage,
       },
     });
   } catch (error: any) {
@@ -466,9 +488,11 @@ export const loginPhone = async (req: Request, res: Response) => {
       message: 'Phone authentication successful',
       token,
       user: safeUser,
+      preferredLanguage: safeUser.preferredLanguage,
       data: {
         token,
         user: safeUser,
+        preferredLanguage: safeUser.preferredLanguage,
       },
     });
   } catch (error: any) {

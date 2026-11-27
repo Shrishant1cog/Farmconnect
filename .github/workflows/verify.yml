@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "fix/verified-build-auth"
+      - "fix/**"
       - "verify/**"
   pull_request:
 
@@ -48,11 +49,27 @@ jobs:
     needs: normalize-lockfile
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: farmconnect
+          POSTGRES_PASSWORD: farmconnect
+          POSTGRES_DB: farmconnect
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U farmconnect -d farmconnect"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://farmconnect:farmconnect@localhost:5432/farmconnect?schema=public
     steps:
       - name: Checkout latest repaired branch
         uses: actions/checkout@v4
         with:
-          ref: verify/final
+          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Setup Node 24
         uses: actions/setup-node@v4
@@ -89,24 +106,19 @@ jobs:
 
       - name: Backend Prisma generate
         working-directory: backend
-        env:
-          DATABASE_URL: file:./dev.db
         run: npx prisma generate
 
       - name: Backend TypeScript build
         working-directory: backend
         run: npm run build
 
-      - name: Prepare test database
+      - name: Apply PostgreSQL migrations
         working-directory: backend
-        env:
-          DATABASE_URL: file:./dev.db
-        run: npx prisma db push --skip-generate
+        run: npx prisma migrate deploy
 
       - name: Backend integration tests
         working-directory: backend
         env:
-          DATABASE_URL: file:./dev.db
           JWT_SECRET: farmconnect-verification-secret-key
           NODE_ENV: test
           CLIENT_URL: http://localhost:3000

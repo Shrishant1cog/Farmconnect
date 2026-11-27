@@ -2204,12 +2204,6 @@ abstract class AppLocalizations {
   /// **'APMC value'**
   String get logisticsApmcValue;
 
-  /// No description provided for @logisticsEstimatedTransit.
-  ///
-  /// In en, this message translates to:
-  /// **'Estimated transit'**
-  String get logisticsEstimatedTransit;
-
   /// No description provided for @logisticsEstimatedProfit.
   ///
   /// In en, this message translates to:
@@ -2222,11 +2216,71 @@ abstract class AppLocalizations {
   /// **'Profit margin'**
   String get logisticsProfitMargin;
 
-  /// No description provided for @logisticsTransitDays.
+  /// No description provided for @logisticsSelectListing.
   ///
   /// In en, this message translates to:
-  /// **'{days} days'**
-  String logisticsTransitDays(Object days);
+  /// **'Crop lot'**
+  String get logisticsSelectListing;
+
+  /// No description provided for @logisticsNoListings.
+  ///
+  /// In en, this message translates to:
+  /// **'No live crop lot is available in the shared catalogue.'**
+  String get logisticsNoListings;
+
+  /// No description provided for @logisticsPriceFromListing.
+  ///
+  /// In en, this message translates to:
+  /// **'The farmer\'s listed price of the selected crop lot.'**
+  String get logisticsPriceFromListing;
+
+  /// No description provided for @logisticsBenchmarkSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Published by {source}'**
+  String logisticsBenchmarkSource(Object source);
+
+  /// No description provided for @logisticsNoPublishedBenchmarkHint.
+  ///
+  /// In en, this message translates to:
+  /// **'No APMC benchmark has been published for this crop, so the profit against the mandi cannot be stated.'**
+  String get logisticsNoPublishedBenchmarkHint;
+
+  /// No description provided for @logisticsMissingFarmerPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'The listing carries no price, so the landed cost cannot be computed.'**
+  String get logisticsMissingFarmerPrice;
+
+  /// No description provided for @logisticsMissingFarmCoordinates.
+  ///
+  /// In en, this message translates to:
+  /// **'The farm of this listing has no coordinates, so the freight distance cannot be computed.'**
+  String get logisticsMissingFarmCoordinates;
+
+  /// No description provided for @logisticsMissingDestinationCoordinates.
+  ///
+  /// In en, this message translates to:
+  /// **'Your delivery address has no coordinates, so the freight distance cannot be computed.'**
+  String get logisticsMissingDestinationCoordinates;
+
+  /// No description provided for @logisticsInvalidQuantity.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the crop quantity in kilograms.'**
+  String get logisticsInvalidQuantity;
+
+  /// No description provided for @logisticsCoordinatesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The farm coordinates come from the selected listing and the delivery coordinates from your account profile.'**
+  String get logisticsCoordinatesHint;
+
+  /// No description provided for @logisticsNotAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'—'**
+  String get logisticsNotAvailable;
 
   /// No description provided for @adminOverview.
   ///

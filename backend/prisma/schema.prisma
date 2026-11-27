@@ -99,8 +99,10 @@ model FarmerProfile {
   district          String
   state             String   @default("Karnataka")
   addressLine       String?
-  latitude          Float
-  longitude         Float
+  // The farm position is only stored when the farmer really shared it.
+  // A placeholder would put the farm somewhere it does not exist.
+  latitude          Float?
+  longitude         Float?
   isAadhaarVerified Boolean  @default(false)
   aadhaarMasked     String?
   isVerified        Boolean  @default(false)

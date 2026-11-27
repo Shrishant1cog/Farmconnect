@@ -113,11 +113,6 @@ export default function FarmerOrdersPage() {
     setUpdatingId(orderId);
     const token = getAuthToken();
 
-    // Optimistically update the UI
-    setOrders((prev) =>
-      prev.map((ord) => (ord.id === orderId ? { ...ord, status: nextStatus } : ord))
-    );
-
     const statusLabels: Record<FarmerOrder['status'], string> = {
       PENDING: t('farmer.orders.markedPending'),
       CONFIRMED: t('farmer.orders.markedConfirmed'),
@@ -127,21 +122,17 @@ export default function FarmerOrdersPage() {
       CANCELLED: t('farmer.orders.markedCancelled'),
     };
 
-    setToastMessage(t('farmer.orders.statusUpdate', {
-      id: orderId.slice(-6).toUpperCase(),
-      status: statusLabels[nextStatus],
-    }));
-
     try {
       const payload = { status: nextStatus };
+      let json: any;
       try {
-        await fetchApi(`/orders/${orderId}/status`, {
+        json = await fetchApi(`/orders/${orderId}/status`, {
           method: 'PATCH',
           body: JSON.stringify(payload),
         });
       } catch {
         const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
-        await fetch(`${baseUrl}/orders/${orderId}/status`, {
+        const res = await fetch(`${baseUrl}/orders/${orderId}/status`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
@@ -149,9 +140,28 @@ export default function FarmerOrdersPage() {
           },
           body: JSON.stringify(payload),
         });
+        json = await res.json();
       }
-    } catch {
-      // Local optimistic state is retained
+
+      if (json?.success || json?.data?.status || json?.status) {
+        // The shared backend confirmed the new status — only now is the
+        // order shown in it.
+        setOrders((prev) =>
+          prev.map((ord) => (ord.id === orderId ? { ...ord, status: nextStatus } : ord))
+        );
+        setToastMessage(t('farmer.orders.statusUpdate', {
+          id: orderId.slice(-6).toUpperCase(),
+          status: statusLabels[nextStatus],
+        }));
+      } else {
+        setErrorMessage(json?.message || t('farmer.orders.statusUpdateFailed'));
+        await loadOrders();
+      }
+    } catch (err: any) {
+      // The status was not accepted by the shared backend — the order keeps
+      // its real status and the list is refreshed from the backend.
+      setErrorMessage(err?.message || t('farmer.orders.statusUpdateFailed'));
+      await loadOrders();
     } finally {
       setUpdatingId(null);
     }

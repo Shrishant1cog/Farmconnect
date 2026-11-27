@@ -96,6 +96,8 @@ export const consumerHi: TranslationMap = {
   'consumer.orders.verifying': 'सत्यापित किया जा रहा है…',
   'consumer.orders.confirmAccept': 'डिलीवरी की पुष्टि करें और स्वीकार करें',
   'consumer.orders.loadError': 'आपके ऑर्डर लोड नहीं हो सके। कृपया फिर कोशिश करें।',
+  'consumer.orders.deliveryNotConfirmed':
+    'साझा बैकएंड ने डिलीवरी की पुष्टि नहीं की, इसलिए ऑर्डर अभी भी अपनी असली स्थिति में है। कृपया फिर कोशिश करें।',
 
   // Chats
   'consumer.chat.directChats': 'सीधी किसान चैट',

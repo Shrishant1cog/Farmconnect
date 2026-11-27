@@ -143,10 +143,12 @@ export default function ConsumerExplorePage() {
       title: product.title,
       farmerId: targetFarmerId,
       farmName: targetFarmName,
-      farmerPrice: Number(product.farmerPrice) || 20,
+      // The real listed price and the real available quantity — a fallback
+      // price or stock would be a fabricated number.
+      farmerPrice: Number(product.farmerPrice),
       priceUnit: product.priceUnit || 'PER_KG',
       quantityUnit: product.quantityUnit || 'KG',
-      availableStock: Number(product.quantityAvailable) || 1000,
+      availableStock: Number(product.quantityAvailable),
       imageUrl: product.imageUrl,
     };
 

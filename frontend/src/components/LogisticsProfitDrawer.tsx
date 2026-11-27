@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Calculator, X, MessageSquare, Loader2, AlertCircle, TrendingUp, TrendingDown } from 'lucide-react';
 import { fetchApi } from '../lib/api';
 import { useI18n } from '../hooks/useI18n';
@@ -15,7 +15,13 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
 
   const [quantityKg, setQuantityKg] = useState<number>(500);
   const [containerType, setContainerType] = useState<string>('COLD_CHAIN_REFRIGERATED');
-  const [apmcMandiPrice, setApmcMandiPrice] = useState<number>(3400); // ₹ per Quintal
+  /**
+   * The APMC benchmark in ₹ per quintal. It is filled with the **published**
+   * benchmark of the crop; when the shared database holds none the field
+   * stays empty and the profit assessment is reported as unknown.
+   */
+  const [apmcMandiPrice, setApmcMandiPrice] = useState<number | ''>('');
+  const [apmcSource, setApmcSource] = useState<string | null>(null);
   const [quote, setQuote] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [chatLoading, setChatLoading] = useState<boolean>(false);
@@ -26,6 +32,69 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
     return localStorage.getItem('farmconnect_token') || localStorage.getItem('fc_token');
   };
 
+  /**
+   * The destination of the load — the real delivery coordinates of the
+   * signed-in consumer. Without them the freight distance cannot be computed
+   * honestly, so the drawer asks for them instead of using a fixed city.
+   */
+  const [destination, setDestination] = useState<{ lat: number; lon: number } | null>(null);
+
+  // The published benchmark of the crop — never a made-up rate.
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadBenchmark = async () => {
+      const cropName = cropData?.cropName || cropData?.title;
+      if (!cropName) return;
+
+      try {
+        const response = await fetchApi('/apmc/rates');
+        const rows = response?.data || response?.rates || [];
+        if (!Array.isArray(rows) || cancelled) return;
+
+        const needle = String(cropName).trim().toLowerCase();
+        const match = rows.find((row: any) =>
+          String(row?.commodity || '').trim().toLowerCase() === needle,
+        );
+
+        if (cancelled) return;
+
+        if (match && Number(match.modalPrice) > 0) {
+          setApmcMandiPrice(Number(match.modalPrice));
+          setApmcSource(match.marketCenter || match.state || null);
+        } else {
+          setApmcMandiPrice('');
+          setApmcSource(null);
+        }
+      } catch {
+        if (!cancelled) setApmcSource(null);
+      }
+    };
+
+    const loadDestination = async () => {
+      const token = getAuthToken();
+      if (!token) return;
+
+      try {
+        const me = await fetchApi('/users/me');
+        const profile = me?.data?.consumerProfile || me?.consumerProfile;
+        const lat = Number(profile?.latitude);
+        const lon = Number(profile?.longitude);
+        if (!cancelled && Number.isFinite(lat) && Number.isFinite(lon)) {
+          setDestination({ lat, lon });
+        }
+      } catch {
+        /* the drawer reports the missing coordinates */
+      }
+    };
+
+    loadBenchmark();
+    loadDestination();
+    return () => {
+      cancelled = true;
+    };
+  }, [cropData?.cropName, cropData?.title]);
+
   const handleComputeProfit = async () => {
     if (quantityKg <= 0 || isNaN(quantityKg)) {
       setError(t('misc.logistics.validQuantityError'));
@@ -35,19 +104,45 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
     setLoading(true);
     setError(null);
 
-    const safeCropPrice = Number(cropData?.farmerPrice || cropData?.price || 20);
-    const originLat = Number(cropData?.farmerLat || cropData?.lat || 12.5218);
-    const originLon = Number(cropData?.farmerLon || cropData?.lon || 76.8951);
+    // Every value has to be real: the farmer's own price and the real
+    // coordinates of the listing. Nothing is replaced by a default, because
+    // a fabricated coordinate or price would produce a fabricated quote.
+    const farmerPrice = Number(cropData?.farmerPrice ?? cropData?.price);
+    const originLat = Number(cropData?.farmer?.latitude ?? cropData?.latitude);
+    const originLon = Number(cropData?.farmer?.longitude ?? cropData?.longitude);
+    const destLat = destination?.lat;
+    const destLon = destination?.lon;
+
+    if (!Number.isFinite(farmerPrice) || farmerPrice <= 0) {
+      setError(t('misc.logistics.missingFarmerPrice'));
+      setLoading(false);
+      return;
+    }
+
+    if (
+      !Number.isFinite(originLat) ||
+      !Number.isFinite(originLon) ||
+      !Number.isFinite(destLat) ||
+      !Number.isFinite(destLon)
+    ) {
+      setError(t('misc.logistics.missingCoordinates'));
+      setLoading(false);
+      return;
+    }
+
+    const benchmark = Number(apmcMandiPrice);
 
     const payload = {
       cropQuantityKg: Number(quantityKg),
-      farmerPricePerKg: safeCropPrice,
+      farmerPricePerKg: farmerPrice,
       originLat,
       originLon,
-      destLat: 12.9716, // Regional wholesale benchmark destination (Bengaluru)
-      destLon: 77.5946,
+      destLat,
+      destLon,
       containerType,
-      apmcModalPricePerQuintal: Number(apmcMandiPrice) || 3400,
+      ...(Number.isFinite(benchmark) && benchmark > 0
+        ? { apmcModalPricePerQuintal: benchmark }
+        : {}),
     };
 
     try {
@@ -206,9 +301,20 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
                 type="number"
                 min="0"
                 value={apmcMandiPrice}
-                onChange={(e) => setApmcMandiPrice(Math.max(0, Number(e.target.value)))}
+                onChange={(e) =>
+                  setApmcMandiPrice(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))
+                }
                 className="w-full px-4 py-3 rounded-xl border border-stone-300 text-sm font-bold outline-none focus:border-emerald-600"
               />
+              {apmcSource ? (
+                <span className="text-[10px] font-semibold text-stone-500 mt-1 block">
+                  {t('misc.logistics.benchmarkSource', { source: apmcSource })}
+                </span>
+              ) : (
+                <span className="text-[10px] font-semibold text-amber-700 mt-1 block">
+                  {t('misc.logistics.noPublishedBenchmarkHint')}
+                </span>
+              )}
             </div>
           </div>
 
@@ -260,7 +366,7 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
                 </div>
               </div>
 
-              {quote.profitAssessment && (
+              {quote.profitAssessment && quote.profitAssessment.hasApmcBenchmark ? (
                 <div
                   className={`p-4 rounded-xl border mt-4 ${
                     quote.profitAssessment.isProfitable ? 'bg-emerald-50 border-emerald-300' : 'bg-rose-50 border-rose-300'
@@ -286,9 +392,7 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
                           : 'bg-rose-200 text-rose-900'
                       }`}
                     >
-                      {typeof quote.profitAssessment.profitMarginPercent === 'number'
-                        ? `${formatNumber(quote.profitAssessment.profitMarginPercent)}%`
-                        : quote.profitAssessment.profitMarginPercent || '0%'}
+                      {quote.profitAssessment.profitMarginPercent ?? '—'}
                     </span>
                   </div>
                   <div
@@ -306,6 +410,16 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
                     {t('misc.logistics.calculatedAgainstApmc', {
                       value: formatCurrency(Number(quote.profitAssessment.expectedApmcValue) || 0),
                     })}
+                  </p>
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl border mt-4 bg-amber-50 border-amber-300">
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-900 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4 text-amber-700" />
+                    {t('misc.logistics.projectedProfit')}
+                  </span>
+                  <p className="text-[11px] mt-2 font-medium text-amber-800">
+                    {t('misc.logistics.noPublishedBenchmarkHint')}
                   </p>
                 </div>
               )}

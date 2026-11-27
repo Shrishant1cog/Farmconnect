@@ -148,6 +148,9 @@ export const farmerEn: TranslationMap = {
   'farmer.dashboard.apmcModalRate': 'APMC modal rate',
   'farmer.dashboard.competitiveMandi': 'Competitive with mandi',
   'farmer.dashboard.premiumGrade': 'Premium grade',
+  'farmer.dashboard.noPublishedBenchmark': 'Not published yet',
+  'farmer.dashboard.noPublishedBenchmarkHint':
+    'No APMC benchmark has been published for this crop',
   'farmer.dashboard.stock': 'Stock: {quantity} {unit}',
   'farmer.dashboard.markSoldOut': 'Mark sold out',
   'farmer.dashboard.markInStock': 'Mark in stock',
@@ -302,6 +305,8 @@ export const farmerEn: TranslationMap = {
   'farmer.orders.markedCancelled': 'cancelled',
   'farmer.orders.statusUpdate': 'Order #{id} {status}.',
   'farmer.orders.loadError': 'Could not load orders. Please try again.',
+  'farmer.orders.statusUpdateFailed':
+    'The shared backend did not accept the new status, so the order still carries its real status. Please try again.',
 
   // Inquiries
   'farmer.inquiries.customerInquiries': 'Customer inquiries',
@@ -325,4 +330,6 @@ export const farmerEn: TranslationMap = {
   'farmer.inquiries.negotiationBody': 'Select an active customer lead to discuss wholesale prices, crate packaging and gate dispatch logistics.',
   'farmer.inquiries.you': 'You',
   'farmer.inquiries.loadError': 'Could not load inquiries. Please try again.',
+  'farmer.inquiries.sendFailed':
+    'The shared backend did not store the message, so it was not added to the conversation. Please try again.',
 };

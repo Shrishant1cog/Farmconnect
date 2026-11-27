@@ -3,6 +3,10 @@ import jwt from 'jsonwebtoken';
 import { db } from '../../config/db';
 import { buildProductWhereClause, normalizeCropFields } from '../../utils/productQuery';
 import { resolveCategory } from '../../utils/categoryResolver';
+import {
+  describeApmcBenchmark,
+  loadApmcBenchmarkIndex,
+} from '../../utils/apmcBenchmark';
 
 const JWT_SECRETS = [
   process.env.JWT_SECRET,
@@ -152,8 +156,10 @@ export const createProduct = async (req: Request, res: Response) => {
           farmName: String(farmName || `${user.name || 'Cultivator'}'s Farm`),
           district: String(district || 'Mandya'),
           state: String(state || 'Karnataka'),
-          latitude: Number.isFinite(Number(latitude)) ? Number(latitude) : 12.5218,
-          longitude: Number.isFinite(Number(longitude)) ? Number(longitude) : 76.8951,
+          // The position is stored only when it was really shared — a
+          // placeholder would put the farm somewhere it does not exist.
+          latitude: Number.isFinite(Number(latitude)) ? Number(latitude) : null,
+          longitude: Number.isFinite(Number(longitude)) ? Number(longitude) : null,
           isVerified: true,
         },
       });
@@ -263,9 +269,18 @@ export const getMyProducts = async (req: Request, res: Response) => {
       }).catch(() => []);
     }
 
+    const benchmarkIndex = await loadApmcBenchmarkIndex();
     const catalogProducts = products.map((product: any) => ({
       ...product,
       farmerPriceNotice: 'Farmer Listed Price',
+      // The **published** APMC benchmark of the crop — `null` when the shared
+      // database holds no benchmark for it. The clients must never invent a
+      // benchmark from the farmer's own price.
+      ...describeApmcBenchmark(
+        benchmarkIndex,
+        product.cropName,
+        product.location,
+      ),
     }));
 
     return res.status(200).json({
@@ -355,9 +370,18 @@ export const getProducts = async (req: Request, res: Response) => {
       }).catch(() => []);
     }
 
+    const benchmarkIndex = await loadApmcBenchmarkIndex();
     const catalogProducts = products.map((product: any) => ({
       ...product,
       farmerPriceNotice: 'Farmer Listed Price',
+      // The **published** APMC benchmark of the crop — `null` when the shared
+      // database holds no benchmark for it. The clients must never invent a
+      // benchmark from the farmer's own price.
+      ...describeApmcBenchmark(
+        benchmarkIndex,
+        product.cropName,
+        product.location,
+      ),
     }));
 
     return res.status(200).json({
@@ -402,10 +426,18 @@ export const getProductById = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
+    // The **published** APMC benchmark of the crop — `null` when the shared
+    // database holds no benchmark for it.
+    const benchmarkIndex = await loadApmcBenchmarkIndex();
+    const withBenchmark = {
+      ...product,
+      ...describeApmcBenchmark(benchmarkIndex, product.cropName, product.location),
+    };
+
     return res.status(200).json({
       success: true,
-      data: product,
-      product,
+      data: withBenchmark,
+      product: withBenchmark,
     });
   } catch (error: any) {
     return res.status(500).json({

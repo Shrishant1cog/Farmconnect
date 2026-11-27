@@ -54,7 +54,13 @@ class _FarmerMapPageState extends ConsumerState<FarmerMapPage> {
       if (!mounted) {
         return;
       }
-      setState(() => _farmers = farmers);
+      // Only a farmer whose **real** position is stored in the shared
+      // database can be plotted. A farmer without a position stays off the
+      // map instead of being placed at a made-up point.
+      setState(() => _farmers = farmers
+          .where((farmer) =>
+              farmer.latitude != null && farmer.longitude != null)
+          .toList());
     } on ApiException catch (error) {
       if (mounted) {
         final l10n = AppLocalizations.of(context);
@@ -142,7 +148,7 @@ class _FarmerMapPageState extends ConsumerState<FarmerMapPage> {
               markers: [
                 for (final farmer in _farmers)
                   Marker(
-                    point: LatLng(farmer.latitude, farmer.longitude),
+                    point: LatLng(farmer.latitude!, farmer.longitude!),
                     width: 44,
                     height: 44,
                     child: GestureDetector(

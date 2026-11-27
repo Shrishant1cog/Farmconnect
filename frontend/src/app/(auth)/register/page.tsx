@@ -62,10 +62,7 @@ export default function RegisterPage() {
   const [district, setDistrict] = useState('Mandya');
   const [taluk, setTaluk] = useState('');
   const [addressLine, setAddressLine] = useState('');
-  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>({
-    lat: 12.5218,
-    lng: 76.8951,
-  });
+  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
 
   // Dynamic Suggestion Lists
   const [talukSuggestions, setTalukSuggestions] = useState<string[]>([]);
@@ -286,8 +283,11 @@ export default function RegisterPage() {
       district: district.trim(),
       taluk: taluk.trim() || district.trim(),
       addressLine: addressLine.trim() || `${district.trim()}, ${stateName.trim()}`,
-      latitude: coordinates?.lat ?? 12.5218,
-      longitude: coordinates?.lng ?? 76.8951,
+      // The position is only sent when the farmer really shared one (GPS
+      // detection). A placeholder would put the farm somewhere it is not.
+      ...(coordinates
+        ? { latitude: coordinates.lat, longitude: coordinates.lng }
+        : {}),
       showOnMap: Boolean(allowMapPublishing),
     };
 

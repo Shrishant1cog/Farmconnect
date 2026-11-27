@@ -1139,18 +1139,51 @@ class AppLocalizationsHi extends AppLocalizations {
   String get logisticsApmcValue => 'APMC मूल्य';
 
   @override
-  String get logisticsEstimatedTransit => 'अनुमानित यात्रा अवधि';
-
-  @override
   String get logisticsEstimatedProfit => 'अनुमानित लाभ';
 
   @override
   String get logisticsProfitMargin => 'लाभ मार्जिन';
 
   @override
-  String logisticsTransitDays(Object days) {
-    return '$days दिन';
+  String get logisticsSelectListing => 'फसल लॉट';
+
+  @override
+  String get logisticsNoListings =>
+      'साझा सूची में कोई लाइव फसल लॉट उपलब्ध नहीं है।';
+
+  @override
+  String get logisticsPriceFromListing => 'चयनित फसल लॉट की किसान दर।';
+
+  @override
+  String logisticsBenchmarkSource(Object source) {
+    return '$source द्वारा प्रकाशित';
   }
+
+  @override
+  String get logisticsNoPublishedBenchmarkHint =>
+      'इस फसल के लिए कोई APMC बेंचमार्क प्रकाशित नहीं हुआ, इसलिए मंडी के मुकाबले मुनाफा बताया जा सकता है।';
+
+  @override
+  String get logisticsMissingFarmerPrice =>
+      'लिस्टिंग में कीमत नहीं है, इसलिए कुल लागत की गणना नहीं हो सकती।';
+
+  @override
+  String get logisticsMissingFarmCoordinates =>
+      'इस लिस्टिंग के खेत में निर्देशांक नहीं हैं, इसलिए दुलाई की दूरी की गणना नहीं हो सकती।';
+
+  @override
+  String get logisticsMissingDestinationCoordinates =>
+      'आपके डिलीवरी पते में निर्देशांक नहीं हैं, इसलिए दुलाई की दूरी की गणना नहीं हो सकती।';
+
+  @override
+  String get logisticsInvalidQuantity => 'फसल की मात्रा किलो में दर्ज करें।';
+
+  @override
+  String get logisticsCoordinatesHint =>
+      'खेत के निर्देशांक चयनित लिस्टिंग से और डिलीवरी के निर्देशांक आपके खाता प्रोफ़ाइल से आते हैं।';
+
+  @override
+  String get logisticsNotAvailable => '—';
 
   @override
   String get adminOverview => 'अवलोकन';

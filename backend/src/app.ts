@@ -335,6 +335,18 @@ app.get('/api/farmers/:id', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * Logistics + profit quote.
+ *
+ * The quantity, the farmer's price and the four coordinates are **mandatory**
+ * — a missing value is reported as an error instead of being replaced by a
+ * made-up default, because a fabricated distance or price would produce a
+ * fabricated freight cost.
+ *
+ * The APMC benchmark is optional: when the caller has no published benchmark
+ * the profit assessment is reported as unknown (`null`) rather than being
+ * derived from the farmer's own rate.
+ */
 app.post('/api/logistics/quote', (req: Request, res: Response) => {
   const {
     cropQuantityKg,
@@ -345,17 +357,44 @@ app.post('/api/logistics/quote', (req: Request, res: Response) => {
     destLon,
     containerType,
     apmcModalPricePerQuintal,
-  } = req.body;
+  } = req.body || {};
+
+  const quantity = parseFloat(cropQuantityKg);
+  const farmerPrice = parseFloat(farmerPricePerKg);
+  const originLatValue = parseFloat(originLat);
+  const originLonValue = parseFloat(originLon);
+  const destLatValue = parseFloat(destLat);
+  const destLonValue = parseFloat(destLon);
+
+  const missing: string[] = [];
+  if (!Number.isFinite(quantity) || quantity <= 0) missing.push('cropQuantityKg');
+  if (!Number.isFinite(farmerPrice) || farmerPrice < 0) missing.push('farmerPricePerKg');
+  if (!Number.isFinite(originLatValue)) missing.push('originLat');
+  if (!Number.isFinite(originLonValue)) missing.push('originLon');
+  if (!Number.isFinite(destLatValue)) missing.push('destLat');
+  if (!Number.isFinite(destLonValue)) missing.push('destLon');
+
+  if (missing.length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: `Missing or invalid value(s): ${missing.join(', ')}`,
+      missing,
+    });
+  }
+
+  const benchmark = parseFloat(apmcModalPricePerQuintal);
 
   const quote = computeLogisticsAndProfit({
-    cropQuantityKg: parseFloat(cropQuantityKg) || 100,
-    farmerPricePerKg: parseFloat(farmerPricePerKg) || 20,
-    originLat: parseFloat(originLat) || 12.5218,
-    originLon: parseFloat(originLon) || 76.8951,
-    destLat: parseFloat(destLat) || 12.9716,
-    destLon: parseFloat(destLon) || 77.5946,
+    cropQuantityKg: quantity,
+    farmerPricePerKg: farmerPrice,
+    originLat: originLatValue,
+    originLon: originLonValue,
+    destLat: destLatValue,
+    destLon: destLonValue,
     containerType: containerType || 'STANDARD_CRATE',
-    apmcModalPricePerQuintal: parseFloat(apmcModalPricePerQuintal) || 3200,
+    ...(Number.isFinite(benchmark) && benchmark > 0
+      ? { apmcModalPricePerQuintal: benchmark }
+      : {}),
   });
 
   return res.json({ success: true, data: quote });

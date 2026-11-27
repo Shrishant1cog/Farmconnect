@@ -140,28 +140,45 @@ class Complaint {
 }
 
 /// Result of the logistics + profit calculation (`POST /api/logistics/quote`).
+///
+/// The model mirrors the **real** response of the shared backend. The APMC
+/// part is optional: when no benchmark was published the backend reports it
+/// as `null`, and the screen shows an honest "not published yet" state
+/// instead of a made-up profit.
 class LogisticsQuote {
   const LogisticsQuote({
     required this.distanceKm,
     required this.transportCost,
     required this.containerCost,
     required this.totalCost,
-    required this.apmcModalPrice,
-    required this.apmcValue,
-    required this.profit,
-    required this.profitMarginPercent,
-    required this.estimatedDays,
+    required this.produceCost,
+    this.apmcModalPrice,
+    this.apmcValue,
+    this.profit,
+    this.profitMarginPercent,
+    this.hasApmcBenchmark = false,
   });
 
   final double distanceKm;
   final double transportCost;
   final double containerCost;
   final double totalCost;
-  final double apmcModalPrice;
-  final double apmcValue;
-  final double profit;
-  final double profitMarginPercent;
-  final int estimatedDays;
+  final double produceCost;
+
+  /// The published APMC benchmark in ₹ per kg — `null` when none exists.
+  final double? apmcModalPrice;
+
+  /// The expected market value at that benchmark — `null` when none exists.
+  final double? apmcValue;
+
+  /// The profit against the benchmark — `null` when no benchmark exists.
+  final double? profit;
+
+  /// The profit margin in percent — `null` when no benchmark exists.
+  final double? profitMarginPercent;
+
+  /// True when the calculation really used a published APMC benchmark.
+  final bool hasApmcBenchmark;
 
   factory LogisticsQuote.fromJson(Map<String, dynamic> json) {
     double parse(dynamic value) {
@@ -170,16 +187,35 @@ class LogisticsQuote {
       return 0;
     }
 
+    double? parseNullable(dynamic value) {
+      if (value == null) return null;
+      if (value is num) return value.toDouble();
+      if (value is String) {
+        final cleaned = value.replaceAll('%', '').trim();
+        final parsed = double.tryParse(cleaned);
+        return parsed;
+      }
+      return null;
+    }
+
+    final breakdown = json['breakdown'] is Map
+        ? Map<String, dynamic>.from(json['breakdown'] as Map)
+        : <String, dynamic>{};
+    final assessment = json['profitAssessment'] is Map
+        ? Map<String, dynamic>.from(json['profitAssessment'] as Map)
+        : <String, dynamic>{};
+
     return LogisticsQuote(
       distanceKm: parse(json['distanceKm']),
-      transportCost: parse(json['transportCost']),
-      containerCost: parse(json['containerCost']),
-      totalCost: parse(json['totalCost']),
-      apmcModalPrice: parse(json['apmcModalPrice']),
-      apmcValue: parse(json['apmcValue']),
-      profit: parse(json['profit']),
-      profitMarginPercent: parse(json['profitMarginPercent']),
-      estimatedDays: json['estimatedDays'] is num ? (json['estimatedDays'] as num).toInt() : 0,
+      transportCost: parse(breakdown['baseFreightCost']),
+      containerCost: parse(breakdown['specialContainerCost']),
+      totalCost: parse(breakdown['totalLandedCost']),
+      produceCost: parse(breakdown['farmerProduceCost']),
+      apmcModalPrice: parseNullable(assessment['apmcBenchmarkRatePerKg']),
+      apmcValue: parseNullable(assessment['expectedApmcValue']),
+      profit: parseNullable(assessment['approxNetProfit']),
+      profitMarginPercent: parseNullable(assessment['profitMarginPercent']),
+      hasApmcBenchmark: assessment['hasApmcBenchmark'] == true,
     );
   }
 }

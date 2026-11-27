@@ -29,6 +29,20 @@ const sanitizePhone = (rawPhone: string = ''): string => {
 };
 
 /**
+ * Parses a coordinate that the client really sent.
+ *
+ * A missing or malformed value yields `null` — the position is then simply
+ * unknown instead of being replaced by a fixed placeholder.
+ */
+const parseCoordinate = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = parseFloat(String(value));
+  if (!Number.isFinite(parsed)) return null;
+  if (parsed < -90 || parsed > 90) return null;
+  return parsed;
+};
+
+/**
  * 1. User Registration Handler
  */
 export const register = async (req: Request, res: Response) => {
@@ -66,8 +80,18 @@ export const register = async (req: Request, res: Response) => {
     const cleanDistrict = district.trim();
     const cleanState = state.trim();
     const cleanPincode = pincode ? pincode.toString().trim() : '';
-    const parsedLat = latitude ? parseFloat(String(latitude)) : 12.5218;
-    const parsedLon = longitude ? parseFloat(String(longitude)) : 76.8951;
+
+    // The farm position is stored **only** when the account really shared
+    // one. A placeholder would put the farm on the map somewhere it does not
+    // exist and would produce a fabricated freight distance.
+    const parsedLat = parseCoordinate(latitude);
+    const parsedLon = parseCoordinate(longitude);
+    if ((parsedLat === null) !== (parsedLon === null)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Both latitude and longitude are required when a position is shared',
+      });
+    }
 
     if (cleanPhone.length < 10) {
       return res.status(400).json({
@@ -453,8 +477,10 @@ export const loginPhone = async (req: Request, res: Response) => {
               farmName: `${user.name || 'Cultivator'}'s Farm`,
               district: 'Mandya',
               state: 'Karnataka',
-              latitude: 12.5218,
-              longitude: 76.8951,
+              // A phone sign-in carries no position — the farm is stored
+              // without one instead of at a made-up place.
+              latitude: null,
+              longitude: null,
               isVerified: true,
             },
           });

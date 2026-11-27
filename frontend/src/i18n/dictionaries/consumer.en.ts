@@ -99,6 +99,8 @@ export const consumerEn: TranslationMap = {
   'consumer.orders.verifying': 'Verifying…',
   'consumer.orders.confirmAccept': 'Confirm and accept delivery',
   'consumer.orders.loadError': 'We could not load your orders. Please try again.',
+  'consumer.orders.deliveryNotConfirmed':
+    'The shared backend did not confirm the delivery, so the order still carries its real status. Please try again.',
 
   // Chats
   'consumer.chat.directChats': 'Direct farmer chats',

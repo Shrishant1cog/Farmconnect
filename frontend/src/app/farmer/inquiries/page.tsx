@@ -286,10 +286,16 @@ export default function FarmerInquiriesPage() {
             return inq;
           })
         );
+      } else {
+        // The shared backend did not store the message — the placeholder is
+        // removed so the conversation never shows a message that does not
+        // exist on the server.
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        setErrorMessage(json?.message || t('farmer.inquiries.sendFailed'));
       }
-    } catch {
-      setErrorMessage(t('farmer.inquiries.loadError'));
-      // Retain optimistic message in view for local negotiation demonstration
+    } catch (err: any) {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setErrorMessage(err?.message || t('farmer.inquiries.sendFailed'));
     } finally {
       setIsSending(false);
     }

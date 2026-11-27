@@ -35,8 +35,9 @@ interface MapFarmer {
   name: string;
   farmName: string;
   district: string;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
+  hasCoordinates: boolean;
   crops: string[];
 }
 
@@ -55,17 +56,30 @@ export default function ConsumerMapPage() {
         const res = await fetchApi('/users/farmers');
         const data = res?.data || res?.farmers || (Array.isArray(res) ? res : []);
         if (Array.isArray(data) && data.length > 0) {
-          const mapped = data.map((f: any, idx: number) => ({
-            id: f.id || `f-${idx}`,
-            name: f.name || t('consumer.map.cultivatorFallback'),
-            farmName: f.farmerProfile?.farmName || t('consumer.map.farmFallback', { name: f.name }),
-            district: f.district || t('consumer.map.karnatakaFallback'),
-            latitude: Number(f.latitude) || 12.5218 + idx * 0.05,
-            longitude: Number(f.longitude) || 76.8951 + idx * 0.05,
-            crops: f.products?.map((p: any) => p.title) || [t('consumer.map.organicHarvest')],
-          }));
+          // A cultivator can only be plotted when the shared database really
+          // holds their coordinates — a made-up position would put a farm
+          // somewhere it does not exist.
+          const mapped = data
+            .map((f: any, idx: number) => {
+              const latitude = Number(f.latitude);
+              const longitude = Number(f.longitude);
+              const hasCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude);
+
+              return {
+                id: f.id || `f-${idx}`,
+                name: f.name || t('consumer.map.cultivatorFallback'),
+                farmName: f.farmerProfile?.farmName || t('consumer.map.farmFallback', { name: f.name }),
+                district: f.district || t('consumer.map.karnatakaFallback'),
+                latitude: hasCoordinates ? latitude : null,
+                longitude: hasCoordinates ? longitude : null,
+                hasCoordinates,
+                crops: f.products?.map((p: any) => p.title) || [t('consumer.map.organicHarvest')],
+              };
+            })
+            .filter((farmer: any) => farmer.hasCoordinates);
+
           setFarmers(mapped);
-          setSelectedFarmer(mapped[0]);
+          setSelectedFarmer(mapped[0] ?? null);
         } else {
           // Only real cultivators from the shared backend are shown.
           setFarmers([]);
@@ -186,7 +200,7 @@ export default function ConsumerMapPage() {
                     {selectedFarmer.farmName} ({selectedFarmer.district}, Karnataka)
                   </span>
                   <p className="text-xs text-stone-500 mt-0.5 font-mono">
-                    {t('consumer.map.latitude')}: {selectedFarmer.latitude.toFixed(4)}° N, {t('consumer.map.longitude')}: {selectedFarmer.longitude.toFixed(4)}° E
+                    {t('consumer.map.latitude')}: {selectedFarmer.latitude?.toFixed(4) ?? '—'}° N, {t('consumer.map.longitude')}: {selectedFarmer.longitude?.toFixed(4) ?? '—'}° E
                   </p>
                 </div>
 

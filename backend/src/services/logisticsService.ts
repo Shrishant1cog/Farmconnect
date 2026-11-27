@@ -69,11 +69,18 @@ export interface LogisticsBreakdown {
 }
 
 export interface ProfitAssessment {
-  apmcBenchmarkRatePerKg: number;
-  expectedApmcValue: number;
-  approxNetProfit: number;
-  profitMarginPercent: string;
-  isProfitable: boolean;
+  /**
+   * The **published** APMC benchmark in ₹ per kg, or `null` when no benchmark
+   * was supplied. It is never derived from the farmer's own price — an
+   * invented benchmark would be a fake number.
+   */
+  apmcBenchmarkRatePerKg: number | null;
+  expectedApmcValue: number | null;
+  approxNetProfit: number | null;
+  profitMarginPercent: string | null;
+  isProfitable: boolean | null;
+  /** True when a real APMC benchmark was part of the calculation. */
+  hasApmcBenchmark: boolean;
 }
 
 export interface LogisticsQuoteResult {
@@ -86,13 +93,25 @@ export interface LogisticsQuoteResult {
 const MINIMUM_BASE_DISPATCH_FEE = 150.0; // Flat minimum flag-drop fee (₹)
 const BASE_RATE_PER_KM = 14.0; // ₹14/km standard rural transport tempo rate
 
+/**
+ * Computes the freight and the APMC parity of a load.
+ *
+ * Every input has to be a **real** value: the quantity, the farmer's price
+ * and the four coordinates are mandatory, and the APMC benchmark is optional.
+ * When no benchmark was published the profit assessment is reported as
+ * "unknown" (`null`) instead of being derived from the farmer's own price.
+ */
 export function computeLogisticsAndProfit(params: LogisticsQuoteInput): LogisticsQuoteResult {
   const cropQuantityKg = Math.max(0, parseFloat(String(params?.cropQuantityKg)) || 0);
   const farmerPricePerKg = Math.max(0, parseFloat(String(params?.farmerPricePerKg)) || 0);
-  const originLat = parseFloat(String(params?.originLat)) || 12.5218;
-  const originLon = parseFloat(String(params?.originLon)) || 76.8951;
-  const destLat = parseFloat(String(params?.destLat)) || 12.9716;
-  const destLon = parseFloat(String(params?.destLon)) || 77.5946;
+
+  // The coordinates are mandatory — a fabricated position would produce a
+  // fabricated distance and a fabricated freight cost.
+  const originLat = parseFloat(String(params?.originLat));
+  const originLon = parseFloat(String(params?.originLon));
+  const destLat = parseFloat(String(params?.destLat));
+  const destLon = parseFloat(String(params?.destLon));
+
   const apmcModalPricePerQuintal = Math.max(0, parseFloat(String(params?.apmcModalPricePerQuintal)) || 0);
 
   // 1. Calculate Great-Circle Distance
@@ -121,13 +140,17 @@ export function computeLogisticsAndProfit(params: LogisticsQuoteInput): Logistic
   const totalLandedCost = farmerProduceCost + totalTransportCost;
 
   // 5. APMC Market Parity & Profitability (1 Quintal = 100 KG)
-  const apmcRatePerKg = apmcModalPricePerQuintal > 0 ? apmcModalPricePerQuintal / 100 : farmerPricePerKg * 1.25;
-  const expectedApmcMarketValue = cropQuantityKg * apmcRatePerKg;
-  const approxNetProfit = expectedApmcMarketValue - totalLandedCost;
+  //
+  //    Without a published benchmark there is no honest profit statement:
+  //    the assessment stays unknown instead of borrowing the farmer's price.
+  const hasApmcBenchmark = apmcModalPricePerQuintal > 0;
+  const apmcRatePerKg = hasApmcBenchmark ? apmcModalPricePerQuintal / 100 : null;
+  const expectedApmcMarketValue = apmcRatePerKg === null ? null : cropQuantityKg * apmcRatePerKg;
+  const approxNetProfit =
+    expectedApmcMarketValue === null ? null : expectedApmcMarketValue - totalLandedCost;
 
-  const rawMargin = totalLandedCost > 0
-    ? (approxNetProfit / totalLandedCost) * 100
-    : 0.0;
+  const rawMargin =
+    approxNetProfit === null || totalLandedCost <= 0 ? null : (approxNetProfit / totalLandedCost) * 100;
 
   return {
     distanceKm: parseFloat(distanceKm.toFixed(1)),
@@ -140,11 +163,13 @@ export function computeLogisticsAndProfit(params: LogisticsQuoteInput): Logistic
       totalLandedCost: parseFloat(totalLandedCost.toFixed(2)),
     },
     profitAssessment: {
-      apmcBenchmarkRatePerKg: parseFloat(apmcRatePerKg.toFixed(2)),
-      expectedApmcValue: parseFloat(expectedApmcMarketValue.toFixed(2)),
-      approxNetProfit: parseFloat(approxNetProfit.toFixed(2)),
-      profitMarginPercent: `${rawMargin.toFixed(1)}%`,
-      isProfitable: approxNetProfit > 0,
+      apmcBenchmarkRatePerKg: apmcRatePerKg === null ? null : parseFloat(apmcRatePerKg.toFixed(2)),
+      expectedApmcValue:
+        expectedApmcMarketValue === null ? null : parseFloat(expectedApmcMarketValue.toFixed(2)),
+      approxNetProfit: approxNetProfit === null ? null : parseFloat(approxNetProfit.toFixed(2)),
+      profitMarginPercent: rawMargin === null ? null : `${rawMargin.toFixed(1)}%`,
+      isProfitable: approxNetProfit === null ? null : approxNetProfit > 0,
+      hasApmcBenchmark,
     },
   };
 }

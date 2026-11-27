@@ -357,6 +357,15 @@ export const miscKn: TranslationMap = {
   'misc.agriMap.away': 'ದೂರ',
   'misc.agriMap.select': 'ಆಯ್ಕೆ',
   'misc.agriMap.readyDispatch': 'ಸಿದ್ಧ ರವಾನೆ',
+  'misc.agriMap.loading': 'ಹಂಚಿಕೊಂಡ ಪಟ್ಟಿ ಲೋಡ್ ಆಗುತ್ತಿದೆ…',
+  'misc.agriMap.loadError': 'ಹಂಚಿಕೊಂಡ ಪಟ್ಟಿ ಲೋಡ್ ಮಾಡಲಾಗಲಿಲ್ಲ.',
+  'misc.agriMap.loadErrorHint':
+    'ಈ ನಕ್ಷೆ ಪದರಗಳನ್ನು Android ಆ್ಯಪ್‌ಗೆ ಸೇವಿಸುವ FarmConnect ಬ್ಯಾಕ್‌ಎಂಡ್‌ನಿಂದ ಓದಲಾಗುತ್ತದೆ.',
+  'misc.agriMap.emptyTitle': 'ಇನ್ನೂ ಯಾವುದೇ ಪದರ ಲೇಯರ್ ಲಭ್ಯವಿಲ್ಲ',
+  'misc.agriMap.emptyBody':
+    'ಈ ನೋಟಕ್ಕೆ ಹಂಚಿಕೊಂಡ ದತ್ತಾಂಶದಲ್ಲಿ ಪ್ರಕಟಿಸಿದ APMC ಹೊಂದಿಗೆಯೂ ಲೈವ್ ಪಟ್ಟಿಯೂ ಇಲ್ಲ.',
+  'misc.agriMap.layerNotPublished':
+    'ಈ ಲೇಯರ್‌ಗೆ ಇನ್ನೂ ಯಾವುದೇ ಡೇಟಾಸೆಟ್ ಪ್ರಕಟಿಸಿಲ್ಲ — ಯಾವುದೇ ಫಲಕ ತೋರಿಸಲಾಗುತ್ತಿಲ್ಲ.',
 
   // Map side chat
   'misc.sideChat.defaultTitle': 'ಬೆಳೆಯಾದರ ↔ ಖರೀದದಾರ ಸಂಧಿಸುವಿಕೆ',
@@ -408,6 +417,13 @@ export const miscKn: TranslationMap = {
     'ತೇವಾಂಶ ನಿಯಂತ್ರಿತ ಮುಚ್ಚಿದ ಕೋಣೆ (ಧಾನ್ಯ / ಕಾಳು ಬೆಳೆ)',
   'misc.logistics.juteSacks': 'ತೆರೆದ ಸೆಣ ಪೀಲವಾದ ಜೂಟ್ ಸಾಕ್ಕುಗಳು (ಈರ್ಕಳಿ / ಆಲೂಗಡ್ಡೆ)',
   'misc.logistics.localApmcRate': 'ಸ್ಥಳೀಯ APMC ಹೋಲಿಕೆ ದರ (₹ / ಕ್ವಿಂಟಾಲ್)',
+  'misc.logistics.benchmarkSource': '{source} ಪ್ರಕಟಿಸಿದದ್ದು',
+  'misc.logistics.noPublishedBenchmarkHint':
+    'ಈ ಬೆಳೆಗೆ ಯಾವುದೇ APMC ಹೊಂದಿಗೆ ಪ್ರಕಟಿಸಿಲ್ಲ, ಹಾಗಾಗಿ ಮಂಡಿಯ ವಿರುದ್ಧಿನ ಲಾಭವನ್ನು ಹೇಳಬಹುದಿಲ್ಲ.',
+  'misc.logistics.missingFarmerPrice':
+    'ಪಟ್ಟಿಯಲ್ಲಿ ಬೆಲೆ ಇಲ್ಲ, ಹಾಗಾಗಿ ಒಟ್ಟು ವೆಚ್ಚವನ್ನು ಲೆಕ್ಕಹಾಕ್ಕಲಾಗುತ್ತಿಲ್ಲ.',
+  'misc.logistics.missingCoordinates':
+    'ಜಮೀನಿಗೆ ಅಥವಾ ವಿತರಣೆ ವಿಳಾಸಕ್ಕೆ ಅಕ್ಷಾಂಶ-ರೇಖಾಂಶ ಇಲ್ಲ, ಹಾಗಾಗಿ ಸರಿಹಾವಣೆ ಅಂತರ ಲೆಕ್ಕಹಾಕ್ಕಲಾಗುತ್ತಿಲ್ಲ.',
   'misc.logistics.evaluating': 'ವೆಚ್ಚಗಳನ್ನು ಮೌಲ್ಯಮಾಪಿಸಲಾಗುತ್ತಿದೆ...',
   'misc.logistics.checkProfit': 'ಸರಾಸರಿ ಲಾಭ ಪರಿಶೀಲಿಸಿ',
   'misc.logistics.directMessage': 'ರೈತನ್ನು ನೇರವಾಗಿ ಸಂದೇಶಿಸಿ',

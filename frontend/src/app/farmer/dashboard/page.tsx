@@ -107,7 +107,15 @@ interface Product {
   description?: string;
   categoryName?: string;
   farmerPrice: number;
-  mandiBenchmark: number;
+  /**
+   * The **published** APMC benchmark of the crop in ₹ per kg, or `null` when
+   * the shared database holds no benchmark for it. It is never derived from
+   * the farmer's own price — an invented benchmark would be a fake number.
+   */
+  mandiBenchmark: number | null;
+  mandiBenchmarkCommodity?: string | null;
+  mandiBenchmarkMarketCenter?: string | null;
+  mandiBenchmarkState?: string | null;
   priceUnit: string;
   quantityAvailable: number;
   quantityUnit: string;
@@ -165,7 +173,7 @@ function SafeImage({
 
 export default function FarmerDashboardPage() {
   const { user: authUser } = useAuth();
-  const { t, formatNumber } = useI18n();
+  const { t, formatNumber, formatCurrency } = useI18n();
 
   // State management
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -282,7 +290,16 @@ export default function FarmerDashboardPage() {
         description: p.description || '',
         categoryName: p.category?.name || p.categoryName || t('farmer.category.vegetables'),
         farmerPrice: Number(p.farmerPrice) || 0,
-        mandiBenchmark: Number(p.mandiBenchmark) || Number(p.farmerPrice) * 1.05 || 0,
+        // The benchmark comes from the shared backend, which resolves it from
+        // the published APMC rows. `null` when nothing was published for this
+        // crop — the card then says so instead of showing an invented price.
+        mandiBenchmark:
+          p.mandiBenchmark === null || p.mandiBenchmark === undefined
+            ? null
+            : Number(p.mandiBenchmark),
+        mandiBenchmarkCommodity: p.mandiBenchmarkCommodity ?? null,
+        mandiBenchmarkMarketCenter: p.mandiBenchmarkMarketCenter ?? null,
+        mandiBenchmarkState: p.mandiBenchmarkState ?? null,
         priceUnit: p.priceUnit ? p.priceUnit.replace(/^PER_/, '').toLowerCase() : 'kg',
         quantityAvailable: Number(p.quantityAvailable) || 0,
         quantityUnit: p.quantityUnit ? p.quantityUnit.toLowerCase() : 'kg',
@@ -619,7 +636,10 @@ export default function FarmerDashboardPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {filteredProducts.map((prod) => {
-                const isUnderMandi = prod.farmerPrice <= prod.mandiBenchmark;
+                // Without a published benchmark there is nothing to compare
+                // the farmer's rate against — the card says so honestly.
+                const hasBenchmark = typeof prod.mandiBenchmark === 'number';
+                const isUnderMandi = hasBenchmark && prod.farmerPrice <= prod.mandiBenchmark!;
 
                 return (
                   <div 
@@ -668,10 +688,30 @@ export default function FarmerDashboardPage() {
                           </div>
                           <div className="border-l border-stone-200 pl-2">
                             <span className="text-[10px] font-bold text-stone-400 uppercase block">{t('farmer.dashboard.apmcModalRate')}</span>
-                            <span className="text-lg font-black text-stone-700">₹{prod.mandiBenchmark}/{prod.priceUnit}</span>
-                            <span className={`text-[10px] font-bold block ${isUnderMandi ? 'text-emerald-700' : 'text-amber-700'}`}>
-                              {isUnderMandi ? t('farmer.dashboard.competitiveMandi') : t('farmer.dashboard.premiumGrade')}
-                            </span>
+                            {hasBenchmark ? (
+                              <>
+                                <span className="text-lg font-black text-stone-700">
+                                  {formatCurrency(prod.mandiBenchmark!, { maximumFractionDigits: 2 })}/{prod.priceUnit}
+                                </span>
+                                <span className={`text-[10px] font-bold block ${isUnderMandi ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                  {isUnderMandi ? t('farmer.dashboard.competitiveMandi') : t('farmer.dashboard.premiumGrade')}
+                                </span>
+                                {prod.mandiBenchmarkMarketCenter && (
+                                  <span className="text-[10px] text-stone-400 block">
+                                    {prod.mandiBenchmarkMarketCenter}
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-lg font-black text-stone-400">
+                                  {t('farmer.dashboard.noPublishedBenchmark')}
+                                </span>
+                                <span className="text-[10px] font-bold text-stone-400 block">
+                                  {t('farmer.dashboard.noPublishedBenchmarkHint')}
+                                </span>
+                              </>
+                            )}
                           </div>
                         </div>
 

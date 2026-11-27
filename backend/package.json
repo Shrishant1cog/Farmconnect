@@ -8,7 +8,7 @@
     "build": "tsc",
     "start": "node dist/app.js",
     "test": "jest",
-    "test:unit": "jest src/__tests__/language.test.ts src/__tests__/productQuery.test.ts src/__tests__/categoryResolver.test.ts",
+    "test:unit": "jest src/__tests__/language.test.ts src/__tests__/productQuery.test.ts src/__tests__/categoryResolver.test.ts src/__tests__/apmcBenchmark.test.ts src/__tests__/logisticsService.test.ts",
     "test:integration": "jest src/__tests__/integration.test.ts --runInBand",
     "db:push": "npx prisma db push",
     "db:seed": "npx ts-node prisma/seed.ts",

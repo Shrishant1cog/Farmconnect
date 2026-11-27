@@ -60,6 +60,10 @@ class Product {
     this.category,
     this.createdAt,
     this.farmerPriceNotice,
+    this.mandiBenchmark,
+    this.mandiBenchmarkCommodity,
+    this.mandiBenchmarkMarketCenter,
+    this.mandiBenchmarkState,
   });
 
   final String id;
@@ -91,6 +95,20 @@ class Product {
   final Category? category;
   final DateTime? createdAt;
   final String? farmerPriceNotice;
+
+  /// The **published** APMC benchmark of the crop in ₹ per kg, or `null` when
+  /// the shared database holds no benchmark for it. The backend resolves it
+  /// from the real APMC rows — it is never derived from the farmer's price.
+  final double? mandiBenchmark;
+
+  /// The commodity as it was published by the market.
+  final String? mandiBenchmarkCommodity;
+
+  /// The market yard that published the benchmark.
+  final String? mandiBenchmarkMarketCenter;
+
+  /// The state of the market yard that published the benchmark.
+  final String? mandiBenchmarkState;
 
   String get farmerName {
     final user = farmer?['user'];
@@ -131,6 +149,12 @@ class Product {
           : null,
       createdAt: _toDate(json['createdAt']),
       farmerPriceNotice: json['farmerPriceNotice']?.toString(),
+      mandiBenchmark: json['mandiBenchmark'] == null
+          ? null
+          : _toDouble(json['mandiBenchmark']),
+      mandiBenchmarkCommodity: json['mandiBenchmarkCommodity']?.toString(),
+      mandiBenchmarkMarketCenter: json['mandiBenchmarkMarketCenter']?.toString(),
+      mandiBenchmarkState: json['mandiBenchmarkState']?.toString(),
     );
   }
 
@@ -237,8 +261,8 @@ class FarmerSummary {
     this.district,
     this.state,
     this.address,
-    this.latitude = 0,
-    this.longitude = 0,
+    this.latitude,
+    this.longitude,
     this.distanceKm,
     this.isVerified = false,
     this.profileViews = 0,
@@ -253,8 +277,11 @@ class FarmerSummary {
   final String? district;
   final String? state;
   final String? address;
-  final double latitude;
-  final double longitude;
+
+  /// The real farm position, or `null` when the farmer never shared one.
+  /// A default of `0` would put the farm into the ocean.
+  final double? latitude;
+  final double? longitude;
   final double? distanceKm;
   final bool isVerified;
   final int profileViews;
@@ -280,8 +307,8 @@ class FarmerSummary {
       district: json['district']?.toString(),
       state: json['state']?.toString(),
       address: json['address']?.toString() ?? json['addressLine']?.toString(),
-      latitude: _toDouble(json['latitude']),
-      longitude: _toDouble(json['longitude']),
+      latitude: json['latitude'] == null ? null : _toDouble(json['latitude']),
+      longitude: json['longitude'] == null ? null : _toDouble(json['longitude']),
       distanceKm: json['distanceKm'] == null ? null : _toDouble(json['distanceKm']),
       isVerified: json['isVerified'] == true,
       profileViews: json['profileViews'] is num ? (json['profileViews'] as num).toInt() : 0,

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { 
   Search, Navigation, Layers, RotateCcw, 
   MapPin, Plus, Minus, Check, CheckCircle2,
-  Sprout, Building2, Warehouse, Store
+  Sprout, Building2, Warehouse, Store, AlertCircle
 } from 'lucide-react';
 import { useI18n } from '../../hooks/useI18n';
 
@@ -41,93 +41,14 @@ export interface FarmerMapProps {
   selectedFarm?: any | null;
 }
 
-const DEFAULT_NODES: MapNode[] = [
-  {
-    id: 'f-1',
-    name: 'Ramesh Agro Farm & Orchards',
-    type: 'farmers',
-    lat: 12.5218,
-    lon: 76.8951,
-    produce: 'Native Robusta Bananas & Tomatoes',
-    price: 22,
-    priceUnit: 'PER_KG',
-    dist: 'Mandya (115 km)',
-    isVerified: true,
-  },
-  {
-    id: 'f-2',
-    name: 'Mysuru Organic Cultivator Guild',
-    type: 'farmers',
-    lat: 12.3051,
-    lon: 76.6551,
-    produce: 'Mysore Betel Leaves & Ginger',
-    price: 45,
-    priceUnit: 'PER_KG',
-    dist: 'Mysuru (140 km)',
-    isVerified: true,
-  },
-  {
-    id: 'f-3',
-    name: 'Srirangapatna Paddy Yards',
-    type: 'farmers',
-    lat: 12.4181,
-    lon: 76.6947,
-    produce: 'Sona Masoori Rice & Bananas',
-    price: 36,
-    priceUnit: 'PER_KG',
-    dist: 'Mandya District',
-    isVerified: true,
-  },
-  {
-    id: 'f-4',
-    name: 'Byadgi Spice Estate',
-    type: 'farmers',
-    lat: 14.6789,
-    lon: 75.4862,
-    produce: 'Byadgi Red Chilli & Cotton',
-    price: 180,
-    priceUnit: 'PER_KG',
-    dist: 'Haveri District',
-    isVerified: true,
-  },
-  {
-    id: 'a-1',
-    name: 'APMC Mandya Central Wholesale Yard',
-    type: 'apmc',
-    lat: 12.5266,
-    lon: 76.8990,
-    modalRate: '₹3,100 / Quintal',
-    dist: 'Mandya Market Hub',
-  },
-  {
-    id: 'a-2',
-    name: 'APMC Yeshwanthpur Wholesale Yard',
-    type: 'apmc',
-    lat: 13.0238,
-    lon: 77.5505,
-    modalRate: '₹3,450 / Quintal',
-    dist: 'Bengaluru North',
-  },
-  {
-    id: 't-1',
-    name: 'Cauvery Cold Storage & Freight Hub',
-    type: 'trading',
-    lat: 12.2958,
-    lon: 76.6394,
-    capacity: '50 MT Cold Chamber',
-    dist: 'Industrial Area, Mysuru',
-  },
-  {
-    id: 'v-1',
-    name: 'Bangalore Fresh Agro Distribution Center',
-    type: 'vendors',
-    lat: 12.9815,
-    lon: 77.5921,
-    stock: 'Whole-lot Dispatch Node',
-    dist: 'Shivajinagar, Bengaluru',
-  },
-];
-
+/**
+ * The map shows the **real** cultivators of the shared backend.
+ *
+ * There is no bundled fallback list any more: a marker that is not backed by
+ * a row of the shared database would be a fabricated farm. The APMC,
+ * trading-hub and retail-vendor layers have no published dataset yet, so
+ * they report that instead of showing invented places.
+ */
 export default function FarmerMap({
   onSelectHarvestLocation,
   farmers,
@@ -171,16 +92,21 @@ export default function FarmerMap({
     }
   }, []);
 
-  // 2. Normalize nodes from incoming props and fallback benchmarks
+  // 2. Normalize the nodes from the incoming props.
+  //
+  //    Only cultivators whose **real** coordinates are stored in the shared
+  //    database are plotted. There is no bundled fallback list any more —
+  //    a marker that is not backed by a database row would be a fabricated
+  //    farm.
   const activeNodes: MapNode[] = useMemo(() => {
     const combined: MapNode[] = [];
 
     if (farmers && Array.isArray(farmers) && farmers.length > 0) {
       farmers.forEach((f: any, idx: number) => {
-        const rawLat = Number(f.latitude || f.lat);
-        const rawLon = Number(f.longitude || f.lon || f.lng);
+        const rawLat = Number(f.latitude ?? f.lat);
+        const rawLon = Number(f.longitude ?? f.lon ?? f.lng);
 
-        if (!isNaN(rawLat) && !isNaN(rawLon) && rawLat !== 0 && rawLon !== 0) {
+        if (Number.isFinite(rawLat) && Number.isFinite(rawLon) && rawLat !== 0 && rawLon !== 0) {
           combined.push({
             id: String(f.id || `farmer-${idx}`),
             name: f.farmName || f.farmerName || f.name || t('misc.farmerMap.cultivatorNode'),
@@ -188,7 +114,7 @@ export default function FarmerMap({
             lat: rawLat,
             lon: rawLon,
             produce: f.availableProducts?.[0]?.title || f.produce || t('misc.farmerMap.freshHarvestProduce'),
-            price: f.availableProducts?.[0]?.farmerPrice || f.price,
+            price: f.availableProducts?.[0]?.farmerPrice ?? f.price,
             priceUnit: f.availableProducts?.[0]?.priceUnit || 'PER_KG',
             dist: f.district ? `${f.district}, Karnataka` : t('misc.farmerMap.directFarmNode'),
             isVerified: Boolean(f.isVerified ?? true),
@@ -197,16 +123,6 @@ export default function FarmerMap({
         }
       });
     }
-
-    // Append benchmark nodes if missing
-    DEFAULT_NODES.forEach((defNode) => {
-      const exists = combined.some((c) => c.id === defNode.id);
-      if (!exists) {
-        if (defNode.type !== 'farmers' || combined.length === 0) {
-          combined.push(defNode);
-        }
-      }
-    });
 
     return combined;
   }, [farmers, t]);
@@ -679,11 +595,34 @@ export default function FarmerMap({
           </button>
         </div>
 
+        {/* Honest empty state — no cultivator with a published position */}
+        {mapReady && filteredNodes.length === 0 && (
+          <div className="absolute inset-0 z-10 bg-stone-100/85 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 text-center pointer-events-none">
+            <AlertCircle className="w-8 h-8 text-amber-600 mb-2" />
+            <p className="text-xs font-black text-stone-700">{t('misc.agriMap.emptyTitle')}</p>
+            <p className="text-[11px] text-stone-500 mt-1 max-w-xs leading-relaxed">
+              {t('misc.agriMap.emptyBody')}
+            </p>
+          </div>
+        )}
+
         {/* Marker Counter Badge */}
         <div className="absolute left-3 bottom-3 z-20 px-3 py-1.5 bg-white/95 backdrop-blur-sm rounded-lg border border-stone-200 shadow-md text-[11px] font-bold text-stone-700 flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
           <span>{t('misc.farmerMap.verifiedNodesVisible', { count: formatNumber(filteredNodes.length) })}</span>
         </div>
+
+        {/* Layers without a published dataset */}
+        {(filters.apmc || filters.trading || filters.vendors) && (
+          <div className="absolute right-3 top-3 z-20 max-w-[220px] px-3 py-2 bg-white/95 backdrop-blur-sm rounded-lg border border-stone-200 shadow-md">
+            <p className="text-[10px] font-black uppercase tracking-wider text-stone-500 mb-1">
+              {t('misc.agriMap.layerVisibility')}
+            </p>
+            <p className="text-[10px] text-stone-500 leading-relaxed">
+              {t('misc.agriMap.layerNotPublished')}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

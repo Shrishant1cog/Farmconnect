@@ -145,6 +145,9 @@ export const farmerHi: TranslationMap = {
   'farmer.dashboard.apmcModalRate': 'APMC मोडल दर',
   'farmer.dashboard.competitiveMandi': 'मंडी से प्रतिस्पर्धी',
   'farmer.dashboard.premiumGrade': 'प्रीमियम श्रेणी',
+  'farmer.dashboard.noPublishedBenchmark': 'अभी प्रकाशित नहीं',
+  'farmer.dashboard.noPublishedBenchmarkHint':
+    'इस फसल के लिए कोई APMC बेंचमार्क प्रकाशित नहीं हुआ',
   'farmer.dashboard.stock': 'स्टॉक: {quantity} {unit}',
   'farmer.dashboard.markSoldOut': 'बिक चुका चिह्नित करें',
   'farmer.dashboard.markInStock': 'स्टॉक में चिह्नित करें',
@@ -299,6 +302,8 @@ export const farmerHi: TranslationMap = {
   'farmer.orders.markedCancelled': 'रद्द किया गया',
   'farmer.orders.statusUpdate': 'ऑर्डर #{id} {status}।',
   'farmer.orders.loadError': 'ऑर्डर लोड नहीं हो सके। कृपया फिर कोशिश करें।',
+  'farmer.orders.statusUpdateFailed':
+    'साझा बैकएंड ने नई स्थिति स्वीकार नहीं की, इसलिए ऑर्डर अभी भी अपनी असली स्थिति में है। कृपया फिर कोशिश करें।',
 
   // Inquiries
   'farmer.inquiries.customerInquiries': 'ग्राहक पूछताछ',
@@ -322,4 +327,6 @@ export const farmerHi: TranslationMap = {
   'farmer.inquiries.negotiationBody': 'थोक मूल्य, क्रेट पैकेजिंग और गेट रवाने पर चर्चा के लिए सक्रिय ग्राहक लीड चुनें।',
   'farmer.inquiries.you': 'आप',
   'farmer.inquiries.loadError': 'पूछताछ लोड नहीं हो सकीं। कृपया फिर कोशिश करें।',
+  'farmer.inquiries.sendFailed':
+    'साझा बैकएंड ने संदेश सहेजा नहीं, इसलिए वह बातचीत में नहीं जोड़ा गया। कृपया फिर कोशिश करें।',
 };

@@ -150,14 +150,16 @@ export default function ConsumerOrdersPage() {
         setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'DELIVERED' } : o));
         closeConfirmationModal();
       } else {
-        // Fallback optimistic update for demo resilience
-        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'DELIVERED' } : o));
-        closeConfirmationModal();
+        // The shared backend did not confirm the delivery — the order keeps
+        // its real status. A local "delivered" flag would be a fake success.
+        setModalError(
+          json?.message || t('consumer.orders.deliveryNotConfirmed')
+        );
       }
-    } catch {
-      // Optimistically complete verification locally
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'DELIVERED' } : o));
-      closeConfirmationModal();
+    } catch (err: any) {
+      // The confirmation could not be delivered to the shared backend, so
+      // the order is **not** marked as delivered here.
+      setModalError(err?.message || t('consumer.orders.deliveryNotConfirmed'));
     } finally {
       setConfirmingId(null);
     }

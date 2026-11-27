@@ -1144,18 +1144,53 @@ class AppLocalizationsKn extends AppLocalizations {
   String get logisticsApmcValue => 'APMC ಮೌಲ್ಯ';
 
   @override
-  String get logisticsEstimatedTransit => 'ಅಂದಾಜಿತ ಪ್ರಯಾಣ ಅವಧಿ';
-
-  @override
   String get logisticsEstimatedProfit => 'ಅಂದಾಜಿತ ಲಾಭ';
 
   @override
   String get logisticsProfitMargin => 'ಲಾಭ ಪ್ರಮಾಣ';
 
   @override
-  String logisticsTransitDays(Object days) {
-    return '$days ದಿನಗಳು';
+  String get logisticsSelectListing => 'ಬೆಳೆ ಪಟ್ಟಿ';
+
+  @override
+  String get logisticsNoListings =>
+      'ಹಂಚಿಕೊಂಡ ಪಟ್ಟಿಯಲ್ಲಿ ಯಾವುದೇ ಲೈವ್ ಬೆಳೆ ಪಟ್ಟಿ ಲಭ್ಯವಿಲ್ಲ.';
+
+  @override
+  String get logisticsPriceFromListing =>
+      'ಆಯ್ಕೆಮಾಡಿದ ಬೆಳೆ ಪಟ್ಟಿಯ ರೈತರ ಪಟ್ಟಿ ಬೆಲೆ.';
+
+  @override
+  String logisticsBenchmarkSource(Object source) {
+    return '$source ಪ್ರಕಟಿಸಿದದ್ದು';
   }
+
+  @override
+  String get logisticsNoPublishedBenchmarkHint =>
+      'ಈ ಬೆಳೆಗೆ ಯಾವುದೇ APMC ಹೊಂದಿಗೆ ಪ್ರಕಟಿಸಿಲ್ಲ, ಹಾಗಾಗಿ ಮಂಡಿಯ ವಿರುದ್ಧಿನ ಲಾಭವನ್ನು ಹೇಳಬಹುದಿಲ್ಲ.';
+
+  @override
+  String get logisticsMissingFarmerPrice =>
+      'ಪಟ್ಟಿಯಲ್ಲಿ ಬೆಲೆ ಇಲ್ಲ, ಹಾಗಾಗಿ ಒಟ್ಟು ವೆಚ್ಚವನ್ನು ಲೆಕ್ಕಹಾಕ್ಕಲಾಗುತ್ತಿಲ್ಲ.';
+
+  @override
+  String get logisticsMissingFarmCoordinates =>
+      'ಈ ಪಟ್ಟಿಯ ಜಮೀನಿಗೆ ಅಕ್ಷಾಂಶ-ರೇಖಾಂಶ ಇಲ್ಲ, ಹಾಗಾಗಿ ಸರಿಹಾವಣೆ ಅಂತರ ಲೆಕ್ಕಹಾಕ್ಕಲಾಗುತ್ತಿಲ್ಲ.';
+
+  @override
+  String get logisticsMissingDestinationCoordinates =>
+      'ನಿಮ್ಮ ವಿತರಣೆ ವಿಳಾಸಕ್ಕೆ ಅಕ್ಷಾಂಶ-ರೇಖಾಂಶ ಇಲ್ಲ, ಹಾಗಾಗಿ ಸರಿಹಾವಣೆ ಅಂತರ ಲೆಕ್ಕಹಾಕ್ಕಲಾಗುತ್ತಿಲ್ಲ.';
+
+  @override
+  String get logisticsInvalidQuantity =>
+      'ಬೆಳೆಯ ಪ್ರಮಾಣವನ್ನು ಕೆಜಿಗಳಲ್ಲಿ ನಮೂದಿಸಿ.';
+
+  @override
+  String get logisticsCoordinatesHint =>
+      'ಜಮೀನಿನ ಅಕ್ಷಾಂಶ-ರೇಖಾಂಶಗಳು ಆಯ್ಕೆಮಾಡಿದ ಪಟ್ಟಿಯಿಂದ ಮತ್ತು ವಿತರಣೆಯ ಅಕ್ಷಾಂಶ-ರೇಖಾಂಶಗಳು ನಿಮ್ಮ ಖಾತಾ ಪ್ರೊಫೈಲ್‌ನಿಂದ ಬರುತ್ತವೆ.';
+
+  @override
+  String get logisticsNotAvailable => '—';
 
   @override
   String get adminOverview => 'ಅವಲೋಕನ';

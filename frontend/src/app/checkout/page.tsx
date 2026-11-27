@@ -111,22 +111,10 @@ export default function CheckoutPage() {
         })),
       };
 
-      let res: any;
-      try {
-        res = await fetchApi('/orders', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
-      } catch (networkErr: any) {
-        // Fallback for offline demo resilience if backend socket is restarting
-        if (networkErr?.message?.includes('Failed to fetch') || networkErr?.name === 'TypeError') {
-          const mockOrderId = `ord-demo-${Date.now().toString().slice(-6)}`;
-          setOrderComplete(mockOrderId);
-          clearCart();
-          return;
-        }
-        throw networkErr;
-      }
+      const res: any = await fetchApi('/orders', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
 
       const orderId = res?.id || res?.data?.id || res?.order?.id;
 

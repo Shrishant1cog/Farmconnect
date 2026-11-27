@@ -145,6 +145,9 @@ export const farmerKn: TranslationMap = {
   'farmer.dashboard.apmcModalRate': 'ಎಪಿಎಂಸಿ ಮೋಡಲ್ ದರ',
   'farmer.dashboard.competitiveMandi': 'ಮಂಡಿಯೊಂದಿಗೆ ಸ್ಪರ್ಧಾತ್ಮಕ',
   'farmer.dashboard.premiumGrade': 'ಪ್ರೀಮಿಯಂ ಶ್ರೇಣಿ',
+  'farmer.dashboard.noPublishedBenchmark': 'ಇನ್ನೂ ಪ್ರಕಟಿಸಿಲ್ಲ',
+  'farmer.dashboard.noPublishedBenchmarkHint':
+    'ಈ ಬೆಳೆಗೆ ಯಾವುದೇ APMC ಹೊಂದಿಗೆ ಪ್ರಕಟಿಸಿಲ್ಲ',
   'farmer.dashboard.stock': 'ದಾಸ್ತಾನು: {quantity} {unit}',
   'farmer.dashboard.markSoldOut': 'ಮಾರಾಟ ಮುಗಿದಿದೆ ಎಂದು ಗುರುತಿಸಿ',
   'farmer.dashboard.markInStock': 'ದಾಸ್ತಾನಿನಲ್ಲಿದೆ ಎಂದು ಗುರುತಿಸಿ',
@@ -299,6 +302,8 @@ export const farmerKn: TranslationMap = {
   'farmer.orders.markedCancelled': 'ರದ್ದುಮಾಡಲಾಗಿದೆ',
   'farmer.orders.statusUpdate': 'ಆರ್ಡರ್ #{id} {status}.',
   'farmer.orders.loadError': 'ಆರ್ಡರ್‌ಗಳನ್ನು ಲೋಡ್ ಆಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
+  'farmer.orders.statusUpdateFailed':
+    'ಹಂಚಿಕೊಂಡ ಬ್ಯಾಕ್‌ಎಂಡ್ ಹೊಸ ಸ್ಥಿತಿಯನ್ನು ಸ್ವೀಕರಿಸಿಲ್ಲ, ಹಾಗಾಗಿ ಆರ್ಡರ್ ಇನ್ನೂ ತನ್ನ ನಿಜವಾದ ಸ್ಥಿತಿಯಲ್ಲಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
 
   // Inquiries
   'farmer.inquiries.customerInquiries': 'ಗ್ರಾಹಕರ ವಿಚಾರಗಳು',
@@ -322,4 +327,6 @@ export const farmerKn: TranslationMap = {
   'farmer.inquiries.negotiationBody': 'ಸಗಾಳ ದರ, ಕ್ರೇಟ್ ಪ್ಯಾಕಿಂಗ್ ಮತ್ತು ಹಾಗ್ಗಿನ ರವಾನೆ ಬಗ್ಗೆ ಚರ್ಚಿಸಲು ಸಕ್ರಿಯ ಗ್ರಾಹಕ ಆಯಿತುವನ್ನು ಆಯ್ಕೆಮಾಡಿ.',
   'farmer.inquiries.you': 'ನೀವು',
   'farmer.inquiries.loadError': 'ವಿಚಾರಗಳನ್ನು ಲೋಡ್ ಆಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
+  'farmer.inquiries.sendFailed':
+    'ಹಂಚಿಕೊಂಡ ಬ್ಯಾಕ್‌ಎಂಡ್ ಸಂದೇಶವನ್ನು ಸಂಗ್ರಹಿಸಿಲ್ಲ, ಹಾಗಾಗಿ ಅದನ್ನು ಸಂಭಾಷಣೆಗೆ ಸೇರಿಸಲಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
 };

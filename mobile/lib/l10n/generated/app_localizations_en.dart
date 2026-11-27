@@ -1143,18 +1143,53 @@ class AppLocalizationsEn extends AppLocalizations {
   String get logisticsApmcValue => 'APMC value';
 
   @override
-  String get logisticsEstimatedTransit => 'Estimated transit';
-
-  @override
   String get logisticsEstimatedProfit => 'Estimated profit';
 
   @override
   String get logisticsProfitMargin => 'Profit margin';
 
   @override
-  String logisticsTransitDays(Object days) {
-    return '$days days';
+  String get logisticsSelectListing => 'Crop lot';
+
+  @override
+  String get logisticsNoListings =>
+      'No live crop lot is available in the shared catalogue.';
+
+  @override
+  String get logisticsPriceFromListing =>
+      'The farmer\'s listed price of the selected crop lot.';
+
+  @override
+  String logisticsBenchmarkSource(Object source) {
+    return 'Published by $source';
   }
+
+  @override
+  String get logisticsNoPublishedBenchmarkHint =>
+      'No APMC benchmark has been published for this crop, so the profit against the mandi cannot be stated.';
+
+  @override
+  String get logisticsMissingFarmerPrice =>
+      'The listing carries no price, so the landed cost cannot be computed.';
+
+  @override
+  String get logisticsMissingFarmCoordinates =>
+      'The farm of this listing has no coordinates, so the freight distance cannot be computed.';
+
+  @override
+  String get logisticsMissingDestinationCoordinates =>
+      'Your delivery address has no coordinates, so the freight distance cannot be computed.';
+
+  @override
+  String get logisticsInvalidQuantity =>
+      'Enter the crop quantity in kilograms.';
+
+  @override
+  String get logisticsCoordinatesHint =>
+      'The farm coordinates come from the selected listing and the delivery coordinates from your account profile.';
+
+  @override
+  String get logisticsNotAvailable => '—';
 
   @override
   String get adminOverview => 'Overview';

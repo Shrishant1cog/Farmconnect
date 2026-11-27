@@ -357,6 +357,15 @@ export const miscHi: TranslationMap = {
   'misc.agriMap.away': 'दूर',
   'misc.agriMap.select': 'चुनें',
   'misc.agriMap.readyDispatch': 'डिस्पैच के लिए तैयार',
+  'misc.agriMap.loading': 'साझा सूची लोड हो रही है…',
+  'misc.agriMap.loadError': 'साझा सूची लोड नहीं हो सकी।',
+  'misc.agriMap.loadErrorHint':
+    'ये मैप लेयर Android ऐप को भी सेवा करने वाले FarmConnect बैकएंड से पढ़े जाते हैं।',
+  'misc.agriMap.emptyTitle': 'अभी कोई प्रकाशित लेयर उपलब्ध नहीं है',
+  'misc.agriMap.emptyBody':
+    'साझा डेटाबेस में इस दृश्य के लिए न कोई प्रकाशित APMC बेंचमार्क है, न कोई लाइव लिस्टिंग।',
+  'misc.agriMap.layerNotPublished':
+    'इस लेयर के लिए अभी कोई डेटासेट प्रकाशित नहीं है — कोई प्लेसहोल्डर नहीं दिखाया जाता।',
 
   // Map side chat
   'misc.sideChat.defaultTitle': 'किसान ↔ खरीदार वार्ता',
@@ -408,6 +417,13 @@ export const miscHi: TranslationMap = {
     'नमी नियंत्रित सीलबंद चैंबर (अनाज/दलहन)',
   'misc.logistics.juteSacks': 'खुली बुना जूट बोरी (प्याज/आलू)',
   'misc.logistics.localApmcRate': 'स्थानीय APMC बेंचमार्क दर (₹ / क्विंटल)',
+  'misc.logistics.benchmarkSource': '{source} द्वारा प्रकाशित',
+  'misc.logistics.noPublishedBenchmarkHint':
+    'इस फसल के लिए कोई APMC बेंचमार्क प्रकाशित नहीं हुआ, इसलिए मंडी के मुकाबले मुनाफा बताया जा सकता है।',
+  'misc.logistics.missingFarmerPrice':
+    'लिस्टिंग में कीमत नहीं है, इसलिए कुल लागत की गणना नहीं हो सकती।',
+  'misc.logistics.missingCoordinates':
+    'खेत या डिलीवरी पते में निर्देशांक नहीं हैं, इसलिए दुलाई की दूरी की गणना नहीं हो सकती।',
   'misc.logistics.evaluating': 'लागत का आकलन...',
   'misc.logistics.checkProfit': 'अनुमानित लाभ जांचें',
   'misc.logistics.directMessage': 'किसान को सीधे संदेश भेजें',

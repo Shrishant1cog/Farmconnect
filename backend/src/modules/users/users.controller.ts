@@ -142,8 +142,9 @@ export const updateCurrentProfile = async (req: AuthenticatedRequest, res: Respo
             district: body.district?.trim() || 'Mandya',
             state: body.state?.trim() || 'Karnataka',
             addressLine: (body.addressLine || body.address || '').trim(),
-            latitude: body.latitude !== undefined ? body.latitude : 12.5218,
-            longitude: body.longitude !== undefined ? body.longitude : 76.8951,
+            // The position is stored only when it was really shared.
+            latitude: body.latitude !== undefined ? body.latitude : null,
+            longitude: body.longitude !== undefined ? body.longitude : null,
             isVerified: true,
           },
           update: farmerData,

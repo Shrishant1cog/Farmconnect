@@ -96,6 +96,8 @@ export const consumerKn: TranslationMap = {
   'consumer.orders.verifying': 'ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ…',
   'consumer.orders.confirmAccept': 'ವಿತರಣೆ ದೃಢಪಿಸಿ ಸ್ವೀಕರಿಸಿ',
   'consumer.orders.loadError': 'ನಿಮ್ಮ ಆರ್ಡರ್‌ಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
+  'consumer.orders.deliveryNotConfirmed':
+    'ಹಂಚಿಕೊಂಡ ಬ್ಯಾಕ್‌ಎಂಡ್ ವಿತರಣೆಯನ್ನು ದೃಢಪಡಿಸಿಲ್ಲ, ಹಾಗಾಗಿ ಆರ್ಡರ್ ಇನ್ನೂ ತನ್ನ ನಿಜವಾದ ಸ್ಥಿತಿಯನ್ನು ಹೊಂದಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
 
   // Chats
   'consumer.chat.directChats': 'ನೇರ ರೈತ ಚಾಟ್‌ಗಳು',

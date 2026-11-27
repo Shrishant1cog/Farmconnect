@@ -154,7 +154,7 @@ refresh and no flicker**.
 The language is stored in the encrypted keystore
 (`farmconnect_locale`) and deliberately **survives a logout**.
 
-**ARB size:** 381 keys per language (`en`, `kn`, `hi`) — 0 missing / 0 extra,
+**ARB size:** 390 keys per language (`en`, `kn`, `hi`) — 0 missing / 0 extra,
 verified by `scripts/verify-i18n.mjs`.
 
 ### 2.5 Scope rules
@@ -383,13 +383,13 @@ estimated. The live route and cross-platform matrices are kept separately in
 
 | Check | Command | Result | Evidence |
 | --- | --- | --- | --- |
-| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 35 / 35 tests green (3 suites: `language`, `productQuery`, `categoryResolver`) |
+| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 48 / 48 tests green (5 suites: `language`, `productQuery`, `categoryResolver`, `apmcBenchmark`, `logisticsService`) |
 | Backend type check | `cd backend && npx tsc --noEmit` | PASS | exit code 0 |
 | Website type check | `cd frontend && npx tsc --noEmit` | PASS | exit code 0 |
 | Website production build | `cd frontend && npm run build` | PASS | exit code 0 — 21 routes prerendered/built, no prerender errors |
 | Android static analysis | `cd mobile && flutter analyze` | PASS | "No issues found!" |
 | Android unit + widget tests | `cd mobile && flutter test` | PASS | 31 / 31 tests green (includes `locale_test.dart` and `crop_listing_test.dart`) |
-| Localisation key parity | `node scripts/verify-i18n.mjs` | PASS | website `core` 120, `auth` 126, `farmer` 301, `consumer` 232, `misc` 352 keys; Android ARB 381 keys — 0 missing / 0 extra for Kannada and Hindi |
+| Localisation key parity | `node scripts/verify-i18n.mjs` | PASS | website `core` 120, `auth` 126, `farmer` 305, `consumer` 233, `misc` 362 keys; Android ARB 390 keys — 0 missing / 0 extra for Kannada and Hindi |
 | Hardcoded-English scan of the website JSX | `node C:\Users\user\AppData\Local\Temp\opencode\find-hardcoded-jsx.mjs` | PASS | 3 hits — all false positives (`Promise` type annotations) |
 | Website + API route smoke (deployed) | `node scripts/smoke-routes.mjs` | PASS | 22 / 22 website routes + 24 / 24 API routes answered with the expected status (200, or the expected auth redirect) |
 | API endpoint smoke (deployed) | `node scripts/smoke-api-endpoints.mjs` | PASS | 50 probes, 0 unexpected statuses — every endpoint of the shared backend was exercised with a real request |
@@ -486,16 +486,21 @@ this work:
    every redeploy.
 6. **The shared database contains no APMC rate row.** `GET /api/apmc/rates`
    answers `{"success":true,"data":[],"rates":[],"total":0}`, so the Mandi
-   Rates page, the home ticker and the savings calculator show their honest
-   empty state. There is **no seed or import path** for APMC rates yet — and
-   adding one with invented rows would reintroduce exactly the mock data that
-   was removed. Loading real benchmark rows into the shared database is the
-   open item.
-7. **The deployed database has no administrator account** (registration only
+   Rates page, the home ticker, the savings calculator and the farmer
+   dashboard show their honest "not published yet" state. There is **no seed
+   or import path** for APMC rates yet — and adding one with invented rows
+   would reintroduce exactly the mock data that was removed. Loading real
+   benchmark rows into the shared database is the open item.
+7. **A farm without a shared position stays off the map.** Since the
+   fabricated coordinates were removed (see §7.2), a farmer who never shared
+   a GPS position has no `latitude` / `longitude` in the shared database.
+   Such a farm is not plotted on the map and the logistics quote reports the
+   missing coordinates instead of inventing a route.
+8. **The deployed database has no administrator account** (registration only
    creates `FARMER` / `CONSUMER`). The five `/api/admin/*` endpoints and the
    Android admin dashboard therefore stay `NOT TESTED` in the matrices — the
    admin guard answers HTTP 403 for every non-admin token.
-8. **The QA accounts created by the live verification scripts stay in the
+9. **The QA accounts created by the live verification scripts stay in the
    production database** — there is no account-deletion endpoint.
 
 ### 7.1 Production defects that were found and fixed
@@ -537,3 +542,22 @@ The website had three smaller gaps of the same kind, all fixed:
   language into the cached account object as well, so the cache can never
   contradict the account — `frontend/src/context/LocaleContext.tsx`,
   `frontend/src/hooks/useAuth.ts`.
+
+### 7.2 Fabricated numbers and fake success states that the audit removed
+
+The "no mock data" rule reaches further than the obvious demo arrays. A
+second pass over both clients found the following, and all of them are fixed
+(the complete table is in
+[`docs/VERIFICATION_MATRICES.md`](VERIFICATION_MATRICES.md) §1.4):
+
+| # | Fabrication | Where | Fix |
+| --- | --- | --- | --- |
+| 1 | The dashboard's "APMC modal rate" was the farmer's **own** price × 1.05 | `frontend/src/app/farmer/dashboard/page.tsx` | The **published** APMC row is resolved by the shared backend (`backend/src/utils/apmcBenchmark.ts`) and attached to every listing as `mandiBenchmark` (₹/kg) — `null` when nothing was published |
+| 2 | The logistics benchmark was the farmer's price × 1.25 and the coordinates defaulted to two fixed cities | `backend/src/services/logisticsService.ts` | The benchmark is an optional input; without a published row the profit assessment is unknown (`null` + `hasApmcBenchmark: false`) |
+| 3 | The logistics endpoint replaced missing inputs with defaults (100 kg, ₹20/kg, ₹3200/quintal, two fixed cities) | `backend/src/app.ts` | `POST /api/logistics/quote` validates the mandatory inputs and answers **HTTP 400** with the list of the missing fields |
+| 4 | The Android logistics screen started from a fabricated price (`20`), a fabricated benchmark (`3200`) and the same two fixed cities | `mobile/lib/features/logistics/logistics_page.dart` | The screen picks a **live crop lot**, takes the price and the farm coordinates from that lot, the delivery coordinates from the consumer profile and the benchmark from the published market rates |
+| 5 | The Android quote card rendered values the backend never returned (`estimatedDays`, `apmcValue`, `profit`, `profitMarginPercent`) — so it showed zeros | `mobile/lib/data/models/misc.dart` | The model mirrors the **real** response shape (`breakdown.*`, `profitAssessment.*`); the APMC fields are nullable and the card shows "—" plus an explanation |
+| 6 | The buy map showed **simulated** nodes and a fixed "₹3,100 / Quintal" yard; the consumer map's `FarmerMap` carried a whole `DEFAULT_NODES` list of invented farms | `frontend/src/components/AgriMapExplorer.tsx`, `frontend/src/components/maps/FarmerMap.tsx` | Both layers read the real backend; a layer without a published dataset reports that instead of showing invented places |
+| 7 | Every account without a GPS position was stored at `12.5218 / 76.8951` | backend + register form | `FarmerProfile.latitude` / `longitude` became nullable (additive migration); the position is stored only when it was really shared |
+| 8 | The cart replaced the farmer's and the buyer's coordinates with two fixed cities and derived the freight cost from that invented route | `frontend/src/context/CartContext.tsx` | The cart keeps the real coordinates only; an unknown route yields `distanceKm = null` and the published minimum dispatch tariff |
+| 9 | The checkout showed a **fake order id** (`ord-demo-XXXXXX`) when the network failed; the delivery receipt and the farmer's order status were marked locally even when the backend rejected them | `frontend/src/app/checkout/page.tsx`, `frontend/src/app/consumer/orders/page.tsx`, `frontend/src/app/farmer/orders/page.tsx` | The state only changes when the shared backend confirms it — a failed request is reported instead of being faked |

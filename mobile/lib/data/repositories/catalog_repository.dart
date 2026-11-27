@@ -229,6 +229,15 @@ class CatalogRepository {
   }
 
   /// Logistics cost + profit calculation.
+  ///
+  /// The quantity, the farmer's price and the four coordinates are
+  /// **mandatory** — the backend rejects a missing value with HTTP 400
+  /// instead of substituting a made-up default.
+  ///
+  /// [apmcModalPricePerQuintal] is **optional**: when the shared database
+  /// holds no published benchmark for the crop the backend reports the
+  /// profit assessment as unknown rather than deriving it from the farmer's
+  /// own rate.
   Future<LogisticsQuote> fetchLogisticsQuote({
     required double cropQuantityKg,
     required double farmerPricePerKg,
@@ -237,7 +246,7 @@ class CatalogRepository {
     required double destLat,
     required double destLon,
     String containerType = 'STANDARD_CRATE',
-    double apmcModalPricePerQuintal = 3200,
+    double? apmcModalPricePerQuintal,
   }) async {
     final payload = await _api.post(ApiEndpoints.logisticsQuote, body: {
       'cropQuantityKg': cropQuantityKg,
@@ -247,7 +256,8 @@ class CatalogRepository {
       'destLat': destLat,
       'destLon': destLon,
       'containerType': containerType,
-      'apmcModalPricePerQuintal': apmcModalPricePerQuintal,
+      if (apmcModalPricePerQuintal != null && apmcModalPricePerQuintal > 0)
+        'apmcModalPricePerQuintal': apmcModalPricePerQuintal,
     });
 
     final map = payload is Map ? Map<String, dynamic>.from(payload) : <String, dynamic>{};

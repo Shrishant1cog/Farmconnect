@@ -360,6 +360,15 @@ export const miscEn: TranslationMap = {
   'misc.agriMap.away': 'away',
   'misc.agriMap.select': 'Select',
   'misc.agriMap.readyDispatch': 'Ready dispatch',
+  'misc.agriMap.loading': 'Loading the shared catalogue…',
+  'misc.agriMap.loadError': 'The shared catalogue could not be loaded.',
+  'misc.agriMap.loadErrorHint':
+    'The map layers are read from the FarmConnect backend that also serves the Android app.',
+  'misc.agriMap.emptyTitle': 'No published layer is available yet',
+  'misc.agriMap.emptyBody':
+    'The shared database holds neither a published APMC benchmark nor a live listing for this view.',
+  'misc.agriMap.layerNotPublished':
+    'No dataset has been published for this layer yet — no placeholder is shown.',
 
   // Map side chat
   'misc.sideChat.defaultTitle': 'Cultivator ↔ Buyer Negotiation',
@@ -411,6 +420,13 @@ export const miscEn: TranslationMap = {
     'Moisture Controlled Sealed Chamber (Grains / Pulses)',
   'misc.logistics.juteSacks': 'Open-Burlap Jute Sacks (Onion / Potato)',
   'misc.logistics.localApmcRate': 'Local APMC Benchmark Rate (₹ / Quintal)',
+  'misc.logistics.benchmarkSource': 'Published by {source}',
+  'misc.logistics.noPublishedBenchmarkHint':
+    'No APMC benchmark has been published for this crop, so the profit against the mandi cannot be stated.',
+  'misc.logistics.missingFarmerPrice':
+    'The listing carries no price, so the landed cost cannot be computed.',
+  'misc.logistics.missingCoordinates':
+    'The farm or the delivery address has no coordinates, so the freight distance cannot be computed.',
   'misc.logistics.evaluating': 'Evaluating Costs...',
   'misc.logistics.checkProfit': 'Check Approx Profit',
   'misc.logistics.directMessage': 'Direct Message Farmer',

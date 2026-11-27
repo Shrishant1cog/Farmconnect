@@ -548,8 +548,52 @@ mobile/
 
 ## 10. CI
 
-`.github/workflows/verify.yml` now runs against a real PostgreSQL 16 service
-container:
+### 10.1 What the workflow did before this work
+
+The `verify` job in `.github/workflows/verify.yml` checked out a **hardcoded**
+branch:
+
+```yaml
+- name: Checkout latest repaired branch
+  uses: actions/checkout@v4
+  with:
+    ref: verify/final          # ← not the pull-request branch
+```
+
+and prepared a **SQLite** database for the integration suite:
+
+```yaml
+- name: Prepare test database
+  env:
+    DATABASE_URL: file:./dev.db
+  run: npx prisma db push --skip-generate
+```
+
+Two consequences were confirmed by inspecting the CI logs of the run that
+triggered on the pushed commits:
+
+* The `normalize-lockfile` job checked out `fix/local-updates` ✅, but the
+  `verify` job checked out `verify/final` ❌ — so the green "verify" check on
+  pull request #2 validated **the old branch**, not the pull-request head.
+* The job could not exercise the PostgreSQL migration path at all, because it
+  pushed a schema into SQLite instead of running `prisma migrate deploy`.
+
+The workflow also only triggered on the `fix/verified-build-auth` and
+`verify/**` branches, so a push to `fix/local-updates` did not start it.
+
+### 10.2 What the workflow does now
+
+The `ci: verify the branch against a PostgreSQL 16 service container` commit
+fixes all three problems:
+
+| Problem | Fix |
+| --- | --- |
+| The job verified the wrong branch | `ref: ${{ github.head_ref \|\| github.ref_name }}` — the pull-request branch or the pushed branch |
+| The job used a throwaway SQLite file | A `postgres:16-alpine` service container with a health check, and `DATABASE_URL` pointing at it |
+| The job never ran `prisma migrate deploy` | The "Prepare test database" step is replaced by "Apply PostgreSQL migrations", so CI exercises the real migration path |
+| The workflow did not trigger on `fix/**` | The `push` trigger now includes `fix/**` |
+
+The workflow now runs:
 
 1. `frontend` — `npm ci`, `npx tsc --noEmit`, `npm run build`
 2. `backend` — `npm ci`, `npx prisma generate`, `npm run build`,
@@ -557,8 +601,16 @@ container:
 3. `start.bat` static validation
 4. A verified-source ZIP artifact
 
-The workflow triggers on `push` to `fix/**` and on every pull request, so the
-Android-parity branch is validated by the same pipeline.
+The `pull_request` trigger is unchanged, so the Android-parity branch is
+validated by the same pipeline.
+
+> **Pushing this workflow file required a token with GitHub's `workflow`
+> scope.** The GitHub CLI OAuth token stored on the development machine had
+> `repo` but not `workflow`, so GitHub rejected the ref update with
+> *"refusing to allow an OAuth App to create or update workflow
+> `.github/workflows/verify.yml` without `workflow` scope"*. The token was
+> re-authorised with the additional scope and the commit was pushed. This is
+> a credential limitation of the local environment, not a repository problem.
 
 ---
 

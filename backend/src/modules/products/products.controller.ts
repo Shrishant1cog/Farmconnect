@@ -36,6 +36,55 @@ const resolveUserId = (req: Request): string | null => {
 };
 
 /**
+ * Helper: Resolves the `FarmerProfile` that belongs to the authenticated
+ * account, so a listing can only be changed by its own owner (or by an
+ * administrator).
+ */
+const resolveOwningFarmerProfileId = async (req: Request): Promise<string | null> => {
+  const userId = resolveUserId(req);
+  if (!userId) return null;
+  const profile = await db.farmerProfile.findUnique({
+    where: { userId },
+    select: { id: true },
+  });
+  return profile?.id || null;
+};
+
+/**
+ * Helper: Checks that the authenticated account may modify the given listing.
+ *
+ * Returns `null` when the request may proceed, or the error response that has
+ * to be sent instead.
+ */
+const authorizeListingOwner = async (
+  req: Request,
+  res: Response,
+  listing: { id: string; farmerId: string }
+): Promise<Response | null> => {
+  const role = String((req as any).user?.role || '').toUpperCase();
+  if (role === 'ADMIN') {
+    return null;
+  }
+
+  const ownerProfileId = await resolveOwningFarmerProfileId(req);
+  if (!ownerProfileId) {
+    return res.status(403).json({
+      success: false,
+      message: 'Only the cultivator who published this listing can change it.',
+    });
+  }
+
+  if (listing.farmerId !== ownerProfileId) {
+    return res.status(403).json({
+      success: false,
+      message: 'Only the cultivator who published this listing can change it.',
+    });
+  }
+
+  return null;
+};
+
+/**
  * 1. Create a Fresh Produce / Harvest Listing
  */
 export const createProduct = async (req: Request, res: Response) => {
@@ -378,6 +427,10 @@ export const updateProduct = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
+    // A listing may only be edited by the cultivator who published it.
+    const forbidden = await authorizeListingOwner(req, res, existing);
+    if (forbidden) return forbidden;
+
     const updateBody: Record<string, unknown> = req.body || {};
     const dataToUpdate: Record<string, unknown> = {};
 
@@ -463,10 +516,33 @@ export const updateProduct = async (req: Request, res: Response) => {
 export const deleteProduct = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const existing = await db.product.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Product not found' });
+    }
 
-    await db.product.delete({
-      where: { id },
-    }).catch(() => null);
+    // A listing may only be deleted by the cultivator who published it.
+    const forbidden = await authorizeListingOwner(req, res, existing);
+    if (forbidden) return forbidden;
+
+    // A listing that already carries an order is part of the order history
+    // and must not be removed. The cultivator is told to take it off the
+    // market instead — the endpoint never reports a delete that did not
+    // happen.
+    const orderItems = await db.orderItem.findMany({
+      where: { productId: id },
+      select: { id: true },
+    });
+
+    if (orderItems.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message:
+          'This listing already has orders and can no longer be deleted. Mark it as unavailable instead.',
+      });
+    }
+
+    await db.product.delete({ where: { id } });
 
     return res.status(200).json({
       success: true,

@@ -531,4 +531,72 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
     expect(ragi.cropName).toBe('Ragi');
     expect(Number(tomato.farmerPrice)).not.toBe(Number(ragi.farmerPrice));
   });
+
+  it('AUTHORISATION: a listing can only be changed by the cultivator who published it', async () => {
+    // The consumer account must not be able to edit the farmer's listing.
+    const foreignUpdate = await agent
+      .patch(`/api/products/${thirdProductId}`)
+      .set('Authorization', `Bearer ${consumerToken}`)
+      .send({ farmerPrice: 999 });
+
+    expect(foreignUpdate.status).toBe(403);
+
+    // ... and the price in the database is untouched.
+    const untouched = await prisma.product.findUnique({ where: { id: thirdProductId } });
+    expect(Number(untouched!.farmerPrice)).toBe(48.0);
+
+    // The consumer must not be able to delete it either.
+    const foreignDelete = await agent
+      .delete(`/api/products/${thirdProductId}`)
+      .set('Authorization', `Bearer ${consumerToken}`);
+
+    expect(foreignDelete.status).toBe(403);
+    const stillThere = await prisma.product.findUnique({ where: { id: thirdProductId } });
+    expect(stillThere).not.toBeNull();
+  });
+
+  it('DELETE: a listing with orders is not deleted and the failure is reported', async () => {
+    // `createdProductId` already carries an order (see the order lifecycle
+    // test), so the delete has to refuse and say why. It must never answer
+    // with a success that did not happen.
+    const res = await agent
+      .delete(`/api/products/${createdProductId}`)
+      .set('Authorization', `Bearer ${farmerToken}`);
+
+    expect(res.status).toBe(409);
+    expect(res.body.success).toBe(false);
+
+    const stillThere = await prisma.product.findUnique({ where: { id: createdProductId } });
+    expect(stillThere).not.toBeNull();
+  });
+
+  it('DELETE: a listing without orders is removed by its owner', async () => {
+    const createRes = await agent
+      .post('/api/products')
+      .set('Authorization', `Bearer ${farmerToken}`)
+      .send({
+        title: 'Integration Disposable Lot',
+        description: 'A lot that may be deleted.',
+        categoryId: testCategoryId,
+        cropName: 'Tomato',
+        farmerPrice: 10,
+        quantityAvailable: 10,
+        quantityUnit: 'KG',
+        priceUnit: 'PER_KG',
+        isOrganic: false,
+      });
+
+    expect(createRes.status).toBe(201);
+    const disposableId = createRes.body.data.id;
+
+    const deleteRes = await agent
+      .delete(`/api/products/${disposableId}`)
+      .set('Authorization', `Bearer ${farmerToken}`);
+
+    expect(deleteRes.status).toBe(200);
+    expect(deleteRes.body.success).toBe(true);
+
+    const gone = await prisma.product.findUnique({ where: { id: disposableId } });
+    expect(gone).toBeNull();
+  });
 });

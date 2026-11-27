@@ -23,7 +23,8 @@ export default function FarmerOrdersPage() {
     } catch (e: any) {
       console.error('Failed to load orders:', e?.message);
       setOrders([]);
-      setLoadError(t('farmer.orders.loadError'));
+      // Store the translation key so the message follows the active locale.
+      setLoadError('farmer.orders.loadError');
     } finally {
       setLoading(false);
     }
@@ -59,7 +60,7 @@ export default function FarmerOrdersPage() {
       ) : loadError ? (
         <div className="bg-white border border-stone-200 rounded-3xl p-12 text-center text-stone-500 space-y-3">
           <Package className="w-12 h-12 mx-auto text-stone-300" />
-          <p className="font-bold text-stone-800 text-sm">{loadError}</p>
+          <p className="font-bold text-stone-800 text-sm">{t(loadError)}</p>
           <button
             type="button"
             onClick={fetchOrders}

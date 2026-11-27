@@ -15,6 +15,7 @@ export default function SellerPortal() {
   const [isVerified, setIsVerified] = useState<boolean>(false);
   const [maskedId, setMaskedId] = useState<string>('');
   const [farmName, setFarmName] = useState<string>('');
+  const [farmNameFallbackKey, setFarmNameFallbackKey] = useState<string>('misc.seller.defaultFarmName');
   const [rawInput, setRawInput] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [initialChecking, setInitialChecking] = useState<boolean>(true);
@@ -29,7 +30,12 @@ export default function SellerPortal() {
           const isAadhaarDone = Boolean(res.data.stats !== undefined);
           if (isAadhaarDone) {
             setIsVerified(true);
-            setFarmName(res.data.farmerName || t('misc.seller.defaultCultivatorFarmLot'));
+            if (res.data.farmerName) {
+              setFarmName(res.data.farmerName);
+            } else {
+              // Keep the key so the fallback follows the active locale.
+              setFarmNameFallbackKey('misc.seller.defaultCultivatorFarmLot');
+            }
           }
         }
       } catch {
@@ -227,7 +233,7 @@ export default function SellerPortal() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-white/10">
           <div>
             <span className="text-[10px] uppercase font-bold text-stone-400 block">{t('misc.seller.registeredFarm')}</span>
-            <span className="text-sm font-black text-white">{farmName || t('misc.seller.defaultFarmName')}</span>
+            <span className="text-sm font-black text-white">{farmName || t(farmNameFallbackKey)}</span>
           </div>
 
           <div>

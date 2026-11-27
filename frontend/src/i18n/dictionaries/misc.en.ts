@@ -138,6 +138,9 @@ export const miscEn: TranslationMap = {
   'misc.mandi.pricePosition': 'Price Position',
   'misc.mandi.trend': 'Trend',
   'misc.mandi.arrivals': 'Arrivals',
+  'misc.mandi.csvCommodity': 'Commodity',
+  'misc.mandi.csvMinPrice': 'Min_Price',
+  'misc.mandi.csvMaxPrice': 'Max_Price',
   'misc.mandi.inspect': 'Inspect',
   'misc.mandi.noMatchingRecords': 'No mandi records matched your filters',
   'misc.mandi.noMatchingRecordsHint':

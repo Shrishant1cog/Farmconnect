@@ -82,7 +82,8 @@ export default function AdminDashboard() {
       }
     } catch (err: any) {
       console.error('Failed to load admin data:', err);
-      setErrorMessage(t('misc.admin.loadError'));
+      // Store the translation key so the message follows the active locale.
+      setErrorMessage('misc.admin.loadError');
     } finally {
       setLoading(false);
     }
@@ -147,7 +148,7 @@ export default function AdminDashboard() {
       {errorMessage && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 text-xs text-red-700">
           <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-          <span className="font-semibold">{errorMessage}</span>
+          <span className="font-semibold">{t(errorMessage)}</span>
         </div>
       )}
 

@@ -1288,7 +1288,21 @@ export default function MandiRatesPage() {
 
   // CSV Exporter
   const handleExportCSV = () => {
-    const headers = ['Commodity', 'Variety', 'Category', 'Market', 'District', 'State', 'Min_Price', 'Max_Price', 'Modal_Price', 'FarmConnect_Price', 'Unit', 'Arrivals_Tonnes', 'Trend_Percent'];
+    const headers = [
+      t('misc.mandi.csvCommodity'),
+      t('common.variety'),
+      t('common.category'),
+      t('misc.mandi.marketYard'),
+      t('common.district'),
+      t('common.state'),
+      t('misc.mandi.csvMinPrice'),
+      t('misc.mandi.csvMaxPrice'),
+      t('misc.mandi.mandiModalRate'),
+      t('misc.mandi.farmConnectRate'),
+      t('common.priceUnit'),
+      `${t('misc.mandi.arrivals')} (${t('misc.unit.metricTonnes')})`,
+      t('misc.mandi.trend'),
+    ];
     const rows = filteredData.map((d) => [
       `"${d.commodity}"`,
       `"${d.variety}"`,

@@ -9,6 +9,18 @@
  *   node scripts/smoke-routes.mjs --web https://farmconnect-web.onrender.com \
  *                                 --api https://farmconnect-api-sn98.onrender.com/api
  *
+ * Protected API routes are probed with a bearer token when one is supplied:
+ *
+ *   node scripts/smoke-routes.mjs --token <jwt>
+ *
+ * A token can also be obtained from a QA account with `--email` / `--password`:
+ *
+ *   node scripts/smoke-routes.mjs --email qa@example.com --password secret
+ *
+ * Without a token the protected routes are still requested and their real
+ * HTTP status is reported (401), which proves the route exists and that the
+ * authentication guard is active.
+ *
  * The script never fabricates a result: a route that cannot be reached is
  * reported as `ERROR` with the transport error, and an HTTP error status is
  * reported verbatim.
@@ -29,6 +41,9 @@ function arg(name, fallback) {
 const WEB = arg('web', 'https://farmconnect-web.onrender.com').replace(/\/+$/, '');
 const API = arg('api', 'https://farmconnect-api-sn98.onrender.com/api').replace(/\/+$/, '');
 const OUT = arg('out', path.join(ROOT, 'docs', 'route-smoke-report.json'));
+let TOKEN = arg('token', '');
+const QA_EMAIL = arg('email', '');
+const QA_PASSWORD = arg('password', '');
 
 // ---------------------------------------------------------------------------
 // Route inventory
@@ -138,6 +153,25 @@ function summarise(result) {
 
 console.log(`Website : ${WEB}`);
 console.log(`API     : ${API}`);
+
+// A QA account can be used to obtain a bearer token for the protected
+// routes. The token is never written to the report.
+if (!TOKEN && QA_EMAIL && QA_PASSWORD) {
+  try {
+    const res = await fetch(`${API}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: QA_EMAIL, password: QA_PASSWORD }),
+    });
+    const json = await res.json().catch(() => null);
+    TOKEN = json?.data?.token || json?.token || '';
+    console.log(`Login   : ${QA_EMAIL} -> HTTP ${res.status}${TOKEN ? ' (token acquired)' : ' (no token)'}`);
+  } catch (error) {
+    console.log(`Login   : failed (${error?.message || error})`);
+  }
+}
+
+console.log(`Token   : ${TOKEN ? 'supplied (protected routes are probed authenticated)' : 'none (protected routes will answer 401)'}`);
 console.log('');
 
 const report = { generatedAt: new Date().toISOString(), web: WEB, api: API, website: [], api: [] };
@@ -156,10 +190,13 @@ console.log('');
 console.log('API ROUTES');
 console.log('-'.repeat(96));
 for (const item of API_ROUTES) {
-  const result = await probe(`${API}${item.route}`);
-  report.api.push({ ...item, ...result });
+  const options = item.auth && TOKEN
+    ? { headers: { Authorization: `Bearer ${TOKEN}` } }
+    : undefined;
+  const result = await probe(`${API}${item.route}`, options);
+  report.api.push({ ...item, authenticated: Boolean(item.auth && TOKEN), ...result });
   console.log(
-    `${item.route.padEnd(42)} ${String(summarise(result)).padEnd(26)} ${String(result.ms).padStart(6)} ms  (${item.auth ? 'auth' : 'public'})`,
+    `${item.route.padEnd(42)} ${String(summarise(result)).padEnd(26)} ${String(result.ms).padStart(6)} ms  (${item.auth ? (TOKEN ? 'auth' : 'auth, no token') : 'public'})`,
   );
 }
 

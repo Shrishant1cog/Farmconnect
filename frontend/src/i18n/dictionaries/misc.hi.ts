@@ -135,6 +135,9 @@ export const miscHi: TranslationMap = {
   'misc.mandi.pricePosition': 'कीमत स्थिति',
   'misc.mandi.trend': 'रुझान',
   'misc.mandi.arrivals': 'आवक',
+  'misc.mandi.csvCommodity': 'वस्तु',
+  'misc.mandi.csvMinPrice': 'न्यूनतम_मूल्य',
+  'misc.mandi.csvMaxPrice': 'अधिकतम_मूल्य',
   'misc.mandi.inspect': 'निरीक्षण करें',
   'misc.mandi.noMatchingRecords': 'आपके फ़िल्टर से कोई Mandi रिकॉर्ड मेल नहीं खाया',
   'misc.mandi.noMatchingRecordsHint':

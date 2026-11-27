@@ -40,6 +40,12 @@ Two matrices are kept here:
 | `docs/route-smoke-report.json` | `node scripts/smoke-routes.mjs` |
 | `docs/api-endpoint-smoke-report.json` | `node scripts/smoke-api-endpoints.mjs` |
 
+A third script checks the multilingual catalogue against the deployed API:
+
+| File | Produced by |
+| --- | --- |
+| — (console output only) | `node scripts/verify-localised-catalogue.mjs` |
+
 ---
 
 ## 1. Route coverage
@@ -104,9 +110,9 @@ module router) are covered by `node scripts/smoke-routes.mjs` — they are rows
 | 6 | `POST /api/auth/firebase-phone` | Firebase phone OTP | public | PASS | HTTP 401 — Firebase is not configured on the deployment, so the endpoint rejects the request instead of accepting it (documented limitation) |
 | 7 | `POST /api/auth/verify-aadhaar` | Aadhaar verification | bearer | PASS | HTTP 200 |
 | 8 | `GET /api/auth/me` | profile of the signed-in account | bearer | PASS | HTTP 200 |
-| 9 | `GET /api/catalog/categories` | crop categories with counts | public | PASS | HTTP 200 — 10 live categories, including `Grains & Millets` (`grains-millets`) |
-| 10 | `GET /api/catalog/crops` | searchable crop catalogue | public | PASS | HTTP 200 — 78 crops; searchable by `Tomato`, `ಟೊಮೇಟೊ` and `टमाटर`; every crop carries the **live** `categoryId` |
-| 11 | `GET /api/products` | public catalogue feed | public | PASS | HTTP 200; `?crop=`, `?category=` and `?categoryId=` all filter correctly |
+| 9 | `GET /api/catalog/categories` | crop categories with counts | public | PASS | HTTP 200 — 10 live categories, including `Grains & Millets` (`grains-millets`); **every** category carries its `nameKn` and `nameHi` |
+| 10 | `GET /api/catalog/crops` | searchable crop catalogue | public | PASS | HTTP 200 — 78 crops (`?limit=200`, the default limit is 60); searchable by `Tomato`, `ಟೊಮೇಟೊ` and `टमाटर`; every crop carries the **live** `categoryId` **and** its `nameKn` / `nameHi` |
+| 11 | `GET /api/products` | public catalogue feed | public | PASS | HTTP 200; `?crop=`, `?category=` and `?categoryId=` all filter correctly. The `search` / `?crop=` filter is **multilingual**: `?crop=Tomato`, `?crop=ಟೊಮೇಟೊ` and `?crop=टमाटर` all return the same 16 rows (verified by `scripts/verify-localised-catalogue.mjs`) |
 | 12 | `POST /api/products` | create a crop listing | bearer (farmer) | PASS | HTTP 201; the stored `cropName` and `variety` are independent |
 | 13 | `GET /api/products/[id]` | one listing | public | PASS | HTTP 200 |
 | 14 | `PATCH /api/products/[id]` | edit one listing | bearer (owner) | PASS | HTTP 200 for the owner, HTTP 403 for a different account (the edit never reaches the database) |
@@ -295,7 +301,7 @@ flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 \
 
 | Check | Command | Result | Evidence |
 | --- | --- | --- | --- |
-| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 34 / 34 tests green (6 new tests for the multilingual crop-search expansion, the localised catalogue labels and the APMC commodity lookup) |
+| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 35 / 35 tests green (7 new tests for the multilingual crop-search expansion, the localised catalogue labels, the APMC commodity lookup and the farm-name / category search) |
 | Backend type check | `cd backend && npx tsc --noEmit` | PASS | exit code 0 |
 | Website type check | `cd frontend && npx tsc --noEmit` | PASS | exit code 0 |
 | Website production build | `cd frontend && npm run build` | PASS | exit code 0 — 21 routes prerendered/built, no prerender errors |

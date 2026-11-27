@@ -167,32 +167,21 @@ export default function ConsumerExplorePage() {
   };
 
   const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
+    // The **search** is applied by the shared backend — it knows the crop
+    // catalogue, so a Kannada or Hindi term finds a listing that stores the
+    // canonical English crop name. Filtering the answer again in the browser
+    // would silently drop those rows, so only the two local filters are
+    // applied here.
     return products.filter((product) => {
-      const searchableText = [
-        product.title,
-        product.location,
-        product.description,
-        product.farmer?.farmName,
-        product.cropName,
-        product.variety,
-        product.category?.name,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-
-      const matchesSearch = !query || searchableText.includes(query);
       const matchesOrganic = !organicOnly || product.isOrganic;
       const matchesCategory =
         selectedCategory === 'ALL' ||
         product.category?.slug === selectedCategory ||
         product.category?.name?.toLowerCase() === selectedCategory.toLowerCase();
 
-      return matchesSearch && matchesOrganic && matchesCategory;
+      return matchesOrganic && matchesCategory;
     });
-  }, [organicOnly, products, search, selectedCategory]);
+  }, [organicOnly, products, selectedCategory]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-in fade-in duration-200">

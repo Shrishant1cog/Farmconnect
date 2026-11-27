@@ -28,6 +28,18 @@ describe('buildProductWhereClause', () => {
     );
   });
 
+  it('also searches the farm name and the crop category', () => {
+    // The website used to filter these two fields in the browser. The search
+    // now lives in the shared backend, so it has to cover them as well.
+    const where = buildProductWhereClause({ search: 'tomato' });
+    expect(where.OR).toEqual(
+      expect.arrayContaining([
+        { farmer: { is: { farmName: { contains: 'tomato', mode: 'insensitive' } } } },
+        { category: { is: { name: { contains: 'tomato', mode: 'insensitive' } } } },
+      ]),
+    );
+  });
+
   it('filters by crop type without restricting the search fields', () => {
     const where = buildProductWhereClause({ crop: 'Tomato' });
     expect(where.OR).toEqual(
@@ -64,7 +76,7 @@ describe('buildProductWhereClause', () => {
 
   it('does not expand very short terms', () => {
     const where = buildProductWhereClause({ search: 'ma' });
-    expect(where.OR).toHaveLength(5);
+    expect(where.OR).toHaveLength(7);
   });
 
   it('filters by category slug or name', () => {

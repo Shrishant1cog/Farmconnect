@@ -23,6 +23,7 @@ export interface ProductFilterClause {
   cropName?: { contains: string; mode: 'insensitive' };
   variety?: { contains: string; mode: 'insensitive' };
   category?: { is?: { slug?: string } | { name?: { contains: string; mode: 'insensitive' } } };
+  farmer?: { is?: { farmName?: { contains: string; mode: 'insensitive' } } };
   OR?: Array<Record<string, unknown>>;
 }
 
@@ -39,9 +40,15 @@ const asTrimmedString = (value: unknown): string => {
 /**
  * Builds the Prisma `where` clause for the public catalogue feed.
  *
- * - `search`  matches title, description, location, crop name and variety.
+ * - `search`  matches title, description, location, crop name, variety, the
+ *   farmer's farm name and the crop category.
  * - `crop`    matches only the crop name / variety (crop type filter).
  * - `category` accepts a category slug (e.g. `fruits`) or a category name.
+ *
+ * The search is the **single** source of truth for both clients: the website
+ * and the Android app render exactly the rows the API returns. The crop term
+ * is expanded into every name of the shared catalogue, so a listing can be
+ * found in English, Kannada or Hindi.
  */
 export function buildProductWhereClause(input: ProductFilterInput = {}): ProductFilterClause {
   const where: ProductFilterClause = { isAvailable: true };
@@ -55,6 +62,8 @@ export function buildProductWhereClause(input: ProductFilterInput = {}): Product
       { location: { contains: search, mode: 'insensitive' } },
       { cropName: { contains: search, mode: 'insensitive' } },
       { variety: { contains: search, mode: 'insensitive' } },
+      { farmer: { is: { farmName: { contains: search, mode: 'insensitive' } } } },
+      { category: { is: { name: { contains: search, mode: 'insensitive' } } } },
     );
 
     // A crop may be searched in any of the three supported languages, so the

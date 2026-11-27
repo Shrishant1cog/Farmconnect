@@ -383,7 +383,7 @@ estimated. The live route and cross-platform matrices are kept separately in
 
 | Check | Command | Result | Evidence |
 | --- | --- | --- | --- |
-| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 34 / 34 tests green (3 suites: `language`, `productQuery`, `categoryResolver`) |
+| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 35 / 35 tests green (3 suites: `language`, `productQuery`, `categoryResolver`) |
 | Backend type check | `cd backend && npx tsc --noEmit` | PASS | exit code 0 |
 | Website type check | `cd frontend && npx tsc --noEmit` | PASS | exit code 0 |
 | Website production build | `cd frontend && npm run build` | PASS | exit code 0 — 21 routes prerendered/built, no prerender errors |
@@ -394,6 +394,7 @@ estimated. The live route and cross-platform matrices are kept separately in
 | Website + API route smoke (deployed) | `node scripts/smoke-routes.mjs` | PASS | 22 / 22 website routes + 24 / 24 API routes answered with the expected status (200, or the expected auth redirect) |
 | API endpoint smoke (deployed) | `node scripts/smoke-api-endpoints.mjs` | PASS | 50 probes, 0 unexpected statuses — every endpoint of the shared backend was exercised with a real request |
 | Live feature verification (deployed) | `node live-verify.mjs` | PASS | 46 / 46 checks green against the deployed API |
+| Multilingual catalogue verification (deployed) | `node scripts/verify-localised-catalogue.mjs` | PASS | 12 / 12 checks green — every category and crop carries its Kannada and Hindi name, the catalogue and the product filter find a crop in English, Kannada and Hindi, and the APMC endpoint answers with the real rows |
 | Android route coverage (emulator, deployed API) | `cd mobile && flutter test integration_test/route_coverage_test.dart -d emulator-5554 …` | PASS | 21 / 21 routes opened, no widget exception — `00:15 +1: All tests passed!` |
 | Cross-platform workflow suite (emulator, deployed API) | `cd mobile && flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 …` | PASS | 8 / 8 tests green |
 | Backend database integration suite | `cd backend && npm run test:integration` | BLOCKED | no PostgreSQL/Docker in the local environment — the suite (language storage, catalogue endpoints, independent crop lots, edit isolation, crop filtering, listing authorisation, notification inbox) runs in pull-request CI with PostgreSQL 16 and is green there |
@@ -519,3 +520,11 @@ The website had two smaller gaps of the same kind, both fixed:
   keeps the attribute in sync with the active locale.
 * The Mandi Rates page carried the `ALL_INDIA_MANDI_DATA` mock (see
   limitation 6).
+* The marketplace filtered the **search term a second time in the browser**
+  over the rows the API had already returned. The stored crop name is the
+  canonical English one, so that second filter silently dropped every row
+  the backend had found through a Kannada or Hindi term — the multilingual
+  search worked in the API but not on the screen. The redundant filter was
+  removed and the two fields it used to cover (the farmer's farm name and
+  the crop category) were added to the **backend** search, so the API stays
+  the single source of truth for search — exactly like the Android app.

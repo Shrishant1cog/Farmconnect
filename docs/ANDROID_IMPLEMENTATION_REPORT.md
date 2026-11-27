@@ -609,6 +609,27 @@ The workflow now runs:
 The `pull_request` trigger is unchanged, so the Android-parity branch is
 validated by the same pipeline.
 
+### 10.3 Confirmed CI result
+
+Run `45991116804` (pull request event, head `49c8dd0`) — **all steps green**:
+
+| Step | Result |
+| --- | --- |
+| `Checkout latest repaired branch` | ✅ `ref: fix/local-updates` — the pull-request branch, not `verify/final` |
+| `Initialize containers` | ✅ `postgres:16-alpine` started, `postgres service is healthy` |
+| `Frontend TypeScript check` | ✅ |
+| `Frontend production build` | ✅ |
+| `Backend Prisma generate` | ✅ |
+| `Backend TypeScript build` | ✅ |
+| `Apply PostgreSQL migrations` | ✅ `Datasource "db": PostgreSQL database "farmconnect"` → `Applying migration 20260101000000_init` → applied |
+| `Backend integration tests` | ✅ `Test Suites: 1 passed, 1 total`, `Tests: 7 passed, 7 total` |
+| `Validate start.bat` | ✅ |
+| `Package verified source` / `Upload verified source ZIP` | ✅ |
+
+The only annotation is an upstream deprecation notice that `actions/checkout@v4`
+and `actions/setup-node@v4` still target Node.js 20 and are forced to run on
+Node.js 24. It does not affect the result.
+
 > **Pushing this workflow file required a token with GitHub's `workflow`
 > scope.** The GitHub CLI OAuth token stored on the development machine had
 > `repo` but not `workflow`, so GitHub rejected the ref update with
@@ -631,6 +652,25 @@ validated by the same pipeline.
 
 All Android, PostgreSQL and documentation work in this report is committed on
 `fix/local-updates` only.
+
+### 11.1 Commits on `fix/local-updates`
+
+| Commit | Scope |
+| --- | --- |
+| `863d30e` | `feat(db): migrate the backend from SQLite to PostgreSQL` |
+| `6e2ebe7` | `feat(api): complete the shared backend for the website and the Android app` |
+| `8d3829e` | `feat(android): add the Flutter Android application` |
+| `c9a4d0f` | `docs: document the Android parity work and the shared architecture` |
+| `e39f2ce` | `ci: verify the branch against a PostgreSQL 16 service container` |
+| `49c8dd0` | `docs: correct the CI verification notes in the implementation report` |
+| `f09c8b1` | `docs: replace the Flutter template README and record the APK sizes` |
+
+### 11.2 Pull request CI
+
+| Check | Run | Result |
+| --- | --- | --- |
+| `normalize-lockfile` | `45991116804` | ✅ pass |
+| `verify` | `45991116804` | ✅ pass — PostgreSQL 16 container, migrations applied, 7/7 backend tests |
 
 ---
 

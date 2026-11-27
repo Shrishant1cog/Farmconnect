@@ -23,6 +23,10 @@ import orderRoutes from './modules/orders/orders.routes';
 import enquiryRoutes from './modules/enquiries/enquiries.routes';
 import adminRoutes from './modules/admin/admin.routes';
 import userRoutes from './modules/users/users.routes';
+import favoriteRoutes from './modules/favorites/favorites.routes';
+import notificationRoutes from './modules/notifications/notifications.routes';
+import complaintRoutes from './modules/complaints/complaints.routes';
+import { ensureUploadDirectory, storeImage, uploadDirectory } from './services/storage.service';
 
 dotenv.config();
 
@@ -125,30 +129,34 @@ if (typeof globalLimiter === 'function') {
 }
 
 // ---------------------------------------------------------------------------
-// 4. FILE UPLOADS SETUP
+// 4. FILE UPLOADS SETUP (pluggable: local disk or S3-compatible object storage)
 // ---------------------------------------------------------------------------
-const uploadDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+ensureUploadDirectory();
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `${uniqueSuffix}${path.extname(file.originalname)}`);
-  },
+// Multer keeps the file in memory so the storage provider decides where it lives.
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
 });
-const upload = multer({ storage });
 
-app.use('/uploads', express.static(uploadDir));
+app.use('/uploads', express.static(uploadDirectory));
 
-app.post('/api/upload', authenticate, upload.single('image'), (req: AuthenticatedRequest, res: Response) => {
+app.post('/api/upload', authenticate, upload.single('image'), async (req: AuthenticatedRequest, res: Response) => {
   if (!req.file) {
     return res.status(400).json({ success: false, message: 'No file uploaded' });
   }
-  const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-  return res.json({ success: true, imageUrl });
+
+  try {
+    const publicBaseUrl = `${req.protocol}://${req.get('host')}`;
+    const stored = await storeImage(req.file, publicBaseUrl);
+    return res.json({ success: true, imageUrl: stored.url, provider: stored.provider });
+  } catch (uploadError: any) {
+    console.error('[Upload] Storage failure:', uploadError);
+    return res.status(500).json({
+      success: false,
+      message: uploadError?.message || 'Failed to persist the uploaded image',
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -169,12 +177,27 @@ mountRouter('/api/orders', orderRoutes, 'orderRoutes');
 mountRouter('/api/enquiries', enquiryRoutes, 'enquiryRoutes');
 mountRouter('/api/admin', adminRoutes, 'adminRoutes');
 mountRouter('/api/users', userRoutes, 'userRoutes');
+mountRouter('/api/favorites', favoriteRoutes, 'favoriteRoutes');
+mountRouter('/api/notifications', notificationRoutes, 'notificationRoutes');
+mountRouter('/api/complaints', complaintRoutes, 'complaintRoutes');
 
 // Root Health & Probe Endpoints
-app.get('/api/health', (_req: Request, res: Response) => {
-  res.json({
-    status: 'UP',
+app.get('/api/health', async (_req: Request, res: Response) => {
+  let database: 'UP' | 'DOWN' = 'DOWN';
+
+  try {
+    await db.$queryRaw`SELECT 1`;
+    database = 'UP';
+  } catch (dbError: any) {
+    database = 'DOWN';
+    console.error('[Health] Database probe failed:', dbError?.message || dbError);
+  }
+
+  return res.status(database === 'UP' ? 200 : 503).json({
+    status: database === 'UP' ? 'UP' : 'DEGRADED',
     service: 'FarmConnect Engine',
+    database,
+    uptime: Math.round(process.uptime()),
     timestamp: new Date().toISOString(),
   });
 });

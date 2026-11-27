@@ -77,11 +77,13 @@ export const createEnquiry = async (req: AuthenticatedRequest, res: Response) =>
       },
     });
 
-    // Notify farmer via real-time WebSocket
+    // Notify farmer via real-time WebSocket.
+    // The room is keyed by the farmer's `User.id`; `FarmerProfile.id` (which is
+    // what `Product.farmerId` holds) is a different identifier.
     try {
       const io = typeof getIO === 'function' ? getIO() : null;
       if (io) {
-        const targetUserId = enquiry.farmer?.userId || product.farmerId;
+        const targetUserId = enquiry.farmer?.userId || enquiry.farmer?.user?.id;
         if (targetUserId) {
           io.to(`user_${targetUserId}`).emit('new_notification', {
             type: 'NEW_ENQUIRY',

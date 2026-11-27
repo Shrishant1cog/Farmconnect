@@ -20,6 +20,24 @@ const createOrderSchema = z.object({
   items: z.array(orderItemSchema).min(1, 'At least one harvest item is required'),
 });
 
+/**
+ * Resolves the `User.id` of the farmer who owns a `FarmerProfile`.
+ *
+ * `Order.farmerId` references `FarmerProfile.id`, but Socket.IO rooms are named
+ * after the authenticated **user** (`user_<User.id>` — see
+ * `backend/src/socket/index.ts`). Emitting to `user_<FarmerProfile.id>` would
+ * therefore target a room nobody ever joins and the real-time notification
+ * would be silently dropped.
+ */
+const resolveFarmerUserId = async (farmerProfileId: string): Promise<string | null> => {
+  if (!farmerProfileId) return null;
+  const profile = await db.farmerProfile.findUnique({
+    where: { id: farmerProfileId },
+    select: { userId: true },
+  });
+  return profile?.userId ?? null;
+};
+
 // 1. Consumer: Place Order (Atomic inventory deduction with farmer fallback resolution)
 export const createOrder = async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -119,14 +137,19 @@ export const createOrder = async (req: AuthenticatedRequest, res: Response) => {
       });
     });
 
-    // Notify farmer via real-time WebSocket room
+    // Notify farmer via real-time WebSocket room.
+    // The room is keyed by the farmer's `User.id`, not the `FarmerProfile.id`
+    // stored in `Order.farmerId`.
     try {
       const io = typeof getIO === 'function' ? getIO() : null;
       if (io && order.farmerId) {
-        io.to(`user_${order.farmerId}`).emit('new_order_received', {
-          orderId: order.id,
-          totalAmount: order.grandTotal,
-        });
+        const farmerUserId = await resolveFarmerUserId(order.farmerId);
+        if (farmerUserId) {
+          io.to(`user_${farmerUserId}`).emit('new_order_received', {
+            orderId: order.id,
+            totalAmount: order.grandTotal,
+          });
+        }
       }
     } catch {
       // Safe fallback if socket is unmounted
@@ -310,11 +333,16 @@ export const confirmOrderDelivery = async (req: AuthenticatedRequest, res: Respo
       },
     });
 
-    // Notify cultivator that payment can be settled
+    // Notify cultivator that payment can be settled.
+    // The room is keyed by the farmer's `User.id`, not the `FarmerProfile.id`
+    // stored in `Order.farmerId`.
     try {
       const io = typeof getIO === 'function' ? getIO() : null;
       if (io && order.farmerId) {
-        io.to(`user_${order.farmerId}`).emit('order_delivered', { orderId: order.id });
+        const farmerUserId = await resolveFarmerUserId(order.farmerId);
+        if (farmerUserId) {
+          io.to(`user_${farmerUserId}`).emit('order_delivered', { orderId: order.id });
+        }
       }
     } catch {
       // Safe fallback

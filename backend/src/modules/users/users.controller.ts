@@ -125,21 +125,18 @@ export const updateCurrentProfile = async (req: AuthenticatedRequest, res: Respo
         const resolvedAddress = (body.deliveryAddress || body.address || body.addressLine || '').trim();
         const consumerData: any = {};
         if (body.district) consumerData.district = body.district.trim();
-        if (resolvedAddress) consumerData.address = resolvedAddress;
+        // NOTE: the Prisma model exposes `deliveryAddress` (not `address`).
+        if (resolvedAddress) consumerData.deliveryAddress = resolvedAddress;
 
-        try {
-          await (tx as any).consumerProfile.upsert({
-            where: { userId },
-            create: {
-              userId,
-              district: body.district?.trim() || 'Bengaluru Urban',
-              address: resolvedAddress || 'Karnataka',
-            },
-            update: consumerData,
-          });
-        } catch {
-          // Fallback if schema variants differ
-        }
+        await (tx as any).consumerProfile.upsert({
+          where: { userId },
+          create: {
+            userId,
+            district: body.district?.trim() || 'Bengaluru Urban',
+            deliveryAddress: resolvedAddress || 'Karnataka',
+          },
+          update: consumerData,
+        });
       }
 
       return tx.user.findUnique({
@@ -172,6 +169,57 @@ export const updateCurrentProfile = async (req: AuthenticatedRequest, res: Respo
   }
 };
 
+// 3. Public farmer directory (used by the consumer map and farmer discovery)
+export const listPublicFarmers = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { district, search } = req.query as Record<string, string | undefined>;
+
+    const where: any = {};
+    if (district && district.trim()) {
+      where.district = { contains: district.trim(), mode: 'insensitive' };
+    }
+    if (search && search.trim()) {
+      where.OR = [
+        { farmName: { contains: search.trim(), mode: 'insensitive' } },
+        { district: { contains: search.trim(), mode: 'insensitive' } },
+        { user: { name: { contains: search.trim(), mode: 'insensitive' } } },
+      ];
+    }
+
+    const farmers = await db.farmerProfile.findMany({
+      where,
+      include: {
+        user: { select: { id: true, name: true, phone: true, email: true } },
+        products: {
+          where: { isAvailable: true },
+          select: { id: true, title: true, farmerPrice: true, priceUnit: true, imageUrl: true, isOrganic: true },
+        },
+      },
+      orderBy: { isVerified: 'desc' },
+      take: 200,
+    });
+
+    const data = farmers.map((farmer: any) => ({
+      id: farmer.id,
+      farmName: farmer.farmName,
+      farmerName: farmer.user?.name,
+      phone: farmer.user?.phone,
+      district: farmer.district,
+      state: farmer.state,
+      address: farmer.addressLine,
+      latitude: farmer.latitude,
+      longitude: farmer.longitude,
+      isVerified: farmer.isVerified,
+      profileViews: farmer.profileViews,
+      availableProducts: farmer.products,
+    }));
+
+    return res.json({ success: true, data, farmers: data });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 // Aliases for compatibility
 export const getProfile = getCurrentProfile;
 export const getMe = getCurrentProfile;
@@ -189,4 +237,5 @@ export default {
   updateProfile,
   updateMe,
   editProfile,
+  listPublicFarmers,
 };

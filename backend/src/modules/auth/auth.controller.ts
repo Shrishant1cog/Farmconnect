@@ -161,7 +161,7 @@ export const register = async (req: Request, res: Response) => {
           create: {
             userId: createdUser.id,
             district: cleanDistrict || 'Bengaluru Urban',
-            address: addressLine.trim() || 'Karnataka',
+            deliveryAddress: addressLine.trim() || 'Karnataka',
           },
         });
         createdUser.consumerProfile = cProfile;

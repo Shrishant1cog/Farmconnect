@@ -238,9 +238,9 @@ export const getProducts = async (req: Request, res: Response) => {
     if (search && typeof search === 'string') {
       const q = search.trim();
       whereClause.OR = [
-        { title: { contains: q } },
-        { description: { contains: q } },
-        { location: { contains: q } },
+        { title: { contains: q, mode: 'insensitive' } },
+        { description: { contains: q, mode: 'insensitive' } },
+        { location: { contains: q, mode: 'insensitive' } },
       ];
     }
 
@@ -249,7 +249,7 @@ export const getProducts = async (req: Request, res: Response) => {
     }
 
     if (district && typeof district === 'string') {
-      whereClause.location = { contains: district.trim() };
+      whereClause.location = { contains: district.trim(), mode: 'insensitive' };
     }
 
     let products: any[] = [];

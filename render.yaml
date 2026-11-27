@@ -15,7 +15,7 @@ services:
     plan: free
     region: singapore
     branch: fix/local-updates
-    buildCommand: cd backend && npm ci && npm run db:generate && npm run build && npm run db:migrate
+    buildCommand: cd backend && npm ci --include=dev && npm run db:generate && npm run build && npm run db:migrate
     startCommand: cd backend && npm start
     healthCheckPath: /api/health
     envVars:
@@ -38,14 +38,14 @@ services:
     plan: free
     region: singapore
     branch: fix/local-updates
-    buildCommand: cd frontend && npm ci && npm run build
+    buildCommand: cd frontend && npm ci --include=dev && npm run build
     startCommand: cd frontend && npm run start
     envVars:
       - key: NODE_ENV
         value: production
       - key: NEXT_PUBLIC_API_URL
-        value: https://farmconnect-api.onrender.com/api
+        value: https://farmconnect-api-sn98.onrender.com/api
       - key: NEXT_PUBLIC_SOCKET_URL
-        value: https://farmconnect-api.onrender.com
+        value: https://farmconnect-api-sn98.onrender.com
       - key: NEXT_PUBLIC_APP_URL
         value: https://farmconnect-web.onrender.com

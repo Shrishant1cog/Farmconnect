@@ -239,6 +239,11 @@ shared backend.
 | 20 | The checkout showed a **fake order id** (`ord-demo-XXXXXX`) and cleared the cart when the network request failed | `frontend/src/app/checkout/page.tsx` | A failed request reports the error. An order is only reported as placed when the shared backend confirmed it | DONE |
 | 21 | The consumer's delivery receipt and the farmer's order status were marked locally even when the shared backend rejected the change | `frontend/src/app/consumer/orders/page.tsx`, `frontend/src/app/farmer/orders/page.tsx` | The status only changes when the backend confirms it; otherwise the real status is restored from the backend and the error is shown | DONE |
 | 22 | A message that the backend did not store stayed in the farmer's conversation | `frontend/src/app/farmer/inquiries/page.tsx` | The placeholder is removed when the shared backend does not confirm the message | DONE |
+| 23 | `Number(null)` is `0`: the consumer map, the cart and the logistics drawer turned a **missing** position into the point `0 / 0` in the Gulf of Guinea | `frontend/src/app/consumer/map/page.tsx`, `frontend/src/context/CartContext.tsx`, `frontend/src/components/LogisticsProfitDrawer.tsx` | Every client rejects `null` / `undefined` **before** the conversion. A missing position stays "unknown" and the farm is not plotted | DONE |
+| 24 | `PATCH /api/users/me` used `z.coerce.number()`, so a **cleared** position (`latitude: null`) was stored as the number `0` | `backend/src/modules/users/users.controller.ts` | `backend/src/utils/coordinate.ts` keeps the three states apart: absent → untouched, `null` → cleared, number → the real position. A malformed or out-of-range value is rejected with HTTP 400 | DONE |
+| 25 | The consumer profile never stored the delivery position, so the freight distance could never be computed | `backend/src/modules/users/users.controller.ts` | `ConsumerProfile.latitude` / `longitude` are written from the same shared endpoint as the farm position | DONE |
+| 26 | **All 53** farmer profiles of the production database still carried the old placeholder `12.5218 / 76.8951`, so the map stacked 53 markers on one invented point | `backend/prisma/migrations/20261128010000_clear_placeholder_farmer_coordinates/migration.sql` | The additive migration clears the rows that carry **exactly** the constant the old code wrote. No farm, listing or order is deleted — a farm without a position simply stays off the map | DONE |
+| 27 | No client offered a way to share a **real** position, so removing the placeholder would have left the map permanently empty | `frontend/src/app/farmer/dashboard/page.tsx`, `mobile/lib/features/profile/profile_page.dart` | Both clients capture the device's own GPS and store it on the shared account. The success message only appears after the backend confirmed the update | DONE |
 
 ### Current data gap — the APMC rate table is empty
 
@@ -321,13 +326,13 @@ unavailable instead.").
 
 | Check | Command | Result | Evidence |
 | --- | --- | --- | --- |
-| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 48 / 48 tests green (5 suites: `language`, `productQuery`, `categoryResolver`, `apmcBenchmark`, `logisticsService` — including the 8 tests of the APMC benchmark resolver and the 5 tests that prove the logistics quote never invents a benchmark or a route) |
+| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 57 / 57 tests green (6 suites: `language`, `productQuery`, `categoryResolver`, `apmcBenchmark`, `logisticsService`, `coordinate` — including the 8 tests of the APMC benchmark resolver, the 5 tests that prove the logistics quote never invents a benchmark or a route and the 9 tests of the coordinate schema, which prove that a cleared position never becomes the point `0 / 0`) |
 | Backend type check | `cd backend && npx tsc --noEmit` | PASS | exit code 0 |
 | Website type check | `cd frontend && npx tsc --noEmit` | PASS | exit code 0 |
 | Website production build | `cd frontend && npm run build` | PASS | exit code 0 — 21 routes prerendered/built, no prerender errors |
 | Android static analysis | `cd mobile && flutter analyze` | PASS | "No issues found!" |
 | Android unit + widget tests | `cd mobile && flutter test` | PASS | 31 / 31 tests green |
-| Localisation key parity (3 languages, website + Android) | `node scripts/verify-i18n.mjs` | PASS | website `core` 120, `auth` 126, `farmer` 305, `consumer` 233, `misc` 362 keys — 0 missing / 0 extra for kn and hi; Android ARB 390 keys — 0 missing / 0 extra for kn and hi |
+| Localisation key parity (3 languages, website + Android) | `node scripts/verify-i18n.mjs` | PASS | website `core` 120, `auth` 126, `farmer` 313, `consumer` 233, `misc` 362 keys — 0 missing / 0 extra for kn and hi; Android ARB 397 keys — 0 missing / 0 extra for kn and hi |
 | Hardcoded-English scan of the website JSX | `node C:\Users\user\AppData\Local\Temp\opencode\find-hardcoded-jsx.mjs` | PASS | 3 hits — all false positives (`Promise` type annotations in `CartContext.tsx` / `ModalContext.tsx`) |
 | Website route smoke (deployed) | `node scripts/smoke-routes.mjs` | PASS | 22 / 22 website routes + 24 / 24 API routes answered as expected |
 | API endpoint smoke (deployed) | `node scripts/smoke-api-endpoints.mjs` | PASS | 50 probes, 0 unexpected statuses |

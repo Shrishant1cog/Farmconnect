@@ -61,8 +61,17 @@ export default function ConsumerMapPage() {
           // somewhere it does not exist.
           const mapped = data
             .map((f: any, idx: number) => {
-              const latitude = Number(f.latitude);
-              const longitude = Number(f.longitude);
+              // `Number(null)` is `0`, so a missing position has to be
+              // rejected **before** the conversion — otherwise the farm
+              // would be plotted in the ocean.
+              const hasRawCoordinates =
+                f.latitude !== null &&
+                f.latitude !== undefined &&
+                f.longitude !== null &&
+                f.longitude !== undefined;
+
+              const latitude = hasRawCoordinates ? Number(f.latitude) : NaN;
+              const longitude = hasRawCoordinates ? Number(f.longitude) : NaN;
               const hasCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude);
 
               return {

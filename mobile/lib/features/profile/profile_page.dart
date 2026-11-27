@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_exception.dart';
@@ -20,6 +21,83 @@ class ProfilePage extends ConsumerStatefulWidget {
 
 class _ProfilePageState extends ConsumerState<ProfilePage> {
   bool _isSaving = false;
+  bool _isSharingPosition = false;
+
+  /// Shares the **real** position with the shared backend.
+  ///
+  /// For a farmer this is the farm position (it is what the map and the
+  /// freight distance use), for a buyer it is the delivery position. The
+  /// device's own GPS is used — no coordinate is invented, and the success
+  /// message only appears after the backend confirmed the update.
+  Future<void> _sharePosition(AppUser user) async {
+    final l10n = AppLocalizations.of(context);
+
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.profilePositionServiceDisabled)),
+        );
+      }
+      return;
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l10n.profilePositionPermissionDenied)),
+          );
+        }
+        return;
+      }
+    }
+
+    setState(() => _isSharingPosition = true);
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 20),
+        ),
+      );
+
+      await ref
+          .read(userRepositoryProvider)
+          .updateProfile(
+            latitude: position.latitude,
+            longitude: position.longitude,
+          );
+      await ref.read(authControllerProvider.notifier).refreshProfile();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.profilePositionSaved)),
+        );
+      }
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.commonRequestFailed(error.displayMessage)),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.profilePositionFailed)),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSharingPosition = false);
+      }
+    }
+  }
 
   Future<void> _logout() async {
     final l10n = AppLocalizations.of(context);
@@ -366,6 +444,15 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 title: l10n.profileApmcRates,
                 onTap: () => context.push('/market-rates'),
               ),
+              const Divider(height: 1),
+              _tile(
+                icon: Icons.my_location_rounded,
+                title: user.isFarmer
+                    ? l10n.profileShareFarmPosition
+                    : l10n.profileShareDeliveryPosition,
+                subtitle: _positionSummary(user, l10n),
+                onTap: _isSharingPosition ? null : () => _sharePosition(user),
+              ),
               if (user.isFarmer) ...[
                 const Divider(height: 1),
                 _tile(
@@ -400,7 +487,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   Widget _tile({
     required IconData icon,
     required String title,
-    required VoidCallback onTap,
+    required VoidCallback? onTap,
+    String? subtitle,
   }) {
     return ListTile(
       leading: Icon(icon, color: AppTheme.stone700),
@@ -408,6 +496,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         title,
         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5),
       ),
+      subtitle: subtitle == null
+          ? null
+          : Text(
+              subtitle,
+              style: const TextStyle(fontSize: 12, color: AppTheme.stone500),
+            ),
       trailing: const Icon(
         Icons.chevron_right_rounded,
         color: AppTheme.stone500,
@@ -415,6 +509,22 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       onTap: onTap,
     );
   }
+}
+
+/// The position the account really shares — or the honest "not shared" state.
+String _positionSummary(AppUser user, AppLocalizations l10n) {
+  final latitude = user.isFarmer
+      ? user.farmerProfile?.latitude
+      : user.consumerProfile?.latitude;
+  final longitude = user.isFarmer
+      ? user.farmerProfile?.longitude
+      : user.consumerProfile?.longitude;
+
+  if (latitude == null || longitude == null) {
+    return l10n.profilePositionNotShared;
+  }
+
+  return '${latitude.toStringAsFixed(5)}, ${longitude.toStringAsFixed(5)}';
 }
 
 String _roleLabel(AppLocalizations l10n, UserRole role) {

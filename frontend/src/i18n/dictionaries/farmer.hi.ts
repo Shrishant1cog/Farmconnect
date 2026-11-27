@@ -123,6 +123,18 @@ export const farmerHi: TranslationMap = {
   'farmer.dashboard.intro': 'हर फसल लॉट को स्वतंत्र रूप से प्रबंधित करें, थोक खरीदारों की पूछताछ देखें और अपने फार्म-गेट दर की तुलना APMC मोडल दर से करें।',
   'farmer.dashboard.refreshTitle': 'स्टॉक ताज़ा करें',
   'farmer.dashboard.listNewHarvest': 'नई कटाई सूचीबद्ध करें',
+  'farmer.dashboard.farmLocation': 'खेत का स्थान',
+  'farmer.dashboard.farmLocationNotShared': 'अभी साझा नहीं किया गया',
+  'farmer.dashboard.farmLocationHint':
+    'आपका खेत तभी नक्शे पर दिखता है और तभी ढुलाई की दूरी की गणना में उपयोग होता है, जब आप उसका वास्तविक स्थान साझा करते हैं।',
+  'farmer.dashboard.shareFarmLocation': 'मेरे खेत का स्थान साझा करें',
+  'farmer.dashboard.farmLocationSaved': 'आपके खेत का स्थान सहेज लिया गया।',
+  'farmer.dashboard.farmLocationFailed':
+    'खेत का स्थान सहेजा नहीं जा सका। कृपया फिर कोशिश करें।',
+  'farmer.dashboard.farmLocationUnsupported':
+    'यह ब्राउज़र आपका स्थान पता नहीं लगा सकता। कृपया इसे अपनी प्रोफ़ाइल में दर्ज करें।',
+  'farmer.dashboard.farmLocationDenied':
+    'स्थान की अनुमति अस्वीकार कर दी गई, इसलिए खेत का स्थान साझा नहीं किया गया।',
   'farmer.dashboard.activeCropLots': 'सक्रिय फसल लॉट',
   'farmer.dashboard.lotsProcurement': 'प्रत्यक्ष खरीदारों के लिए खुले लॉट',
   'farmer.dashboard.harvestVolume': 'कटाई की मात्रा',

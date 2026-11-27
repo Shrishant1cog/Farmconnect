@@ -205,6 +205,11 @@ export const register = async (req: Request, res: Response) => {
             userId: createdUser.id,
             district: cleanDistrict || 'Bengaluru Urban',
             deliveryAddress: addressLine.trim() || 'Karnataka',
+            // The delivery position is stored only when it was really
+            // shared — a placeholder would put the delivery somewhere the
+            // buyer never chose.
+            latitude: parsedLat,
+            longitude: parsedLon,
           },
         });
         createdUser.consumerProfile = cProfile;

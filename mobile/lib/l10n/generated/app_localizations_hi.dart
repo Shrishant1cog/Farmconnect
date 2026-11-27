@@ -892,6 +892,30 @@ class AppLocalizationsHi extends AppLocalizations {
   String get profileVerifyCultivator => 'किसान की पहचान सत्यापित करें';
 
   @override
+  String get profileShareFarmPosition => 'मेरे खेत का स्थान साझा करें';
+
+  @override
+  String get profileShareDeliveryPosition => 'मेरी डिलीवरी का स्थान साझा करें';
+
+  @override
+  String get profilePositionNotShared => 'अभी साझा नहीं किया गया';
+
+  @override
+  String get profilePositionSaved => 'आपका स्थान सहेज लिया गया।';
+
+  @override
+  String get profilePositionFailed =>
+      'स्थान सहेजा नहीं जा सका। कृपया फिर कोशिश करें।';
+
+  @override
+  String get profilePositionPermissionDenied =>
+      'स्थान की अनुमति अस्वीकार कर दी गई, इसलिए कुछ भी साझा नहीं किया गया।';
+
+  @override
+  String get profilePositionServiceDisabled =>
+      'इस डिवाइस की लोकेशन सेवा बंद है।';
+
+  @override
   String get profileSharedAccountNote =>
       'यह खाता FarmConnect वेबसाइट के साथ साझा है — ऑर्डर, लॉट और बातचीत एक-दूसरे के साथ सिंक रहते हैं।';
 

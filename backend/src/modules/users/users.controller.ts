@@ -8,6 +8,7 @@ import {
   resolveSupportedLanguage,
   SUPPORTED_LANGUAGES,
 } from '../../utils/language';
+import { latitudeSchema, longitudeSchema } from '../../utils/coordinate';
 
 /**
  * The interface language shared between the website and the Android app.
@@ -26,6 +27,21 @@ const preferredLanguageSchema = z
   )
   .transform((value) => normalizeLanguage(value));
 
+/**
+ * A geographic coordinate that the account really shares.
+ *
+ * Three states have to stay distinguishable:
+ *
+ *   * **absent** (`undefined`) — the client did not mention the position, so
+ *     the stored value is left untouched.
+ *   * **`null`** — the client explicitly clears the position. The farm or
+ *     the delivery address then simply has no coordinates.
+ *   * **a number** — the real position.
+ *
+ * `z.coerce.number()` cannot express this: `Number(null)` is `0`, so a
+ * cleared position would be stored as the point `0 / 0` in the Gulf of
+ * Guinea.
+ */
 const updateProfileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').optional(),
   phone: z.string().min(10, 'Phone must be at least 10 digits').optional(),
@@ -42,8 +58,9 @@ const updateProfileSchema = z.object({
   addressLine: z.string().optional(),
   // Farmer specific fields
   farmName: z.string().optional(),
-  latitude: z.coerce.number().optional(),
-  longitude: z.coerce.number().optional(),
+  // The farm / delivery position — only stored when it is really shared.
+  latitude: latitudeSchema,
+  longitude: longitudeSchema,
 });
 
 // Helper to safely extract user ID
@@ -109,6 +126,13 @@ export const updateCurrentProfile = async (req: AuthenticatedRequest, res: Respo
       ? normalizeLanguage(body.preferredLanguage)
       : undefined;
 
+    // A position always consists of **both** coordinates. When one of them
+    // is cleared, the other one is cleared as well — otherwise the account
+    // would keep half of a position that does not exist any more.
+    const positionCleared = body.latitude === null || body.longitude === null;
+    const nextLatitude = positionCleared ? null : body.latitude;
+    const nextLongitude = positionCleared ? null : body.longitude;
+
     const updatedUser = await db.$transaction(async (tx) => {
       // Step A: Update primary user fields
       const userUpdateData: any = {};
@@ -131,8 +155,8 @@ export const updateCurrentProfile = async (req: AuthenticatedRequest, res: Respo
         if (body.district) farmerData.district = body.district.trim();
         if (body.state) farmerData.state = body.state.trim();
         if (body.addressLine || body.address) farmerData.addressLine = (body.addressLine || body.address)!.trim();
-        if (body.latitude !== undefined) farmerData.latitude = body.latitude;
-        if (body.longitude !== undefined) farmerData.longitude = body.longitude;
+        if (nextLatitude !== undefined) farmerData.latitude = nextLatitude;
+        if (nextLongitude !== undefined) farmerData.longitude = nextLongitude;
 
         await tx.farmerProfile.upsert({
           where: { userId },
@@ -143,8 +167,8 @@ export const updateCurrentProfile = async (req: AuthenticatedRequest, res: Respo
             state: body.state?.trim() || 'Karnataka',
             addressLine: (body.addressLine || body.address || '').trim(),
             // The position is stored only when it was really shared.
-            latitude: body.latitude !== undefined ? body.latitude : null,
-            longitude: body.longitude !== undefined ? body.longitude : null,
+            latitude: nextLatitude !== undefined ? nextLatitude : null,
+            longitude: nextLongitude !== undefined ? nextLongitude : null,
             isVerified: true,
           },
           update: farmerData,
@@ -158,6 +182,10 @@ export const updateCurrentProfile = async (req: AuthenticatedRequest, res: Respo
         if (body.district) consumerData.district = body.district.trim();
         // NOTE: the Prisma model exposes `deliveryAddress` (not `address`).
         if (resolvedAddress) consumerData.deliveryAddress = resolvedAddress;
+        // The delivery position is stored only when it is really shared — a
+        // placeholder would put the delivery somewhere the buyer never chose.
+        if (nextLatitude !== undefined) consumerData.latitude = nextLatitude;
+        if (nextLongitude !== undefined) consumerData.longitude = nextLongitude;
 
         await (tx as any).consumerProfile.upsert({
           where: { userId },
@@ -165,6 +193,8 @@ export const updateCurrentProfile = async (req: AuthenticatedRequest, res: Respo
             userId,
             district: body.district?.trim() || 'Bengaluru Urban',
             deliveryAddress: resolvedAddress || 'Karnataka',
+            latitude: nextLatitude !== undefined ? nextLatitude : null,
+            longitude: nextLongitude !== undefined ? nextLongitude : null,
           },
           update: consumerData,
         });

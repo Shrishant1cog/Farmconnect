@@ -154,7 +154,7 @@ refresh and no flicker**.
 The language is stored in the encrypted keystore
 (`farmconnect_locale`) and deliberately **survives a logout**.
 
-**ARB size:** 390 keys per language (`en`, `kn`, `hi`) — 0 missing / 0 extra,
+**ARB size:** 397 keys per language (`en`, `kn`, `hi`) — 0 missing / 0 extra,
 verified by `scripts/verify-i18n.mjs`.
 
 ### 2.5 Scope rules
@@ -383,13 +383,13 @@ estimated. The live route and cross-platform matrices are kept separately in
 
 | Check | Command | Result | Evidence |
 | --- | --- | --- | --- |
-| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 48 / 48 tests green (5 suites: `language`, `productQuery`, `categoryResolver`, `apmcBenchmark`, `logisticsService`) |
+| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 57 / 57 tests green (6 suites: `language`, `productQuery`, `categoryResolver`, `apmcBenchmark`, `logisticsService`, `coordinate`) |
 | Backend type check | `cd backend && npx tsc --noEmit` | PASS | exit code 0 |
 | Website type check | `cd frontend && npx tsc --noEmit` | PASS | exit code 0 |
 | Website production build | `cd frontend && npm run build` | PASS | exit code 0 — 21 routes prerendered/built, no prerender errors |
 | Android static analysis | `cd mobile && flutter analyze` | PASS | "No issues found!" |
 | Android unit + widget tests | `cd mobile && flutter test` | PASS | 31 / 31 tests green (includes `locale_test.dart` and `crop_listing_test.dart`) |
-| Localisation key parity | `node scripts/verify-i18n.mjs` | PASS | website `core` 120, `auth` 126, `farmer` 305, `consumer` 233, `misc` 362 keys; Android ARB 390 keys — 0 missing / 0 extra for Kannada and Hindi |
+| Localisation key parity | `node scripts/verify-i18n.mjs` | PASS | website `core` 120, `auth` 126, `farmer` 313, `consumer` 233, `misc` 362 keys; Android ARB 397 keys — 0 missing / 0 extra for Kannada and Hindi |
 | Hardcoded-English scan of the website JSX | `node C:\Users\user\AppData\Local\Temp\opencode\find-hardcoded-jsx.mjs` | PASS | 3 hits — all false positives (`Promise` type annotations) |
 | Website + API route smoke (deployed) | `node scripts/smoke-routes.mjs` | PASS | 22 / 22 website routes + 24 / 24 API routes answered with the expected status (200, or the expected auth redirect) |
 | API endpoint smoke (deployed) | `node scripts/smoke-api-endpoints.mjs` | PASS | 50 probes, 0 unexpected statuses — every endpoint of the shared backend was exercised with a real request |
@@ -496,6 +496,15 @@ this work:
    a GPS position has no `latitude` / `longitude` in the shared database.
    Such a farm is not plotted on the map and the logistics quote reports the
    missing coordinates instead of inventing a route.
+   The cleanup migration
+   `20261128010000_clear_placeholder_farmer_coordinates` cleared the 53
+   production rows that carried the old placeholder, so every farm has to
+   share its position again — through the **Share my farm position** button
+   on the farmer dashboard (website) or the **Share my farm position** entry
+   in the profile (Android app). Both use the device's own GPS and report
+   success only after the shared backend confirmed the update.
+   The same applies to the buyer: the delivery position is shared from the
+   profile (Android) or from the checkout address.
 8. **The deployed database has no administrator account** (registration only
    creates `FARMER` / `CONSUMER`). The five `/api/admin/*` endpoints and the
    Android admin dashboard therefore stay `NOT TESTED` in the matrices — the
@@ -561,3 +570,15 @@ second pass over both clients found the following, and all of them are fixed
 | 7 | Every account without a GPS position was stored at `12.5218 / 76.8951` | backend + register form | `FarmerProfile.latitude` / `longitude` became nullable (additive migration); the position is stored only when it was really shared |
 | 8 | The cart replaced the farmer's and the buyer's coordinates with two fixed cities and derived the freight cost from that invented route | `frontend/src/context/CartContext.tsx` | The cart keeps the real coordinates only; an unknown route yields `distanceKm = null` and the published minimum dispatch tariff |
 | 9 | The checkout showed a **fake order id** (`ord-demo-XXXXXX`) when the network failed; the delivery receipt and the farmer's order status were marked locally even when the backend rejected them | `frontend/src/app/checkout/page.tsx`, `frontend/src/app/consumer/orders/page.tsx`, `frontend/src/app/farmer/orders/page.tsx` | The state only changes when the shared backend confirms it — a failed request is reported instead of being faked |
+
+A third pass looked specifically at the coordinates, because
+`Number(null)` is `0` in JavaScript — a single missing value was enough to
+put a farm into the Gulf of Guinea:
+
+| # | Fabrication | Where | Fix |
+| --- | --- | --- | --- |
+| 10 | The consumer map, the cart and the logistics drawer converted a **missing** position with `Number(...)`, so `null` became `0` and the farm was plotted at `0 / 0` | `frontend/src/app/consumer/map/page.tsx`, `frontend/src/context/CartContext.tsx`, `frontend/src/components/LogisticsProfitDrawer.tsx` | Every client rejects `null` / `undefined` **before** the conversion; a missing position stays "unknown" and the farm is not plotted |
+| 11 | `PATCH /api/users/me` used `z.coerce.number()`, so a **cleared** position (`latitude: null`) was stored as the number `0` | `backend/src/modules/users/users.controller.ts` | `backend/src/utils/coordinate.ts` keeps the three states apart: absent → untouched, `null` → cleared, number → the real position. A malformed or out-of-range value is rejected with HTTP 400 |
+| 12 | The consumer profile never stored the delivery position, so the freight distance could never be computed | `backend/src/modules/users/users.controller.ts` | `ConsumerProfile.latitude` / `longitude` are written from the same shared endpoint as the farm position |
+| 13 | **All 53** farmer profiles of the production database still carried the old placeholder `12.5218 / 76.8951`, so the map stacked 53 markers on one invented point | `backend/prisma/migrations/20261128010000_clear_placeholder_farmer_coordinates/migration.sql` | The additive migration clears the rows that carry **exactly** the constant the old code wrote. No farm, listing or order is deleted — a farm without a position simply stays off the map |
+| 14 | No client offered a way to share a **real** position, so removing the placeholder would have left the map permanently empty | `frontend/src/app/farmer/dashboard/page.tsx`, `mobile/lib/features/profile/profile_page.dart` | Both clients capture the device's own GPS and store it on the shared account. The success message only appears after the backend confirmed the update |

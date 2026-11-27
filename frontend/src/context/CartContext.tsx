@@ -215,9 +215,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // The farm coordinates are kept only when the listing really carries
     // them. A made-up position would produce a made-up distance and a
-    // made-up freight cost.
-    const farmerLat = Number(product.farmerLat);
-    const farmerLon = Number(product.farmerLon);
+    // made-up freight cost. `Number(null)` is `0`, so a missing value has to
+    // be rejected **before** the conversion.
+    const hasRawCoordinates =
+      product.farmerLat !== null &&
+      product.farmerLat !== undefined &&
+      product.farmerLon !== null &&
+      product.farmerLon !== undefined;
+    const farmerLat = hasRawCoordinates ? Number(product.farmerLat) : NaN;
+    const farmerLon = hasRawCoordinates ? Number(product.farmerLon) : NaN;
     const hasFarmCoordinates =
       Number.isFinite(farmerLat) && Number.isFinite(farmerLon);
 
@@ -414,8 +420,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const distanceKm = useMemo<number | null>(() => {
     if (!destination || items.length === 0) return null;
 
-    const originLat = Number(items[0].farmerLat);
-    const originLon = Number(items[0].farmerLon);
+    const hasRawCoordinates =
+      items[0].farmerLat !== null &&
+      items[0].farmerLat !== undefined &&
+      items[0].farmerLon !== null &&
+      items[0].farmerLon !== undefined;
+    const originLat = hasRawCoordinates ? Number(items[0].farmerLat) : NaN;
+    const originLon = hasRawCoordinates ? Number(items[0].farmerLon) : NaN;
     const destLat = Number(destination.latitude);
     const destLon = Number(destination.longitude);
 
@@ -500,8 +511,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshFreightQuote = useCallback(async () => {
     if (!destination || items.length === 0) return;
 
-    const originLat = Number(items[0].farmerLat);
-    const originLon = Number(items[0].farmerLon);
+    const hasRawCoordinates =
+      items[0].farmerLat !== null &&
+      items[0].farmerLat !== undefined &&
+      items[0].farmerLon !== null &&
+      items[0].farmerLon !== undefined;
+    const originLat = hasRawCoordinates ? Number(items[0].farmerLat) : NaN;
+    const originLon = hasRawCoordinates ? Number(items[0].farmerLon) : NaN;
     const destLat = Number(destination.latitude);
     const destLon = Number(destination.longitude);
     const farmerPrice = Number(items[0].farmerPrice);

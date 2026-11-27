@@ -286,6 +286,13 @@
   "profileLogisticsCalculator": "ಲಾಜಿಸ್ಟಿಕ್ಸ್ ಮತ್ತು ಲಾಭ ಲೆಕ್ಕಿಸುವಿಕೆ",
   "profileApmcRates": "APMC ಮಂಡಿ ದರ",
   "profileVerifyCultivator": "ರೈತನ ಗುರುತನ್ನು ಪರಿಶೀಲಿಸಿ",
+  "profileShareFarmPosition": "ನನ್ನ ಜಮೀನಿನ ಸ್ಥಾನ ಹಂಚಿಕೊಳ್ಳಿ",
+  "profileShareDeliveryPosition": "ನನ್ನ ವಿತರಣೆ ಸ್ಥಾನ ಹಂಚಿಕೊಳ್ಳಿ",
+  "profilePositionNotShared": "ಇನ್ನೂ ಹಂಚಿಕೊಳ್ಳಿಲ್ಲ",
+  "profilePositionSaved": "ನಿಮ್ಮ ಸ್ಥಾನ ಉಳಿಸಲಾಗಿದೆ.",
+  "profilePositionFailed": "ಸ್ಥಾನವನ್ನು ಉಳಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+  "profilePositionPermissionDenied": "ಸ್ಥಾನ ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ, ಹಾಗಾಗಿ ಏನೂ ಹಂಚಿಕೊಳ್ಳಲಾಗಲಿಲ್ಲ.",
+  "profilePositionServiceDisabled": "ಈ ಸಾಧನದ ಸ್ಥಾನ ಸೇವೆ ಆಫ್ ಆಗಿದೆ.",
   "profileSharedAccountNote": "ಈ ಖಾತೆ FarmConnect ವೆಬ್‌ಸೈಟ್‌ನೊಂದಿಗೆ ಹಂಚಲಾಗಿದೆ — ಆರ್ಡರ್‌ಗಳು, ಪಟ್ಟಿಗಳು ಮತ್ತು ಸಂಭಾಷಣೆಗಳು ಸಿಂಕ್ ಆಗಿರುತ್ತವೆ.",
 
   "complaintsPageTitle": "ನನ್ನ ದೂರು ಅರ್ಜಿಗಳು",

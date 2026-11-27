@@ -286,6 +286,13 @@
   "profileLogisticsCalculator": "Logistics & profit calculator",
   "profileApmcRates": "APMC mandi rates",
   "profileVerifyCultivator": "Verify cultivator identity",
+  "profileShareFarmPosition": "Share my farm position",
+  "profileShareDeliveryPosition": "Share my delivery position",
+  "profilePositionNotShared": "Not shared yet",
+  "profilePositionSaved": "Your position was saved.",
+  "profilePositionFailed": "The position could not be saved. Please try again.",
+  "profilePositionPermissionDenied": "The position permission was denied, so nothing was shared.",
+  "profilePositionServiceDisabled": "The location service of this device is switched off.",
   "profileSharedAccountNote": "This account is shared with the FarmConnect website — orders, listings and conversations stay in sync.",
 
   "complaintsPageTitle": "My complaints",

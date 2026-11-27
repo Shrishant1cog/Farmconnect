@@ -895,6 +895,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileVerifyCultivator => 'Verify cultivator identity';
 
   @override
+  String get profileShareFarmPosition => 'Share my farm position';
+
+  @override
+  String get profileShareDeliveryPosition => 'Share my delivery position';
+
+  @override
+  String get profilePositionNotShared => 'Not shared yet';
+
+  @override
+  String get profilePositionSaved => 'Your position was saved.';
+
+  @override
+  String get profilePositionFailed =>
+      'The position could not be saved. Please try again.';
+
+  @override
+  String get profilePositionPermissionDenied =>
+      'The position permission was denied, so nothing was shared.';
+
+  @override
+  String get profilePositionServiceDisabled =>
+      'The location service of this device is switched off.';
+
+  @override
   String get profileSharedAccountNote =>
       'This account is shared with the FarmConnect website — orders, listings and conversations stay in sync.';
 

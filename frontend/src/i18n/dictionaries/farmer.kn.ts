@@ -123,6 +123,18 @@ export const farmerKn: TranslationMap = {
   'farmer.dashboard.intro': 'ಪ್ರತ್ಯೇಕ ಬೆಳೆ ಮೊದಿಗಳನ್ನು ನಿರ್ವಹಿಸಿ, ಸಗಾಳ ಖರೀದಿಗಳ ವಿಚಾರಗಳನ್ನು ಪರಿಶೀಲಿಸಿ ಮತ್ತು ನಿಮ್ಮ ಹಾಗ್ಗೆ ದರವನ್ನು ಎಪಿಎಂಸಿ ಮೋಡಲ್ ದರದೊಂದಿಗೆ ಹೋಲಿಸಿ.',
   'farmer.dashboard.refreshTitle': 'ದಾಸ್ತಾನನ್ನು ನವೀಕರಿಸಿ',
   'farmer.dashboard.listNewHarvest': 'ಹೊಸ ಕೊಯ್ಲು ಪಟ್ಟಿಯನ್ನು ಮಾಡಿ',
+  'farmer.dashboard.farmLocation': 'ಜಮೀನಿನ ಸ್ಥಾನ',
+  'farmer.dashboard.farmLocationNotShared': 'ಇನ್ನೂ ಹಂಚಿಕೊಳ್ಳಿಲ್ಲ',
+  'farmer.dashboard.farmLocationHint':
+    'ನಿಮ್ಮ ಜಮೀನಿನ ನಿಜವಾದ ಸ್ಥಾನವನ್ನು ಹಂಚಿಕೊಳ್ಳುವ ನಂತರ ಮಾತ್ರ ಅದು ನಕ್ಷೆಯಲ್ಲಿ ಕಾಣುತ್ತದೆ ಮತ್ತು ಸರಿಹಾವಣೆ ಅಂತರ ಲೆಕ್ಕಕ್ಕೆ ಬಳಸಲಾಗುತ್ತದೆ.',
+  'farmer.dashboard.shareFarmLocation': 'ನನ್ನ ಜಮೀನಿನ ಸ್ಥಾನ ಹಂಚಿಕೊಳ್ಳಿ',
+  'farmer.dashboard.farmLocationSaved': 'ನಿಮ್ಮ ಜಮೀನಿನ ಸ್ಥಾನ ಉಳಿಸಲಾಗಿದೆ.',
+  'farmer.dashboard.farmLocationFailed':
+    'ಜಮೀನಿನ ಸ್ಥಾನವನ್ನು ಉಳಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
+  'farmer.dashboard.farmLocationUnsupported':
+    'ಈ ಬ್ರೌಸರ್ ನಿಮ್ಮ ಸ್ಥಾನವನ್ನು ಪತ್ತೆ ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ನಮೂದಿಸಿ.',
+  'farmer.dashboard.farmLocationDenied':
+    'ಸ್ಥಾನ ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ, ಹಾಗಾಗಿ ಜಮೀನಿನ ಸ್ಥಾನ ಹಂಚಿಕೊಳ್ಳಲಾಗಲಿಲ್ಲ.',
   'farmer.dashboard.activeCropLots': 'ಸಕ್ರಿಯ ಬೆಳೆ ಮೊದಿಗಳು',
   'farmer.dashboard.lotsProcurement': 'ನೇರ ಖರೀದಿಗಳ ಖರೀದಿಗೆ ತೆರೆದ ಮೊದಿಗಳು',
   'farmer.dashboard.harvestVolume': 'ಕೊಯ್ಲಿನ ಪ್ರಮಾಣ',

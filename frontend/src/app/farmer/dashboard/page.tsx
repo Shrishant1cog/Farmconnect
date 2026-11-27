@@ -199,6 +199,11 @@ export default function FarmerDashboardPage() {
   const [categoryLoading, setCategoryLoading] = useState(false);
   const [categoryError, setCategoryError] = useState<string | null>(null);
 
+  // The farm position — only stored when the farmer really shared it.
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [farmLatitude, setFarmLatitude] = useState<number | null>(null);
+  const [farmLongitude, setFarmLongitude] = useState<number | null>(null);
+
   // Auto-dismiss notification
   useEffect(() => {
     if (!notification) return;
@@ -269,6 +274,95 @@ export default function FarmerDashboardPage() {
       setCurrentUser(authUser);
     }
   }, [authUser]);
+
+  // Read the real farm position from the shared backend.
+  //
+  // The account cache can be stale, so the position is fetched from the
+  // backend instead of being read from `localStorage`. A missing position
+  // stays `null` — the farm is simply off the map.
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadFarmPosition = async () => {
+      try {
+        const me = await fetchApi('/users/me');
+        const profile = me?.data?.farmerProfile || me?.farmerProfile;
+        const hasRawCoordinates =
+          profile?.latitude !== null &&
+          profile?.latitude !== undefined &&
+          profile?.longitude !== null &&
+          profile?.longitude !== undefined;
+        const lat = hasRawCoordinates ? Number(profile.latitude) : NaN;
+        const lon = hasRawCoordinates ? Number(profile.longitude) : NaN;
+
+        if (!cancelled && Number.isFinite(lat) && Number.isFinite(lon)) {
+          setFarmLatitude(lat);
+          setFarmLongitude(lon);
+        }
+      } catch {
+        // The position stays unknown — the card reports it as "not shared".
+      }
+    };
+
+    loadFarmPosition();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /**
+   * Shares the real farm position with the shared backend.
+   *
+   * The browser's own geolocation is used — no coordinate is invented. The
+   * success message only appears after the backend confirmed the update.
+   */
+  const handleShareFarmLocation = useCallback(async () => {
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      setNotification({ text: t('farmer.dashboard.farmLocationUnsupported'), type: 'error' });
+      return;
+    }
+
+    setIsDetectingLocation(true);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
+        });
+      });
+
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+
+      const res = await fetchApi('/users/me', {
+        method: 'PATCH',
+        body: JSON.stringify({ latitude: lat, longitude: lon }),
+      });
+
+      const profile = res?.data?.farmerProfile || res?.farmerProfile;
+      const storedLat = Number(profile?.latitude);
+      const storedLon = Number(profile?.longitude);
+
+      if (Number.isFinite(storedLat) && Number.isFinite(storedLon)) {
+        setFarmLatitude(storedLat);
+        setFarmLongitude(storedLon);
+        setNotification({ text: t('farmer.dashboard.farmLocationSaved'), type: 'success' });
+      } else {
+        setNotification({ text: t('farmer.dashboard.farmLocationFailed'), type: 'error' });
+      }
+    } catch (error: any) {
+      const denied = error?.code === 1 || error?.code === 2;
+      setNotification({
+        text: denied
+          ? t('farmer.dashboard.farmLocationDenied')
+          : t('farmer.dashboard.farmLocationFailed'),
+        type: 'error',
+      });
+    } finally {
+      setIsDetectingLocation(false);
+    }
+  }, [t]);
 
   // Fetch backend products safely
   const fetchFarmerProducts = useCallback(async () => {
@@ -585,6 +679,46 @@ export default function FarmerDashboardPage() {
           <p className="text-3xl font-black text-stone-900">{t('farmer.dashboard.inquiryCount', { count: leads.length })}</p>
           <span className="text-xs text-emerald-700 font-bold mt-1 block">{t('farmer.dashboard.unreadNegotiations', { count: stats.unreadLeads })}</span>
         </div>
+      </div>
+
+      {/* 2b. Farm position — shared only when the farmer really shares it */}
+      <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="p-2.5 bg-emerald-50 text-emerald-700 rounded-2xl shrink-0">
+            <MapPin className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-wider text-stone-500">
+              {t('farmer.dashboard.farmLocation')}
+            </p>
+            {farmLatitude !== null && farmLongitude !== null ? (
+              <p className="text-sm font-bold text-stone-900 mt-0.5 font-mono">
+                {farmLatitude.toFixed(5)}, {farmLongitude.toFixed(5)}
+              </p>
+            ) : (
+              <p className="text-sm font-bold text-amber-700 mt-0.5">
+                {t('farmer.dashboard.farmLocationNotShared')}
+              </p>
+            )}
+            <p className="text-xs text-stone-500 mt-1 max-w-xl leading-relaxed">
+              {t('farmer.dashboard.farmLocationHint')}
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleShareFarmLocation}
+          disabled={isDetectingLocation}
+          className="px-4 py-2.5 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-60 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/15 transition-all duration-200 active:scale-95 shrink-0"
+        >
+          {isDetectingLocation ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <MapPin className="w-4 h-4" />
+          )}
+          {t('farmer.dashboard.shareFarmLocation')}
+        </button>
       </div>
 
       {/* 3. Main Split View: Produce Inventory & Buyer Trade Inquiries */}

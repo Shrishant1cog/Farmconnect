@@ -1750,6 +1750,48 @@ abstract class AppLocalizations {
   /// **'Verify cultivator identity'**
   String get profileVerifyCultivator;
 
+  /// No description provided for @profileShareFarmPosition.
+  ///
+  /// In en, this message translates to:
+  /// **'Share my farm position'**
+  String get profileShareFarmPosition;
+
+  /// No description provided for @profileShareDeliveryPosition.
+  ///
+  /// In en, this message translates to:
+  /// **'Share my delivery position'**
+  String get profileShareDeliveryPosition;
+
+  /// No description provided for @profilePositionNotShared.
+  ///
+  /// In en, this message translates to:
+  /// **'Not shared yet'**
+  String get profilePositionNotShared;
+
+  /// No description provided for @profilePositionSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Your position was saved.'**
+  String get profilePositionSaved;
+
+  /// No description provided for @profilePositionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The position could not be saved. Please try again.'**
+  String get profilePositionFailed;
+
+  /// No description provided for @profilePositionPermissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'The position permission was denied, so nothing was shared.'**
+  String get profilePositionPermissionDenied;
+
+  /// No description provided for @profilePositionServiceDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'The location service of this device is switched off.'**
+  String get profilePositionServiceDisabled;
+
   /// No description provided for @profileSharedAccountNote.
   ///
   /// In en, this message translates to:

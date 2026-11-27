@@ -78,8 +78,16 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
       try {
         const me = await fetchApi('/users/me');
         const profile = me?.data?.consumerProfile || me?.consumerProfile;
-        const lat = Number(profile?.latitude);
-        const lon = Number(profile?.longitude);
+        // `Number(null)` is `0`, so a missing position has to be rejected
+        // **before** the conversion — otherwise the delivery would be
+        // placed in the Gulf of Guinea.
+        const hasRawCoordinates =
+          profile?.latitude !== null &&
+          profile?.latitude !== undefined &&
+          profile?.longitude !== null &&
+          profile?.longitude !== undefined;
+        const lat = hasRawCoordinates ? Number(profile.latitude) : NaN;
+        const lon = hasRawCoordinates ? Number(profile.longitude) : NaN;
         if (!cancelled && Number.isFinite(lat) && Number.isFinite(lon)) {
           setDestination({ lat, lon });
         }

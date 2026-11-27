@@ -126,6 +126,18 @@ export const farmerEn: TranslationMap = {
   'farmer.dashboard.intro': 'Manage independent crop lots, review wholesale buyer inquiries, and compare your gate rates with APMC modal benchmarks.',
   'farmer.dashboard.refreshTitle': 'Refresh inventory',
   'farmer.dashboard.listNewHarvest': 'List new harvest',
+  'farmer.dashboard.farmLocation': 'Farm position',
+  'farmer.dashboard.farmLocationNotShared': 'Not shared yet',
+  'farmer.dashboard.farmLocationHint':
+    'Your farm is only shown on the map, and only used for the freight distance, after you share its real position.',
+  'farmer.dashboard.shareFarmLocation': 'Share my farm position',
+  'farmer.dashboard.farmLocationSaved': 'Your farm position was saved.',
+  'farmer.dashboard.farmLocationFailed':
+    'The farm position could not be saved. Please try again.',
+  'farmer.dashboard.farmLocationUnsupported':
+    'This browser cannot detect your position. Please enter it in your profile.',
+  'farmer.dashboard.farmLocationDenied':
+    'The position permission was denied, so the farm position was not shared.',
   'farmer.dashboard.activeCropLots': 'Active crop lots',
   'farmer.dashboard.lotsProcurement': 'Lots open for direct buyer procurement',
   'farmer.dashboard.harvestVolume': 'Harvest volume',

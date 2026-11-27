@@ -30,6 +30,11 @@ class _FarmerMapPageState extends ConsumerState<FarmerMapPage> {
   bool _locating = false;
   String? _error;
   LatLng? _deviceLocation;
+
+  /// The initial **camera** position of the map (the Mandya region of
+  /// Karnataka). It is a viewport, not a data point — no marker is ever
+  /// placed at it. As soon as the user shares their own position the
+  /// camera moves to it.
   LatLng _center = const LatLng(12.5218, 76.8951);
 
   @override

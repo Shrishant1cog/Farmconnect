@@ -896,6 +896,29 @@ class AppLocalizationsKn extends AppLocalizations {
   String get profileVerifyCultivator => 'ರೈತನ ಗುರುತನ್ನು ಪರಿಶೀಲಿಸಿ';
 
   @override
+  String get profileShareFarmPosition => 'ನನ್ನ ಜಮೀನಿನ ಸ್ಥಾನ ಹಂಚಿಕೊಳ್ಳಿ';
+
+  @override
+  String get profileShareDeliveryPosition => 'ನನ್ನ ವಿತರಣೆ ಸ್ಥಾನ ಹಂಚಿಕೊಳ್ಳಿ';
+
+  @override
+  String get profilePositionNotShared => 'ಇನ್ನೂ ಹಂಚಿಕೊಳ್ಳಿಲ್ಲ';
+
+  @override
+  String get profilePositionSaved => 'ನಿಮ್ಮ ಸ್ಥಾನ ಉಳಿಸಲಾಗಿದೆ.';
+
+  @override
+  String get profilePositionFailed =>
+      'ಸ್ಥಾನವನ್ನು ಉಳಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.';
+
+  @override
+  String get profilePositionPermissionDenied =>
+      'ಸ್ಥಾನ ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ, ಹಾಗಾಗಿ ಏನೂ ಹಂಚಿಕೊಳ್ಳಲಾಗಲಿಲ್ಲ.';
+
+  @override
+  String get profilePositionServiceDisabled => 'ಈ ಸಾಧನದ ಸ್ಥಾನ ಸೇವೆ ಆಫ್ ಆಗಿದೆ.';
+
+  @override
   String get profileSharedAccountNote =>
       'ಈ ಖಾತೆ FarmConnect ವೆಬ್‌ಸೈಟ್‌ನೊಂದಿಗೆ ಹಂಚಲಾಗಿದೆ — ಆರ್ಡರ್‌ಗಳು, ಪಟ್ಟಿಗಳು ಮತ್ತು ಸಂಭಾಷಣೆಗಳು ಸಿಂಕ್ ಆಗಿರುತ್ತವೆ.';
 

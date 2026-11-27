@@ -1,6 +1,9 @@
+// The database connection is environment driven so the exact same schema can be
+// used against the local docker PostgreSQL instance and the managed PostgreSQL
+// database used in production (Render).
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {

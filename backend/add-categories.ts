@@ -1,3 +1,5 @@
+// Load `backend/.env` so this utility can be executed directly with ts-node.
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import process from 'process';
 
@@ -64,18 +66,31 @@ async function main() {
   for (const cat of CATEGORIES) {
     const slug = generateSlug(cat.name);
 
-    const record = await prisma.category.upsert({
-      where: { slug },
-      update: {
-        name: cat.name,
-        description: cat.description,
-      },
-      create: {
-        name: cat.name,
-        slug,
-        description: cat.description,
-      },
+    // `Category.name` and `Category.slug` are both unique. The seed script
+    // intentionally uses short, stable slugs (e.g. "grains" for
+    // "Grains & Millets"), so a category can already exist under a different
+    // slug. Look it up by name first and only fall back to a slug based
+    // upsert, otherwise the unique constraint on `name` is violated.
+    const existing = await prisma.category.findFirst({
+      where: { OR: [{ name: cat.name }, { slug }] },
     });
+
+    const record = existing
+      ? await prisma.category.update({
+          where: { id: existing.id },
+          data: {
+            name: cat.name,
+            slug: existing.slug === slug ? slug : existing.slug,
+            description: cat.description,
+          },
+        })
+      : await prisma.category.create({
+          data: {
+            name: cat.name,
+            slug,
+            description: cat.description,
+          },
+        });
 
     console.log(`✔️ [${record.slug}] ${record.name}`);
   }

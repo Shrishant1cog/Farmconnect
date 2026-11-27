@@ -1,3 +1,6 @@
+// Load `backend/.env` so the integration suite can run against the local
+// PostgreSQL instance exactly like the Prisma CLI does.
+import 'dotenv/config';
 import request from 'supertest';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';

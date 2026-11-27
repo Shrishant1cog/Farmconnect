@@ -1,6 +1,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+        INTERNET is required by the release build: the app talks to the shared
+        FarmConnect REST API and the Socket.IO server. Without this permission
+        the release APK cannot make a single network request.
+    -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Used to check whether the device has a usable connection. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- "Use my location" on the farmer map (geolocator). -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <!-- Capturing a product photo with the camera (image_picker). -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+
     <application
-        android:label="farmconnect_mobile"
+        android:label="FarmConnect"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -32,7 +46,6 @@
             android:value="2" />
     </application>
     <!-- Required to query activities that can process text, see:
-         https://developer.android.com/training/package-visibility and
          https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->

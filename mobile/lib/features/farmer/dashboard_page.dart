@@ -67,7 +67,7 @@ class _FarmerDashboardPageState extends ConsumerState<FarmerDashboardPage> {
             product.id,
             isAvailable: !product.isAvailable,
           );
-      await _load();
+      ref.read(catalogRevisionProvider.notifier).state++;
     } on ApiException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.displayMessage)));
@@ -77,6 +77,11 @@ class _FarmerDashboardPageState extends ConsumerState<FarmerDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(catalogRevisionProvider, (previous, next) {
+      if (previous != next) {
+        _load();
+      }
+    });
     return RefreshIndicator(
       onRefresh: _load,
       color: AppTheme.emerald,

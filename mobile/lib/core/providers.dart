@@ -38,6 +38,11 @@ final catalogRepositoryProvider = Provider<CatalogRepository>((ref) {
   return CatalogRepository(api: ref.watch(apiClientProvider));
 });
 
+/// Bumped whenever the signed-in farmer changes their own catalogue (create,
+/// update or remove) so every screen listing those lots refreshes instead of
+/// showing stale data until the app is restarted.
+final catalogRevisionProvider = StateProvider<int>((ref) => 0);
+
 final orderRepositoryProvider = Provider<OrderRepository>((ref) {
   return OrderRepository(api: ref.watch(apiClientProvider));
 });

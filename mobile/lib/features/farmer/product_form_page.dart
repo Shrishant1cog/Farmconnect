@@ -164,6 +164,7 @@ class _ProductFormPageState extends ConsumerState<ProductFormPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_isEditing ? 'Harvest lot updated' : 'Harvest lot listed')),
       );
+      ref.read(catalogRevisionProvider.notifier).state++;
       context.pop();
     } on ApiException catch (error) {
       if (mounted) {

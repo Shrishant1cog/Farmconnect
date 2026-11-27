@@ -79,7 +79,7 @@ class _FarmerProductsPageState extends ConsumerState<FarmerProductsPage> {
 
     try {
       await ref.read(catalogRepositoryProvider).deleteProduct(product.id);
-      await _load();
+      ref.read(catalogRevisionProvider.notifier).state++;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Harvest lot removed')),
@@ -101,6 +101,11 @@ class _FarmerProductsPageState extends ConsumerState<FarmerProductsPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(catalogRevisionProvider, (previous, next) {
+      if (previous != next) {
+        _load();
+      }
+    });
     return Column(
       children: [
         Padding(

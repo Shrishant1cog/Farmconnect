@@ -4,4 +4,11 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!--
+        Cleartext HTTP is allowed in the debug variant only, so a developer can
+        reach a backend running on the host machine over http://10.0.2.2:5000.
+        The release variant never inherits this attribute and therefore only
+        talks HTTPS to the production Render API.
+    -->
+    <application android:usesCleartextTraffic="true" />
 </manifest>

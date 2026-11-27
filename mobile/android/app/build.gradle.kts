@@ -1,7 +1,36 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// ---------------------------------------------------------------------------
+// Release signing
+//
+// The repository deliberately contains NO signing key. A Play Store upload key
+// is a secret: it must be generated once by the project owner, stored outside
+// version control and never committed.
+//
+// To produce a Play Store ready build, create `android/key.properties`:
+//
+//     storePassword=<store password>
+//     keyPassword=<key password>
+//     keyAlias=upload
+//     storeFile=<absolute path to the .jks file>
+//
+// `android/key.properties` and `*.jks` are ignored by `android/.gitignore`.
+//
+// When the file is absent the release build is still produced, but it is signed
+// with the Flutter debug keystore. Such an artefact is perfectly installable
+// and testable on a device, but it is NOT a Play Store ready release.
+// ---------------------------------------------------------------------------
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+val hasReleaseKeystore = keystorePropertiesFile.exists()
+if (hasReleaseKeystore) {
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
 }
 
 android {
@@ -15,10 +44,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "in.farmconnect.farmconnect_mobile"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
@@ -29,11 +55,34 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            } else {
+                // No upload keystore is present. The build is signed with the
+                // debug key so it can be installed and tested, but it must not
+                // be uploaded to the Play Store.
+                signingConfig = signingConfigs.getByName("debug")
+                logger.warn(
+                    "FarmConnect: android/key.properties was not found. The release " +
+                        "artefact is signed with the DEBUG key. It is installable and " +
+                        "testable, but it is NOT a Play Store ready release. Create " +
+                        "android/key.properties with the owner's upload keystore to " +
+                        "produce a store ready build."
+                )
+            }
         }
     }
 }

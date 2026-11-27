@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
+import '../config/app_config.dart';
+
 /// Thin wrapper around `socket_io_client`.
 ///
 /// The event and room names are identical to the ones used by the Next.js
@@ -19,7 +21,7 @@ class SocketService {
     }
 
     _socket = io.io(
-      baseUrl ?? _defaultSocketUrl(),
+      baseUrl ?? AppConfig.socketUrl,
       io.OptionBuilder()
           .setTransports(['websocket', 'polling'])
           .setAuth(token != null && token.isNotEmpty ? {'token': token} : <String, dynamic>{})
@@ -46,14 +48,6 @@ class SocketService {
         debugPrint('[Socket] connect error: $error');
       }
     });
-  }
-
-  String _defaultSocketUrl() {
-    const configured = String.fromEnvironment(
-      'SOCKET_URL',
-      defaultValue: 'http://10.0.2.2:5000',
-    );
-    return configured;
   }
 
   void disconnect() {

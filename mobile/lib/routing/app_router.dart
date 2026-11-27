@@ -43,22 +43,11 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final auth = ref.read(authControllerProvider);
 
-      if (auth.isRestoring) {
-        return '/splash';
-      }
-
-      final location = state.matchedLocation;
-      final isAuthRoute = location == '/login' || location == '/register';
-
-      if (!auth.isAuthenticated && !isAuthRoute) {
-        return '/login';
-      }
-
-      if (auth.isAuthenticated && isAuthRoute) {
-        return '/home';
-      }
-
-      return null;
+      return resolveAuthRedirect(
+        isRestoring: auth.isRestoring,
+        isAuthenticated: auth.isAuthenticated,
+        location: state.matchedLocation,
+      );
     },
     routes: [
       GoRoute(
@@ -172,6 +161,45 @@ final routerProvider = Provider<GoRouter>((ref) {
     ),
   );
 });
+
+/// Resolves the route the user has to be sent to.
+///
+/// The function is intentionally pure so the session-restore behaviour can be
+/// unit tested without building the whole widget tree.
+///
+/// * While the session is being restored every route redirects to `/splash`.
+/// * The splash screen is only a placeholder: as soon as the restore finished
+///   the user has to leave it — signed-in users go to `/home`, everybody else
+///   to `/login`. Without this the app would stay on the splash screen forever
+///   after an app restart, because a restored session is authenticated while
+///   the splash route is not an authentication route.
+/// * Signed-out users may only stay on the authentication routes, signed-in
+///   users are redirected away from them.
+String? resolveAuthRedirect({
+  required bool isRestoring,
+  required bool isAuthenticated,
+  required String location,
+}) {
+  if (isRestoring) {
+    return '/splash';
+  }
+
+  final isAuthRoute = location == '/login' || location == '/register';
+
+  if (location == '/splash') {
+    return isAuthenticated ? '/home' : '/login';
+  }
+
+  if (!isAuthenticated && !isAuthRoute) {
+    return '/login';
+  }
+
+  if (isAuthenticated && isAuthRoute) {
+    return '/home';
+  }
+
+  return null;
+}
 
 class _SplashPage extends StatelessWidget {
   const _SplashPage();

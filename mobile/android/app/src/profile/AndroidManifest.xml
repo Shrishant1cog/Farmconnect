@@ -4,4 +4,11 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!--
+        Cleartext HTTP is allowed in the profile variant only, so the app can
+        be profiled against a backend running on the host machine. The release
+        variant never inherits this attribute and therefore only talks HTTPS
+        to the production Render API.
+    -->
+    <application android:usesCleartextTraffic="true" />
 </manifest>

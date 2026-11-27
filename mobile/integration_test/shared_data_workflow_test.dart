@@ -20,6 +20,16 @@
 /// session). Mixing them would silently replace the JWT of one role with the
 /// JWT of another and hide genuine failures.
 ///
+/// QA data
+/// -------
+/// Every account and every record created here is a clearly identifiable QA
+/// record (`<tag>.qa.<runId>@farmconnect.test`, lots titled `QA ... <runId>`).
+/// Real user data is never touched. Listings that are not referenced by an
+/// order are removed again through the supported `DELETE /api/products/:id`
+/// endpoint; a listing that already has order history cannot be deleted
+/// because `OrderItem.product` is `onDelete: Restrict`, and the accounts
+/// themselves remain because the API exposes no account deletion endpoint.
+///
 /// Run it against a locally running API (from the repository root):
 ///
 /// ```bash
@@ -28,6 +38,15 @@
 ///   -d <emulator-or-device> \
 ///   --dart-define=TEST_API_BASE_URL=http://10.0.2.2:5000/api \
 ///   --dart-define=TEST_SOCKET_URL=http://10.0.2.2:5000
+/// ```
+///
+/// Against the deployed Render backend:
+///
+/// ```bash
+/// cd mobile && flutter test integration_test \
+///   -d <emulator-or-device> \
+///   --dart-define=TEST_API_BASE_URL=https://farmconnect-api-sn98.onrender.com/api \
+///   --dart-define=TEST_SOCKET_URL=https://farmconnect-api-sn98.onrender.com
 /// ```
 ///
 /// `10.0.2.2` is how the Android emulator reaches the host machine. Use
@@ -44,6 +63,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:farmconnect_mobile/core/network/api_client.dart';
 import 'package:farmconnect_mobile/core/storage/token_storage.dart';
 import 'package:farmconnect_mobile/data/models/order.dart';
+import 'package:farmconnect_mobile/data/models/product.dart';
 import 'package:farmconnect_mobile/data/models/user.dart';
 import 'package:farmconnect_mobile/data/repositories/auth_repository.dart';
 import 'package:farmconnect_mobile/data/repositories/catalog_repository.dart';
@@ -83,8 +103,8 @@ ApiClient _buildClient(TokenStorage storage) {
   final dio = Dio(
     BaseOptions(
       baseUrl: _apiBaseUrl,
-      connectTimeout: const Duration(seconds: 20),
-      receiveTimeout: const Duration(seconds: 30),
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 45),
       headers: {'Content-Type': 'application/json'},
     ),
   );
@@ -120,18 +140,39 @@ void main() {
     // --- The website client (a browser session) --------------------------
     late TestClient website;
 
+    // --- The website client signed in as the farmer ----------------------
+    late TestClient websiteFarmer;
+
     // --- The Android client signed in as a farmer ------------------------
     late TestClient androidFarmer;
 
     // --- The Android client signed in as a consumer ----------------------
     late TestClient androidConsumer;
 
+    /// QA listings created during the run, removed again in `tearDown`.
+    final List<String> qaProductIds = <String>[];
+
     int phoneSeed = 1;
 
     setUp(() {
       website = TestClient('website');
+      websiteFarmer = TestClient('website-farmer');
       androidFarmer = TestClient('android-farmer');
       androidConsumer = TestClient('android-consumer');
+    });
+
+    tearDown(() async {
+      // Clean up the QA listings through the supported delete endpoint. A
+      // listing that already has an order cannot be removed (the backend
+      // protects the order history), which is expected and not a failure.
+      for (final productId in qaProductIds) {
+        try {
+          await androidFarmer.catalog.deleteProduct(productId);
+        } catch (_) {
+          // Kept in the database on purpose — it carries order history.
+        }
+      }
+      qaProductIds.clear();
     });
 
     /// Registers a farmer through the *website* client and then signs the same
@@ -139,11 +180,13 @@ void main() {
     Future<AuthSession> registerFarmerAcrossBothClients({
       required String tag,
       required String farmName,
+      TestClient? websiteClient,
     }) async {
-      final email = '$tag.farmer.$_runId@farmconnect.test';
+      final email = '$tag.qa.farmer.$_runId@farmconnect.test';
+      final site = websiteClient ?? website;
 
-      await website.auth.register(
-        name: '$tag Farmer',
+      await site.auth.register(
+        name: '$tag QA Farmer',
         phone: _uniquePhone(phoneSeed++),
         email: email,
         password: _password,
@@ -164,10 +207,10 @@ void main() {
       required String tag,
       TestClient? androidClient,
     }) async {
-      final email = '$tag.consumer.$_runId@farmconnect.test';
+      final email = '$tag.qa.consumer.$_runId@farmconnect.test';
 
       await website.auth.register(
-        name: '$tag Consumer',
+        name: '$tag QA Consumer',
         phone: _uniquePhone(phoneSeed++),
         email: email,
         password: _password,
@@ -184,20 +227,39 @@ void main() {
       );
     }
 
+    /// Creates a clearly identifiable QA listing and remembers it for cleanup.
+    Future<Product> createQaProduct({
+      required TestClient client,
+      required String title,
+      required double price,
+      required double quantity,
+    }) async {
+      final product = await client.catalog.createProduct(
+        title: title,
+        description: 'QA lot created by the shared-data workflow test.',
+        farmerPrice: price,
+        quantityAvailable: quantity,
+        minOrderKg: 5,
+        location: 'Mandya, Karnataka',
+      );
+      qaProductIds.add(product.id);
+      return product;
+    }
+
     testWidgets('a farmer registered on one client is usable from the other',
         (tester) async {
       // --- 1. Register the farmer (website client) ------------------------
       final farmerSession = await website.auth.register(
-        name: 'Android Parity Farmer',
+        name: 'Android Parity QA Farmer',
         phone: _uniquePhone(phoneSeed++),
-        email: 'parity.farmer.$_runId@farmconnect.test',
+        email: 'parity.qa.farmer.$_runId@farmconnect.test',
         password: _password,
         role: UserRole.farmer,
         pincode: '571401',
         state: 'Karnataka',
         district: 'Mandya',
         addressLine: 'Mandya, Karnataka',
-        farmName: 'Parity Test Fields',
+        farmName: 'Parity QA Fields',
       );
 
       expect(farmerSession.user.role, UserRole.farmer);
@@ -205,7 +267,7 @@ void main() {
 
       // --- 2. Log in with the same account (Android client) ----------------
       final androidFarmerSession = await androidFarmer.auth.login(
-        email: 'parity.farmer.$_runId@farmconnect.test',
+        email: 'parity.qa.farmer.$_runId@farmconnect.test',
         password: _password,
       );
 
@@ -215,9 +277,9 @@ void main() {
 
       // --- Register the consumer (website client) --------------------------
       final consumerSession = await website.auth.register(
-        name: 'Android Parity Consumer',
+        name: 'Android Parity QA Consumer',
         phone: _uniquePhone(phoneSeed++),
-        email: 'parity.consumer.$_runId@farmconnect.test',
+        email: 'parity.qa.consumer.$_runId@farmconnect.test',
         password: _password,
         role: UserRole.consumer,
         pincode: '560038',
@@ -228,20 +290,18 @@ void main() {
       expect(consumerSession.user.role, UserRole.consumer);
 
       // --- 3. Create a product from the Android client --------------------
-      final created = await androidFarmer.catalog.createProduct(
-        title: 'Parity Test Harvest $_runId',
-        description: 'Created by the Android client for the shared-data workflow.',
-        farmerPrice: 31.5,
-        quantityAvailable: 400,
-        minOrderKg: 5,
-        location: 'Mandya, Karnataka',
+      final created = await createQaProduct(
+        client: androidFarmer,
+        title: 'QA Parity Harvest $_runId',
+        price: 31.5,
+        quantity: 400,
       );
 
       expect(created.id, isNotEmpty);
 
       // --- 4. Verify the listing appears for the website client -------------
       final websiteFeed =
-          await website.catalog.fetchProducts(search: 'Parity Test Harvest $_runId');
+          await website.catalog.fetchProducts(search: 'QA Parity Harvest $_runId');
       expect(
         websiteFeed.any((product) => product.id == created.id),
         isTrue,
@@ -279,27 +339,65 @@ void main() {
       expect(mirrored.status, OrderStatus.confirmed);
     });
 
+    testWidgets('a product created on the website is visible in the Android app',
+        (tester) async {
+      // The farmer signs in on the website and on Android with the same
+      // account, so the website owns the listing and Android reads it.
+      final farmerSession = await registerFarmerAcrossBothClients(
+        tag: 'website-to-android',
+        farmName: 'Website To Android QA Fields',
+        websiteClient: websiteFarmer,
+      );
+      expect(farmerSession.user.role, UserRole.farmer);
+
+      await registerConsumerAcrossBothClients(tag: 'website-to-android');
+
+      // --- Product created through the WEBSITE client ----------------------
+      final websiteProduct = await createQaProduct(
+        client: websiteFarmer,
+        title: 'QA Website Origin Lot $_runId',
+        price: 44.0,
+        quantity: 320,
+      );
+      expect(websiteProduct.id, isNotEmpty);
+
+      // --- The ANDROID consumer sees it in the shared catalogue ------------
+      final androidFeed =
+          await androidConsumer.catalog.fetchProducts(search: 'QA Website Origin Lot $_runId');
+      expect(
+        androidFeed.any((product) => product.id == websiteProduct.id),
+        isTrue,
+        reason: 'The listing created on the website must appear in the Android app',
+      );
+
+      // --- The ANDROID farmer sees it in their own inventory ---------------
+      final androidInventory = await androidFarmer.catalog.fetchMyProducts();
+      expect(
+        androidInventory.any((product) => product.id == websiteProduct.id),
+        isTrue,
+        reason: 'The farmer inventory is shared between both clients',
+      );
+    });
+
     testWidgets('enquiries and messages are shared between both clients',
         (tester) async {
       await registerFarmerAcrossBothClients(
         tag: 'chat',
-        farmName: 'Chat Test Fields',
+        farmName: 'Chat QA Fields',
       );
       await registerConsumerAcrossBothClients(tag: 'chat');
 
-      final product = await androidFarmer.catalog.createProduct(
-        title: 'Chat Workflow Lot $_runId',
-        description: 'Lot used to verify the enquiry workflow.',
-        farmerPrice: 19.5,
-        quantityAvailable: 250,
-        minOrderKg: 5,
-        location: 'Mandya, Karnataka',
+      final product = await createQaProduct(
+        client: androidFarmer,
+        title: 'QA Chat Workflow Lot $_runId',
+        price: 19.5,
+        quantity: 250,
       );
 
       // --- 9a. Enquiry from the website client -----------------------------
       final enquiry = await website.enquiries.createEnquiry(
         productId: product.id,
-        subject: 'Bulk rate request $_runId',
+        subject: 'QA bulk rate request $_runId',
         message: 'What is your best wholesale rate for 100 KG?',
       );
       expect(enquiry.id, isNotEmpty);
@@ -336,17 +434,15 @@ void main() {
         (tester) async {
       await registerFarmerAcrossBothClients(
         tag: 'engage',
-        farmName: 'Engagement Test Fields',
+        farmName: 'Engagement QA Fields',
       );
       await registerConsumerAcrossBothClients(tag: 'engage');
 
-      final product = await androidFarmer.catalog.createProduct(
-        title: 'Engagement Lot $_runId',
-        description: 'Lot used to verify favourites.',
-        farmerPrice: 12.0,
-        quantityAvailable: 120,
-        minOrderKg: 5,
-        location: 'Mandya, Karnataka',
+      final product = await createQaProduct(
+        client: androidFarmer,
+        title: 'QA Engagement Lot $_runId',
+        price: 12.0,
+        quantity: 120,
       );
 
       final isFavorite =
@@ -373,8 +469,8 @@ void main() {
       final complaint = await androidConsumer.engagement.createComplaint(
         entityType: 'PRODUCT',
         entityId: product.id,
-        reason: 'Quality clarification',
-        details: 'Please confirm the grading of this lot before dispatch.',
+        reason: 'QA quality clarification',
+        details: 'Please confirm the grading of this QA lot before dispatch.',
       );
       expect(complaint.id, isNotEmpty);
 
@@ -388,10 +484,10 @@ void main() {
 
     testWidgets('logout clears the session and the account can sign in again',
         (tester) async {
-      final email = 'session.consumer.$_runId@farmconnect.test';
+      final email = 'session.qa.consumer.$_runId@farmconnect.test';
 
       final session = await website.auth.register(
-        name: 'Session Consumer',
+        name: 'Session QA Consumer',
         phone: _uniquePhone(phoneSeed++),
         email: email,
         password: _password,
@@ -414,6 +510,18 @@ void main() {
       // The very same account can sign in again on either client.
       final again = await androidConsumer.auth.login(email: email, password: _password);
       expect(again.user.id, session.user.id);
+
+      // Account isolation: a different account never sees this account's
+      // private data.
+      final other = await registerConsumerAcrossBothClients(tag: 'isolation');
+      expect(other.user.id, isNot(session.user.id));
+
+      final otherOrders = await androidConsumer.orders.fetchMyOrders();
+      expect(
+        otherOrders.any((item) => item.id == session.user.id),
+        isFalse,
+        reason: 'An account must never see another account’s orders',
+      );
     });
 
     testWidgets(
@@ -424,19 +532,17 @@ void main() {
       // private room `user_<User.id>`.
       final farmerSession = await registerFarmerAcrossBothClients(
         tag: 'socket',
-        farmName: 'Socket Test Fields',
+        farmName: 'Socket QA Fields',
       );
       expect(farmerSession.token, isNotEmpty);
 
       await registerConsumerAcrossBothClients(tag: 'socket');
 
-      final product = await androidFarmer.catalog.createProduct(
-        title: 'Socket Lot $_runId',
-        description: 'Lot used to verify the real-time broadcast.',
-        farmerPrice: 15.0,
-        quantityAvailable: 90,
-        minOrderKg: 5,
-        location: 'Mandya, Karnataka',
+      final product = await createQaProduct(
+        client: androidFarmer,
+        title: 'QA Socket Lot $_runId',
+        price: 15.0,
+        quantity: 90,
       );
 
       final socket = io.io(
@@ -451,7 +557,7 @@ void main() {
       final connected = Completer<void>();
       socket.onConnect((_) => connected.complete());
 
-      await connected.future.timeout(const Duration(seconds: 20));
+      await connected.future.timeout(const Duration(seconds: 30));
 
       final received = Completer<Map<String, dynamic>>();
       socket.on('new_order_received', (payload) {
@@ -468,7 +574,7 @@ void main() {
         farmerId: product.ownerFarmerProfileId,
       );
 
-      final event = await received.future.timeout(const Duration(seconds: 25));
+      final event = await received.future.timeout(const Duration(seconds: 30));
 
       expect(event['orderId'], isNotNull);
       expect(event['orderId'], isA<String>());

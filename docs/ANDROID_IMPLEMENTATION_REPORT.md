@@ -49,9 +49,14 @@ The FarmConnect marketplace now has two clients and one server:
 | API reference | `docs/API_DOCUMENTATION.md` | ✅ |
 | Production / Render guide | `docs/PRODUCTION_DEPLOYMENT.md` | ✅ |
 | This report | `docs/ANDROID_IMPLEMENTATION_REPORT.md` | ✅ |
-| Flutter application | `mobile/` | ✅ |
-| Debug APK | `mobile/build/app/outputs/flutter-apk/app-debug.apk` | ✅ |
-| Release APK | `mobile/build/app/outputs/flutter-apk/app-release.apk` | ✅ |
+| Flutter application | `mobile/` | ✅ 52 Dart files, ~8,700 lines |
+| Debug APK | `mobile/build/app/outputs/flutter-apk/app-debug.apk` | ✅ 157.6 MB |
+| Release APK | `mobile/build/app/outputs/flutter-apk/app-release.apk` | ✅ 55.8 MB |
+
+> The APKs live in `mobile/build/`, which the Flutter `.gitignore` excludes, so
+> they are build artifacts rather than tracked files. Rebuild them with the
+> commands in section 8.3 and section 6 of
+> [`docs/PRODUCTION_DEPLOYMENT.md`](./PRODUCTION_DEPLOYMENT.md).
 
 ---
 

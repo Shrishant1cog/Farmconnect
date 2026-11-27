@@ -186,7 +186,7 @@ export const farmerKn: TranslationMap = {
   'farmer.products.pageTitle': 'ಸಕ್ರಿಯ ಉತ್ಪನ್ನ ಮತ್ತು ಕೊಯ್ಲು ಮೊದಿಗಳು',
   'farmer.products.intro': 'ಪ್ರತ್ಯೇಕ ಬೆಳೆ ಮೊದಿಯನ್ನು ನಿರ್ವಹಿಸಿ, ಸಗಾಳ ರವಾನೆ ಪ್ರಮಾಣಗಳನ್ನು ನವೀಕರಿಸಿ ಮತ್ತು ನೇರ ಹಾಗ್ಗೆ ದರಗಳನ್ನು ಎಪಿಎಂಸಿ ಮಂಡಿ ಮೋಡಲ್ ದರದೊಂದಿಗೆ ಹೋಲಿಸಿ.',
   'farmer.products.refreshTitle': 'ದಾಸ್ತಾನನ್ನು ನವೀಕರಿಸಿ',
-  'farmer.products.perKg': '₹ / kg',
+  'farmer.products.perKg': '₹ / ಕೆಜಿ',
   'farmer.products.perQuintal': '₹ / ಕ್ವಿಂಟಾಲ್',
   'farmer.products.listNewHarvest': 'ಹೊಸ ಕೊಯ್ಲು ಪಟ್ಟಿಯನ್ನು ಮಾಡಿ',
   'farmer.products.liveActiveLots': 'ಸಕ್ರಿಯ ಮೊದಿಗಳು',

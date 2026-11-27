@@ -85,138 +85,139 @@ class _LogisticsPageState extends ConsumerState<LogisticsPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-      children: [
-        Text(
-          l10n.logisticsTitle,
-          style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          l10n.logisticsDescription,
-          style: const TextStyle(color: AppTheme.stone500, height: 1.4),
-        ),
-        const SizedBox(height: 18),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                TextField(
-                  controller: _quantityController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: l10n.logisticsCropQuantityKg,
-                    prefixIcon: const Icon(Icons.scale_outlined),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _priceController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: l10n.logisticsFarmerPricePerKg,
-                    prefixIcon: const Icon(Icons.currency_rupee_rounded),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _apmcController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: l10n.logisticsApmcModalPrice,
-                    prefixIcon: const Icon(Icons.query_stats_rounded),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: _containerType,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: l10n.logisticsContainerType,
-                  ),
-                  items: [
-                    DropdownMenuItem(
-                      value: 'STANDARD_CRATE',
-                      child: Text(
-                        l10n.logisticsStandardCrate,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    DropdownMenuItem(
-                      value: 'COLD_CHAIN_REFRIGERATED',
-                      child: Text(
-                        l10n.logisticsColdChain,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    DropdownMenuItem(
-                      value: 'MOISTURE_CONTROLLED',
-                      child: Text(
-                        l10n.logisticsMoistureControlled,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    DropdownMenuItem(
-                      value: 'VENTILATED_JUTE',
-                      child: Text(
-                        l10n.logisticsVentilatedJute,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                  onChanged: (value) =>
-                      setState(() => _containerType = value ?? _containerType),
-                ),
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  onPressed: _loading ? null : _calculate,
-                  icon: _loading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.calculate_outlined),
-                  label: Text(
-                    l10n.logisticsCalculate,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (_error != null) ...[
-          const SizedBox(height: 14),
+    // The screen is pushed as a full screen route, so it brings its own
+    // `Scaffold`. Without the `Material` ancestor the input fields would
+    // throw "No Material widget found".
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.logisticsTitle)),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+        children: [
           Text(
-            _error!,
-            style: const TextStyle(
-              color: Color(0xFFB91C1C),
-              fontWeight: FontWeight.w600,
+            l10n.logisticsDescription,
+            style: const TextStyle(color: AppTheme.stone500, height: 1.4),
+          ),
+          const SizedBox(height: 18),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _quantityController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: l10n.logisticsCropQuantityKg,
+                      prefixIcon: const Icon(Icons.scale_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _priceController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: l10n.logisticsFarmerPricePerKg,
+                      prefixIcon: const Icon(Icons.currency_rupee_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _apmcController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: l10n.logisticsApmcModalPrice,
+                      prefixIcon: const Icon(Icons.query_stats_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: _containerType,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: l10n.logisticsContainerType,
+                    ),
+                    items: [
+                      DropdownMenuItem(
+                        value: 'STANDARD_CRATE',
+                        child: Text(
+                          l10n.logisticsStandardCrate,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'COLD_CHAIN_REFRIGERATED',
+                        child: Text(
+                          l10n.logisticsColdChain,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'MOISTURE_CONTROLLED',
+                        child: Text(
+                          l10n.logisticsMoistureControlled,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'VENTILATED_JUTE',
+                        child: Text(
+                          l10n.logisticsVentilatedJute,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _containerType = value ?? _containerType),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: _loading ? null : _calculate,
+                    icon: _loading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.calculate_outlined),
+                    label: Text(
+                      l10n.logisticsCalculate,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            Text(
+              _error!,
+              style: const TextStyle(
+                color: Color(0xFFB91C1C),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          if (_quote != null) ...[
+            const SizedBox(height: 18),
+            _QuoteCard(quote: _quote!),
+          ],
         ],
-        if (_quote != null) ...[
-          const SizedBox(height: 18),
-          _QuoteCard(quote: _quote!),
-        ],
-      ],
+      ),
     );
   }
 }

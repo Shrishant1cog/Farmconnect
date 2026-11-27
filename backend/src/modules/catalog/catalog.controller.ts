@@ -1,7 +1,17 @@
 import { Request, Response } from 'express';
 import { db } from '../../config/db';
-import { CROP_CATALOG, searchCrops } from '../../data/cropCatalog';
-import { loadCategoryIndex, catalogueKeyForCategory, resolveCatalogueCategory } from '../../utils/categoryResolver';
+import {
+  CROP_CATALOG,
+  localizedCategoryLabels,
+  localizedCropNames,
+  searchCrops,
+} from '../../data/cropCatalog';
+import {
+  loadCategoryIndex,
+  catalogueKeyForCategory,
+  localizedCategoryNames,
+  resolveCatalogueCategory,
+} from '../../utils/categoryResolver';
 
 /**
  * Shared catalogue metadata used by both clients.
@@ -25,13 +35,18 @@ export const listCategories = async (_req: Request, res: Response) => {
       },
     });
 
-    const data = categories.map((category: any) => ({
-      id: category.id,
-      name: category.name,
-      slug: category.slug,
-      description: category.description,
-      productCount: category._count?.products ?? 0,
-    }));
+    const data = categories.map((category: any) => {
+      const localized = localizedCategoryNames(category);
+      return {
+        id: category.id,
+        name: category.name,
+        nameKn: localized.nameKn,
+        nameHi: localized.nameHi,
+        slug: category.slug,
+        description: category.description,
+        productCount: category._count?.products ?? 0,
+      };
+    });
 
     return res.json({ success: true, data, categories: data });
   } catch (error: any) {
@@ -63,12 +78,19 @@ export const listCrops = async (req: Request, res: Response) => {
 
     const crops = searchCrops(search, selectedCategoryKey, limit).map((entry) => {
       const resolved = categoryIndex.get(entry.category) ?? null;
+      const localizedCrop = localizedCropNames(entry);
+      const localizedCategory = localizedCategoryLabels(entry.category);
+
       return {
         name: entry.name,
+        nameKn: localizedCrop.nameKn,
+        nameHi: localizedCrop.nameHi,
         category: resolved?.slug ?? entry.category,
         categoryKey: entry.category,
         categoryId: resolved?.id ?? null,
         categoryName: resolved?.name ?? null,
+        categoryNameKn: localizedCategory.nameKn,
+        categoryNameHi: localizedCategory.nameHi,
         aliases: entry.aliases,
       };
     });

@@ -15,6 +15,11 @@ import * as errorMiddlewareModule from './middleware/error.middleware';
 import * as authMiddlewareModule from './middleware/auth.middleware';
 import { calculateDistanceKm } from './utils/geo';
 import { computeLogisticsAndProfit } from './services/logisticsService';
+import {
+  CROP_CATEGORY_LABELS,
+  findCatalogueEntry,
+  localizedCropNames,
+} from './data/cropCatalog';
 
 // Modular Domain Routers
 import authRoutes from './modules/auth/auth.routes';
@@ -356,16 +361,59 @@ app.post('/api/logistics/quote', (req: Request, res: Response) => {
   return res.json({ success: true, data: quote });
 });
 
-app.get('/api/apmc/rates', async (_req: Request, res: Response) => {
+/**
+ * APMC benchmark rates.
+ *
+ * The rates are **real rows** of the shared database — the website and the
+ * Android app read the same endpoint, so both clients always show the same
+ * (possibly empty) set of published benchmarks. Nothing is invented here.
+ *
+ * The category of a commodity is derived from the shared crop catalogue so
+ * both clients can filter the rates by crop group.
+ */
+app.get('/api/apmc/rates', async (req: Request, res: Response) => {
   try {
     if (!(db as any).apmcMarketRate) {
-      return res.json({ success: true, data: [] });
+      return res.json({ success: true, data: [], rates: [], total: 0 });
     }
+
+    const { state, commodity } = req.query as Record<string, string | undefined>;
+    const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 500);
+
     const rates = await (db as any).apmcMarketRate.findMany({
-      orderBy: { updatedAt: 'desc' },
-      take: 50,
+      where: {
+        ...(state ? { state: { equals: state, mode: 'insensitive' } } : {}),
+        ...(commodity
+          ? { commodity: { contains: commodity, mode: 'insensitive' } }
+          : {}),
+      },
+      orderBy: [{ state: 'asc' }, { marketCenter: 'asc' }, { commodity: 'asc' }],
+      take: limit,
     });
-    return res.json({ success: true, data: rates });
+
+    const data = rates.map((rate: any) => {
+      const catalogue = findCatalogueEntry(rate.commodity);
+      return {
+        id: rate.id,
+        state: rate.state,
+        district: rate.district,
+        marketCenter: rate.marketCenter,
+        commodity: rate.commodity,
+        minPrice: rate.minPrice,
+        maxPrice: rate.maxPrice,
+        modalPrice: rate.modalPrice,
+        updatedAt: rate.updatedAt,
+        // Derived from the shared crop catalogue (never invented).
+        category: catalogue?.category ?? null,
+        categoryName: catalogue ? CROP_CATEGORY_LABELS[catalogue.category]?.en ?? null : null,
+        categoryNameKn: catalogue ? CROP_CATEGORY_LABELS[catalogue.category]?.kn ?? null : null,
+        categoryNameHi: catalogue ? CROP_CATEGORY_LABELS[catalogue.category]?.hi ?? null : null,
+        commodityNameKn: catalogue ? localizedCropNames(catalogue).nameKn : null,
+        commodityNameHi: catalogue ? localizedCropNames(catalogue).nameHi : null,
+      };
+    });
+
+    return res.json({ success: true, data, rates: data, total: data.length });
   } catch (err: any) {
     return res.status(500).json({ success: false, message: err.message });
   }

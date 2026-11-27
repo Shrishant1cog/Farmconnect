@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/locale/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
@@ -753,15 +754,27 @@ class _ProductFormPageState extends ConsumerState<ProductFormPage> {
                   if (name == null || name.isEmpty) {
                     return const SizedBox.shrink();
                   }
+                  final displayName = suggestion
+                      .displayName(
+                        ref.watch(localeControllerProvider).languageCode,
+                      )
+                      .trim();
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
                     leading: const Icon(Icons.grass_outlined, size: 19),
                     title: Text(
-                      name,
+                      displayName.isEmpty ? name : displayName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    subtitle: displayName.isNotEmpty && displayName != name
+                        ? Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          )
+                        : null,
                     onTap: () => _selectSuggestion(suggestion),
                   );
                 },

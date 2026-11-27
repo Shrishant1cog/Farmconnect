@@ -17,9 +17,10 @@ import {
 import { useCart } from '../../../context/CartContext';
 import { useModal } from '../../../context/ModalContext';
 import { fetchApi } from '../../../lib/api';
+import { localizedName, LocalizedName } from '../../../lib/localized';
 import { useI18n } from '../../../hooks/useI18n';
 
-interface CatalogueCategory {
+interface CatalogueCategory extends LocalizedName {
   id: string;
   name: string;
   slug: string;
@@ -28,7 +29,7 @@ interface CatalogueCategory {
 }
 
 export default function ConsumerExplorePage() {
-  const { t, formatNumber, formatCurrency } = useI18n();
+  const { t, locale, formatNumber, formatCurrency } = useI18n();
   const { addToCart, items = [], clearCart } = useCart() as any;
   const { confirm, alert } = useModal();
 
@@ -278,7 +279,7 @@ export default function ConsumerExplorePage() {
                   : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
               }`}
             >
-              {category.name}
+              {localizedName(category, locale)}
             </button>
           ))}
         </div>

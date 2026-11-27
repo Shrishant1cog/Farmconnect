@@ -32,7 +32,6 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   }
 
   Future<void> _load() async {
-    final l10n = AppLocalizations.of(context);
     setState(() {
       _loading = true;
       _error = null;
@@ -51,10 +50,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       });
     } on ApiException catch (error) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         setState(() => _error = l10n.commonRequestFailed(error.displayMessage));
       }
     } catch (_) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         setState(() => _error = l10n.commonSomethingWrong);
       }
     } finally {

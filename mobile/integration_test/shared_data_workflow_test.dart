@@ -60,6 +60,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
+import 'package:farmconnect_mobile/core/config/app_config.dart';
 import 'package:farmconnect_mobile/core/network/api_client.dart';
 import 'package:farmconnect_mobile/core/storage/token_storage.dart';
 import 'package:farmconnect_mobile/data/models/order.dart';
@@ -72,15 +73,20 @@ import 'package:farmconnect_mobile/data/repositories/enquiry_repository.dart';
 import 'package:farmconnect_mobile/data/repositories/order_repository.dart';
 import 'package:farmconnect_mobile/data/repositories/user_repository.dart';
 
-/// The API under test. Override with `--dart-define=TEST_API_BASE_URL=...`.
+/// The API under test.
+///
+/// Defaults to the address the app itself is compiled with
+/// (`--dart-define=API_BASE_URL=…`), so the test and the app always talk to
+/// the **same** backend. `TEST_API_BASE_URL` can still be used to point only
+/// the test harness somewhere else.
 const String _apiBaseUrl = String.fromEnvironment(
   'TEST_API_BASE_URL',
-  defaultValue: 'http://localhost:5000/api',
+  defaultValue: AppConfig.apiBaseUrl,
 );
 
 const String _socketUrl = String.fromEnvironment(
   'TEST_SOCKET_URL',
-  defaultValue: 'http://localhost:5000',
+  defaultValue: AppConfig.socketUrl,
 );
 
 const String _password = 'Password@123';
@@ -677,6 +683,13 @@ void main() {
       expect(untouched.isAvailable, isTrue);
 
       // --- The website sees the same crops and the same edit ----------------
+      // The public catalogue only lists available lots, so the tomato lot is
+      // put back on the market first. The new price and quantity stay the
+      // edited ones, which is what proves the edit reached the other client.
+      await androidFarmer.catalog.updateProduct(
+        tomatoLot.id,
+        isAvailable: true,
+      );
       final websiteFeed = await website.catalog.fetchProducts(
         search: 'QA Crop Tomato $_runId',
       );
@@ -712,9 +725,12 @@ void main() {
 
     testWidgets('the interface language preference is shared between the clients',
         (tester) async {
+      // The farmer signs in on the **website** client and on the **Android**
+      // client, so the website client really owns a session of its own.
       await registerFarmerAcrossBothClients(
         tag: 'language',
         farmName: 'Language QA Fields',
+        websiteClient: websiteFarmer,
       );
 
       // --- The website changes the language --------------------------------

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/locale/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
@@ -251,6 +252,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     final categories = _categories
         .where((category) => category.slug?.trim().isNotEmpty == true)
         .toList();
+    final languageCode = ref.watch(localeControllerProvider).languageCode;
     return SizedBox(
       height: 40,
       child: ListView(
@@ -267,8 +269,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
               selected: _selectedCategorySlug == category.slug,
               onSelected: (_) => _selectCategory(category.slug),
               label: Text(
-                category.name?.trim().isNotEmpty == true
-                    ? category.name!.trim()
+                category.displayName(languageCode).trim().isNotEmpty
+                    ? category.displayName(languageCode).trim()
                     : l10n.commonUnknown,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

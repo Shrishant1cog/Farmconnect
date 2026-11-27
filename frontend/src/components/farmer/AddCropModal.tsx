@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Sprout, Loader2, AlertCircle, Search } from 'lucide-react';
 import CropImageUpload from '../ui/CropImageUpload';
 import { fetchApi } from '../../lib/api';
+import { localizedName, LocalizedName } from '../../lib/localized';
 import { useI18n } from '../../hooks/useI18n';
 
 interface AddCropModalProps {
@@ -12,7 +13,7 @@ interface AddCropModalProps {
   onSuccess: (created?: any) => void;
 }
 
-interface CatalogCrop {
+interface CatalogCrop extends LocalizedName {
   name: string;
   category?: string;
   aliases?: string[];
@@ -88,7 +89,7 @@ function categoryMatchesCrop(category: CatalogCategory, cropCategory?: string): 
 }
 
 export default function AddCropModal({ isOpen, onClose, onSuccess }: AddCropModalProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
@@ -351,7 +352,12 @@ export default function AddCropModal({ isOpen, onClose, onSuccess }: AddCropModa
                       selectedCropName === crop.name ? 'bg-emerald-50 text-emerald-900' : 'text-stone-700'
                     }`}
                   >
-                    <span>{crop.name}</span>
+                    <span>{localizedName(crop, locale)}</span>
+                    {localizedName(crop, locale) !== crop.name && (
+                      <span className="ml-2 text-[10px] font-semibold text-stone-400">
+                        {crop.name}
+                      </span>
+                    )}
                     {selectedCropName === crop.name && (
                       <span className="ml-2 text-[10px] font-black text-emerald-700">{t('farmer.cropPicker.selected')}</span>
                     )}

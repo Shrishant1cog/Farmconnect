@@ -143,6 +143,8 @@ class CropCategory {
   const CropCategory({
     this.id,
     this.name,
+    this.nameKn,
+    this.nameHi,
     this.slug,
     this.description,
     this.productCount = 0,
@@ -150,14 +152,30 @@ class CropCategory {
 
   final String? id;
   final String? name;
+
+  /// Kannada display name of the category.
+  final String? nameKn;
+
+  /// Hindi display name of the category.
+  final String? nameHi;
+
   final String? slug;
   final String? description;
   final int productCount;
+
+  /// The display name that matches the given language code.
+  String displayName(String languageCode) {
+    if (languageCode == 'kn' && (nameKn ?? '').isNotEmpty) return nameKn!;
+    if (languageCode == 'hi' && (nameHi ?? '').isNotEmpty) return nameHi!;
+    return name ?? nameKn ?? nameHi ?? '';
+  }
 
   factory CropCategory.fromJson(Map<String, dynamic> json) {
     return CropCategory(
       id: json['id']?.toString(),
       name: json['name']?.toString(),
+      nameKn: json['nameKn']?.toString(),
+      nameHi: json['nameHi']?.toString(),
       slug: json['slug']?.toString(),
       description: json['description']?.toString(),
       productCount: json['productCount'] is num
@@ -171,18 +189,36 @@ class CropCategory {
 class CropSuggestion {
   const CropSuggestion({
     this.name,
+    this.nameKn,
+    this.nameHi,
     this.category,
     this.aliases = const [],
   });
 
   final String? name;
+
+  /// Kannada display name of the crop.
+  final String? nameKn;
+
+  /// Hindi display name of the crop.
+  final String? nameHi;
+
   final String? category;
   final List<String> aliases;
+
+  /// The display name that matches the given language code.
+  String displayName(String languageCode) {
+    if (languageCode == 'kn' && (nameKn ?? '').isNotEmpty) return nameKn!;
+    if (languageCode == 'hi' && (nameHi ?? '').isNotEmpty) return nameHi!;
+    return name ?? nameKn ?? nameHi ?? '';
+  }
 
   factory CropSuggestion.fromJson(Map<String, dynamic> json) {
     final rawAliases = json['aliases'];
     return CropSuggestion(
       name: json['name']?.toString(),
+      nameKn: json['nameKn']?.toString(),
+      nameHi: json['nameHi']?.toString(),
       category: json['category']?.toString(),
       aliases: rawAliases is List
           ? rawAliases.map((item) => item.toString()).toList()

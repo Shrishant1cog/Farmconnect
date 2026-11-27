@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { 
   Sprout, ShieldCheck, Zap, ArrowRight, MapPin, 
@@ -8,58 +8,145 @@ import {
   Sparkles, Calculator, ArrowUpRight, Building2, 
   ChevronRight
 } from 'lucide-react';
+import { fetchApi } from '../lib/api';
 import { useI18n } from '../hooks/useI18n';
 
-const MANDI_TICKER_ITEMS = [
-  { crop: 'Kolar Mandi Tomato', price: 22, unit: 'kg', change: 8.5, type: 'up' },
-  { crop: 'Mandya Desi Ragi', price: 42, unit: 'kg', change: 3.4, type: 'up' },
-  { crop: 'Mysuru Yelakki Bale', price: 65, unit: 'dozen', change: 0, type: 'stable' },
-  { crop: 'Dharwad Hybrid Maize', price: 24.5, unit: 'kg', change: -1.8, type: 'down' },
-  { crop: 'Byadgi Stemless Chilli', price: 365, unit: 'kg', change: 4.9, type: 'up' },
-  { crop: 'Hubballi Red Onion', price: 25, unit: 'kg', change: -4.2, type: 'down' },
-  { crop: 'Agra Jyoti Potato', price: 16.5, unit: 'kg', change: 0, type: 'stable' },
-  { crop: 'Raichur Sona Masoori', price: 34.5, unit: 'kg', change: -2.1, type: 'down' },
-];
+/** A published APMC benchmark rate of the shared backend. */
+interface ApmcRate {
+  id: string;
+  commodity: string;
+  marketCenter: string;
+  district: string;
+  state: string;
+  modalPrice: number;
+  minPrice: number;
+  maxPrice: number;
+  updatedAt?: string;
+}
+
+/** A live listing of the shared marketplace. */
+interface LiveListing {
+  id: string;
+  cropName?: string | null;
+  farmerPrice: number;
+}
 
 export default function HomePage() {
   const { t, formatNumber, formatCurrency } = useI18n();
+
+  // The benchmarks and the farm-gate prices come from the shared backend —
+  // the website never shows an invented price.
+  const [rates, setRates] = useState<ApmcRate[]>([]);
+  const [listings, setListings] = useState<LiveListing[]>([]);
+  const [ratesLoaded, setRatesLoaded] = useState(false);
 
   // Interactive Middleman Savings Engine
   const [selectedCrop, setSelectedCrop] = useState<'TOMATO' | 'RAGI' | 'BANANA'>('TOMATO');
   const [volumeKg, setVolumeKg] = useState<number>(200);
 
-  const cropEconomics = {
-    TOMATO: {
-      name: 'Nati Vine Tomatoes (Mandya)',
-      farmerPrice: 28,
-      retailPrice: 46,
-      mandiBenchmark: 26,
-      unit: 'kg',
-      region: 'Mandya Hub',
-    },
-    RAGI: {
-      name: 'Desi Brown Finger Millet (Mandya/Mysuru)',
-      farmerPrice: 42,
-      retailPrice: 68,
-      mandiBenchmark: 40,
-      unit: 'kg',
-      region: 'Mysuru Plains',
-    },
-    BANANA: {
-      name: 'Yelakki Bale (Mysuru Organic)',
-      farmerPrice: 65,
-      retailPrice: 110,
-      mandiBenchmark: 62,
-      unit: 'dozen',
-      region: 'Nanjangud Belt',
-    },
-  };
+  useEffect(() => {
+    let cancelled = false;
 
-  const activeCrop = cropEconomics[selectedCrop];
-  const directFarmerPayout = activeCrop.farmerPrice * volumeKg;
-  const speculativeRetailCost = activeCrop.retailPrice * volumeKg;
-  const totalBuyerSavings = speculativeRetailCost - directFarmerPayout;
-  const savingsPercentage = Math.round((totalBuyerSavings / speculativeRetailCost) * 100);
+    const load = async () => {
+      try {
+        const [rateResponse, productResponse] = await Promise.all([
+          fetchApi('/apmc/rates'),
+          fetchApi('/products'),
+        ]);
+
+        if (cancelled) return;
+
+        const rateData = rateResponse?.data || rateResponse?.rates || [];
+        const productData = productResponse?.data || productResponse?.products || [];
+
+        if (Array.isArray(rateData)) setRates(rateData as ApmcRate[]);
+        if (Array.isArray(productData)) setListings(productData as LiveListing[]);
+      } catch {
+        // A failed request leaves the real (possibly empty) data in place.
+      } finally {
+        if (!cancelled) setRatesLoaded(true);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** The distinct market yards that actually published a benchmark. */
+  const syncedYards = useMemo(
+    () => new Set(rates.map((rate) => rate.marketCenter).filter(Boolean)).size,
+    [rates],
+  );
+
+  /** The benchmark of the selected crop (per kg). */
+  const benchmark = useMemo(() => {
+    const key =
+      selectedCrop === 'TOMATO'
+        ? 'tomato'
+        : selectedCrop === 'RAGI'
+          ? 'ragi'
+          : 'banana';
+
+    const match = rates.find((rate) =>
+      (rate.commodity || '').toLowerCase().includes(key),
+    );
+
+    if (!match) return null;
+
+    // The published prices are per quintal (100 kg).
+    return {
+      pricePerKg: match.modalPrice / 100,
+      marketCenter: match.marketCenter,
+      modalPrice: match.modalPrice,
+    };
+  }, [rates, selectedCrop]);
+
+  /** The typical farm-gate price of the live listings (per kg). */
+  const farmGatePrice = useMemo(() => {
+    const key =
+      selectedCrop === 'TOMATO'
+        ? 'tomato'
+        : selectedCrop === 'RAGI'
+          ? 'ragi'
+          : 'banana';
+
+    const matching = listings.filter((listing) =>
+      (listing.cropName || '').toLowerCase().includes(key),
+    );
+
+    if (matching.length === 0) return null;
+
+    const total = matching.reduce(
+      (sum, listing) => sum + Number(listing.farmerPrice || 0),
+      0,
+    );
+
+    return total / matching.length;
+  }, [listings, selectedCrop]);
+
+  const benchmarkTotal = benchmark ? benchmark.pricePerKg * volumeKg : null;
+  const farmGateTotal = farmGatePrice !== null ? farmGatePrice * volumeKg : null;
+  const totalBuyerSavings =
+    benchmarkTotal !== null && farmGateTotal !== null
+      ? benchmarkTotal - farmGateTotal
+      : null;
+  const savingsPercentage =
+    benchmarkTotal !== null && farmGateTotal !== null && benchmarkTotal > 0
+      ? Math.round((totalBuyerSavings! / benchmarkTotal) * 100)
+      : null;
+
+  /** The real benchmarks shown in the moving ticker. */
+  const tickerItems = useMemo(
+    () =>
+      rates.slice(0, 12).map((rate) => ({
+        key: rate.id,
+        crop: `${rate.marketCenter} ${rate.commodity}`,
+        price: rate.modalPrice / 100,
+      })),
+    [rates],
+  );
 
   return (
     <div className="space-y-20 pb-24 text-stone-900 overflow-hidden">
@@ -92,33 +179,26 @@ export default function HomePage() {
 
           {/* Marquee Moving Viewport with Edge Masking */}
           <div className="flex-1 overflow-hidden relative mx-3 select-none [mask-image:linear-gradient(to_right,transparent,black_4%,black_96%,transparent)]">
-            <div className="animate-mandi-scroll items-center gap-8 py-0.5">
-              {/* Duplicated list for seamless infinite loop */}
-              {[...MANDI_TICKER_ITEMS, ...MANDI_TICKER_ITEMS].map((item, index) => (
-                <div key={index} className="flex items-center gap-2 shrink-0 font-medium text-stone-300">
-                  <span className="text-stone-400">{item.crop}:</span>
-                  <strong className="text-white font-bold">
-                    {formatCurrency(item.price)}/{t(item.unit === 'dozen' ? 'misc.unit.dozen' : 'misc.unit.kg')}
-                  </strong>
-                  <span
-                    className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${
-                      item.type === 'up'
-                        ? 'bg-emerald-900/80 text-emerald-300 border border-emerald-700'
-                        : item.type === 'down'
-                        ? 'bg-rose-900/80 text-rose-300 border border-rose-700'
-                        : 'bg-stone-800 text-stone-300'
-                    }`}
-                  >
-                    {item.type === 'stable'
-                      ? t('misc.status.stable')
-                      : item.change > 0
-                        ? `+${formatNumber(item.change)}%`
-                        : `-${formatNumber(Math.abs(item.change))}%`}
-                  </span>
-                  <span className="text-emerald-800 font-black ml-4">•</span>
-                </div>
-              ))}
-            </div>
+            {tickerItems.length > 0 ? (
+              <div className="animate-mandi-scroll items-center gap-8 py-0.5">
+                {/* Duplicated list for seamless infinite loop */}
+                {[...tickerItems, ...tickerItems].map((item, index) => (
+                  <div key={`${item.key}-${index}`} className="flex items-center gap-2 shrink-0 font-medium text-stone-300">
+                    <span className="text-stone-400">{item.crop}:</span>
+                    <strong className="text-white font-bold">
+                      {formatCurrency(item.price)}/{t('misc.unit.kg')}
+                    </strong>
+                    <span className="text-emerald-800 font-black ml-4">•</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-stone-400 py-0.5">
+                {ratesLoaded
+                  ? t('misc.home.noPublishedBenchmarks')
+                  : t('misc.home.loadingBenchmarks')}
+              </p>
+            )}
           </div>
 
           {/* Static Right CTA */}
@@ -186,7 +266,7 @@ export default function HomePage() {
                 <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider">{t('misc.home.middlemanMarkups')}</span>
               </div>
               <div>
-                <span className="text-3xl sm:text-4xl font-black text-white block tracking-tight">{formatNumber(12)} APMC</span>
+                <span className="text-3xl sm:text-4xl font-black text-white block tracking-tight">{formatNumber(syncedYards)} APMC</span>
                 <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider">{t('misc.home.mandiYardsSynced')}</span>
               </div>
             </div>
@@ -299,7 +379,7 @@ export default function HomePage() {
                   {t('misc.home.procurementBatchSize')}
                 </label>
                 <span className="text-2xl font-black text-emerald-400">
-                  {formatNumber(volumeKg)} {t(activeCrop.unit === 'dozen' ? 'misc.unit.dozen' : 'misc.unit.kg').toUpperCase()}
+                  {formatNumber(volumeKg)} {t('misc.unit.kg').toUpperCase()}
                 </span>
               </div>
               <input
@@ -312,8 +392,8 @@ export default function HomePage() {
                 className="w-full h-2 bg-stone-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
               />
               <div className="flex justify-between text-[10px] text-stone-500 font-bold uppercase">
-                <span>{t('misc.home.directFamilyBatch', { quantity: formatNumber(25), unit: t(activeCrop.unit === 'dozen' ? 'misc.unit.dozen' : 'misc.unit.kg') })}</span>
-                <span>{t('misc.home.wholesaleLoad', { quantity: formatNumber(1500), unit: t(activeCrop.unit === 'dozen' ? 'misc.unit.dozen' : 'misc.unit.kg') })}</span>
+                <span>{t('misc.home.directFamilyBatch', { quantity: formatNumber(25), unit: t('misc.unit.kg') })}</span>
+                <span>{t('misc.home.wholesaleLoad', { quantity: formatNumber(1500), unit: t('misc.unit.kg') })}</span>
               </div>
             </div>
 
@@ -321,32 +401,45 @@ export default function HomePage() {
             <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
               
               <div className="bg-stone-800/80 p-5 rounded-2xl border border-stone-700">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block">{t('misc.home.retailCityRate')}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block">{t('misc.home.apmcBenchmarkRate')}</span>
                 <span className="text-2xl font-black text-stone-300 mt-1 block">
-                  {formatCurrency(speculativeRetailCost)}
+                  {benchmarkTotal !== null ? formatCurrency(benchmarkTotal) : '—'}
                 </span>
                 <span className="text-[11px] text-stone-500 mt-0.5 block">
-                  {t('misc.home.avgRetailRate', { price: formatCurrency(activeCrop.retailPrice), unit: t(activeCrop.unit === 'dozen' ? 'misc.unit.dozen' : 'misc.unit.kg') })}
+                  {benchmark
+                    ? t('misc.home.apmcBenchmarkHint', {
+                        price: formatCurrency(benchmark.pricePerKg),
+                        unit: t('misc.unit.kg'),
+                        market: benchmark.marketCenter,
+                      })
+                    : t('misc.home.noPublishedBenchmark')}
                 </span>
               </div>
 
               <div className="bg-emerald-950/80 p-5 rounded-2xl border border-emerald-800">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">{t('misc.home.farmConnectRate')}</span>
                 <span className="text-2xl font-black text-white mt-1 block">
-                  {formatCurrency(directFarmerPayout)}
+                  {farmGateTotal !== null ? formatCurrency(farmGateTotal) : '—'}
                 </span>
                 <span className="text-[11px] text-emerald-300 mt-0.5 block">
-                  {t('misc.home.directCultivatorRate', { price: formatCurrency(activeCrop.farmerPrice), unit: t(activeCrop.unit === 'dozen' ? 'misc.unit.dozen' : 'misc.unit.kg') })}
+                  {farmGatePrice !== null
+                    ? t('misc.home.directCultivatorRate', {
+                        price: formatCurrency(farmGatePrice),
+                        unit: t('misc.unit.kg'),
+                      })
+                    : t('misc.home.noLiveListings')}
                 </span>
               </div>
 
               <div className="bg-stone-800/80 p-5 rounded-2xl border border-stone-700">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block">{t('misc.home.totalBuyerSavings')}</span>
                 <span className="text-2xl font-black text-emerald-400 mt-1 block">
-                  {formatCurrency(totalBuyerSavings)}
+                  {totalBuyerSavings !== null ? formatCurrency(totalBuyerSavings) : '—'}
                 </span>
                 <span className="text-[11px] text-stone-400 mt-0.5 block">
-                  {t('misc.home.savedFromMiddlemen', { percentage: formatNumber(savingsPercentage) })}
+                  {savingsPercentage !== null
+                    ? t('misc.home.savedFromMiddlemen', { percentage: formatNumber(savingsPercentage) })
+                    : t('misc.home.benchmarkUnavailable')}
                 </span>
               </div>
 

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/network/socket_service.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/enquiry.dart';
@@ -30,6 +31,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   bool _sending = false;
   String? _error;
 
+  /// The socket is cached while the screen is alive.
+  ///
+  /// `ref` must not be used inside `dispose()`: Flutter unmounts the element
+  /// before `dispose()` runs, so Riverpod rejects every access with
+  /// "Cannot use \"ref\" after the widget was disposed." — the listener would
+  /// never be removed and the room would never be left.
+  SocketService? _socket;
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +48,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   void _subscribe() {
     final socket = ref.read(socketServiceProvider);
+    _socket = socket;
     socket.joinEnquiry(widget.enquiryId);
     socket.on('new_chat_message', _onIncomingMessage);
   }
@@ -59,16 +69,18 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   @override
   void dispose() {
-    final socket = ref.read(socketServiceProvider);
-    socket.off('new_chat_message', _onIncomingMessage);
-    socket.leaveEnquiry(widget.enquiryId);
+    final socket = _socket;
+    if (socket != null) {
+      socket.off('new_chat_message', _onIncomingMessage);
+      socket.leaveEnquiry(widget.enquiryId);
+    }
+    _socket = null;
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
-    final l10n = AppLocalizations.of(context);
     setState(() {
       _loading = true;
       _error = null;
@@ -88,10 +100,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       _scrollToBottom();
     } on ApiException catch (error) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         setState(() => _error = l10n.commonRequestFailed(error.displayMessage));
       }
     } catch (_) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         setState(() => _error = l10n.commonSomethingWrong);
       }
     } finally {

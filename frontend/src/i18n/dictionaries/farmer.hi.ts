@@ -186,7 +186,7 @@ export const farmerHi: TranslationMap = {
   'farmer.products.pageTitle': 'सक्रिय उपज और कटाई लॉट',
   'farmer.products.intro': 'हर फसल लॉट को स्वतंत्र रूप से प्रबंधित करें, थोक रवाना मात्रा बदलें और प्रत्यक्ष गेट दर की तुलना लाइव APMC मंडी मोडल दर से करें।',
   'farmer.products.refreshTitle': 'स्टॉक ताज़ा करें',
-  'farmer.products.perKg': '₹ / kg',
+  'farmer.products.perKg': '₹ / किलो',
   'farmer.products.perQuintal': '₹ / क्विंटल',
   'farmer.products.listNewHarvest': 'नई कटाई सूचीबद्ध करें',
   'farmer.products.liveActiveLots': 'सक्रिय लॉट',

@@ -95,6 +95,18 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     mountedRef.current = true;
   }, []);
 
+  // 1b. Keep the document language in sync with the active locale.
+  //
+  // Screen readers and the browser use `lang` to pick the right voice and
+  // hyphenation rules. The server renders `lang="en"` (it cannot know the
+  // visitor's language), so the attribute has to follow every change — not
+  // only the ones triggered by the language switcher.
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = locale;
+    }
+  }, [locale]);
+
   // 2. Keep the account preference and the other client in sync.
   //
   //    The effect follows the session: when the visitor signs in the account

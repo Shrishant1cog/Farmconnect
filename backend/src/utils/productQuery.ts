@@ -4,6 +4,8 @@
 // unit-testable without a database, and keeps both clients aligned: the
 // website and the Android app filter through exactly the same rules.
 
+import { expandCropSearchTerms } from '../data/cropCatalog';
+
 export interface ProductFilterInput {
   search?: unknown;
   district?: unknown;
@@ -54,6 +56,12 @@ export function buildProductWhereClause(input: ProductFilterInput = {}): Product
       { cropName: { contains: search, mode: 'insensitive' } },
       { variety: { contains: search, mode: 'insensitive' } },
     );
+
+    // A crop may be searched in any of the three supported languages, so the
+    // term is expanded into every name the shared catalogue knows.
+    for (const term of expandCropSearchTerms(search)) {
+      or.push({ cropName: { contains: term, mode: 'insensitive' } });
+    }
   }
 
   const crop = asTrimmedString(input.crop);
@@ -63,6 +71,10 @@ export function buildProductWhereClause(input: ProductFilterInput = {}): Product
       { variety: { contains: crop, mode: 'insensitive' } },
       { title: { contains: crop, mode: 'insensitive' } },
     );
+
+    for (const term of expandCropSearchTerms(crop)) {
+      or.push({ cropName: { contains: term, mode: 'insensitive' } });
+    }
   }
 
   if (or.length > 0) {

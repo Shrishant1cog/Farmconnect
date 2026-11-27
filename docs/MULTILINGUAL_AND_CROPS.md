@@ -2,7 +2,7 @@
 
 **Repository:** https://github.com/Shrishant1cog/Farmconnect
 **Branch:** `fix/local-updates` (pull request #2 — **not merged**)
-**Document date:** 2026-11-27
+**Document date:** 2026-11-28
 
 This document describes the two features added in this development phase:
 
@@ -119,6 +119,11 @@ split per feature group so several languages can be added independently.
 4. The backend emits `language_preference_updated` to the room `user_<id>`;
    the website listens on it and switches immediately.
 5. On sign-out the local preference is kept (it is a device preference).
+6. `document.documentElement.lang` follows the active locale on **every**
+   change — not only when the language switcher is used. The server renders
+   `lang="en"` (it cannot know the visitor's language), so a restored
+   preference would otherwise leave the wrong language announced to screen
+   readers and to the browser hyphenation rules.
 
 **Dictionary size (keys per language, verified by `scripts/verify-i18n.mjs`)**
 
@@ -128,7 +133,7 @@ split per feature group so several languages can be added independently.
 | `auth` | 126 | 126 | 126 | 0 / 0 |
 | `farmer` | 301 | 301 | 301 | 0 / 0 |
 | `consumer` | 232 | 232 | 232 | 0 / 0 |
-| `misc` | 328 | 328 | 328 | 0 / 0 |
+| `misc` | 352 | 352 | 352 | 0 / 0 |
 
 ### 2.4 Android implementation
 
@@ -192,14 +197,71 @@ It is applied automatically on Render by
 
 | Endpoint | Purpose | Used by |
 | --- | --- | --- |
-| `GET /api/catalog/categories` | the database categories with live listing counts | website crop filters, Android crop filters, crop pickers |
-| `GET /api/catalog/crops?search=&category=` | the searchable crop catalogue with English / Kannada / Hindi aliases | both crop pickers |
+| `GET /api/catalog/categories` | the database categories with live listing counts **and** their Kannada / Hindi display names | website crop filters, Android crop filters, crop pickers |
+| `GET /api/catalog/crops?search=&category=` | the searchable crop catalogue with English / Kannada / Hindi aliases and display names | both crop pickers |
 
 `GET /api/catalog/crops` resolves every catalogue entry against the live
 `Category` table and returns the **real** `categoryId` and `categorySlug`, so
 neither client has to know how the categories are seeded.
 
-### 3.3 Product filters
+### 3.3 Localised catalogue labels
+
+The catalogue endpoints return the **canonical English name** plus the
+Kannada and Hindi display name next to it:
+
+```jsonc
+// GET /api/catalog/categories
+{
+  "id": "…",
+  "name": "Grains & Millets",     // the stored value — never translated
+  "nameKn": "ಧಾನ್ಯ ಮತ್ತು ಮಿಲೆಟ್ಸ್",
+  "nameHi": "अनाज और मिलेट",
+  "slug": "grains-millets"
+}
+
+// GET /api/catalog/crops
+{
+  "name": "Tomato",                // the stored value
+  "nameKn": "ಟೊಮೇಟೊ",
+  "nameHi": "टमाटर",
+  "category": "vegetables",
+  "categoryId": "…",
+  "categoryName": "Vegetables",
+  "categoryNameKn": "ತರೆಕೆಕ್ಕೆಕ್ಕೆ",
+  "categoryNameHi": "सब्ज़ियाँ"
+}
+```
+
+| Layer | How the localised name is produced | How the client picks it |
+| --- | --- | --- |
+| Backend | `CROP_CATEGORY_LABELS` in `backend/src/data/cropCatalog.ts` for the categories; the native alias of the catalogue entry for the crops (`localizedCropNames()`), and `localizedCategoryNames()` for the live database rows | — |
+| Website | — | `localizedName(item, locale)` in `frontend/src/lib/localized.ts` — used by the marketplace category chips and by both crop pickers (`AddCropModal`, `EditCropModal`) |
+| Android | — | `CropCategory.displayName(languageCode)` / `CropSuggestion.displayName(languageCode)` in `mobile/lib/data/models/product.dart` — used by the marketplace chips and by the crop picker |
+
+**The stored value stays English.** The crop picker shows the native name
+*and* the canonical English name as a hint, but it writes the **canonical
+English name** into `Product.cropName`. Farmer- and customer-entered content
+is never translated — only the *catalogue* (which is shared reference data
+owned by the backend) is displayed in the active language.
+
+### 3.4 Multilingual crop search
+
+A listing stores the canonical crop name (`Tomato`), but the farmer may search
+for it in their own script (`ಟೊಮೇಟೊ`, `टमाटर`). `expandCropSearchTerms()` in
+`backend/src/data/cropCatalog.ts` expands a search term into **every** name
+the shared catalogue knows for the matched crop, so one query finds the
+listing in all three languages:
+
+```
+search=ಟೊಮೇಟೊ  →  cropName contains "ಟೊಮೇಟೊ" OR "Tomato" OR "tomatoes" OR "टमाटर"
+search=टमाटर   →  cropName contains "टमाटर"   OR "Tomato" OR "tomatoes" OR "ಟೊಮೇಟೊ"
+```
+
+Terms shorter than three characters are **not** expanded — they would match
+half of the catalogue and destroy the result list. The expansion is applied
+to both the `search` and the `crop` filter of `GET /api/products`.
+
+### 3.5 Product filters
 
 `GET /api/products` accepts the new filters and keeps every old one:
 
@@ -223,8 +285,8 @@ same listings.
 
 ### 3.5 Crop catalogue
 
-`backend/src/data/cropCatalog.ts` holds roughly 70 crops across ten
-categories, each with English, Kannada and Hindi aliases, for example:
+`backend/src/data/cropCatalog.ts` holds **78** crops across ten categories,
+each with English, Kannada and Hindi aliases, for example:
 
 | Crop | Category | Kannada alias | Hindi alias |
 | --- | --- | --- | --- |
@@ -232,15 +294,22 @@ categories, each with English, Kannada and Hindi aliases, for example:
 | Ragi | grains-millets | ರಾಗಿ | रागी |
 | Turmeric | spices-herbs | ಹಳ್ಳಿ | हल्दी |
 
+Every one of the 78 entries carries a native Kannada **and** a native Hindi
+alias — this is asserted by a unit test, so the localised display names can
+never silently fall back to English.
+
 The catalogue is **search assistance, not a restriction** — a farmer may always
 type a crop that is not listed.
 
 ### 3.6 Farmer workflow (identical on both clients)
 
 1. Open **List lot** / **Add crop**.
-2. Pick a category (chips / dropdown built from `/api/catalog/categories`).
+2. Pick a category (chips / dropdown built from `/api/catalog/categories`,
+   shown in the active language).
 3. Type the crop name, or search the catalogue (`/api/catalog/crops`) and tap
-   a suggestion to fill the field.
+   a suggestion to fill the field. The suggestion is shown in the active
+   language with the canonical English name as a hint; the **English** name
+   is stored.
 4. Optionally fill the variety, quantity, unit, price, availability,
    description and image.
 5. Save — a **new** `Product` row is created; existing lots are untouched.
@@ -251,10 +320,12 @@ type a crop that is not listed.
 
 ### 3.7 Customer workflow (identical on both clients)
 
-1. The marketplace shows the crop-category chips and a crop search field.
+1. The marketplace shows the crop-category chips (in the active language) and
+   a crop search field.
 2. Selecting a category filters by `category=<slug>`; typing filters by
-   `search=` (which covers crop name and variety).
-3. Each listing shows its crop name and variety below the title.
+   `search=` (which covers crop name and variety in all three languages).
+3. Each listing shows its crop name and variety below the title — in the
+   language the farmer typed them, because that is user-entered content.
 
 ---
 
@@ -284,7 +355,23 @@ cd frontend && npx tsc --noEmit
 
 # 4. Android analysis + tests
 cd mobile && flutter analyze && flutter test
+
+# 5. Real HTTP evidence for every public website route and API endpoint
+node scripts/smoke-routes.mjs
+node scripts/smoke-api-endpoints.mjs
+
+# 6. Live cross-platform workflow suites (need an emulator)
+cd mobile
+flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 \
+  --dart-define=TEST_API_BASE_URL=https://farmconnect-api-sn98.onrender.com/api \
+  --dart-define=TEST_SOCKET_URL=https://farmconnect-api-sn98.onrender.com
+flutter test integration_test/route_coverage_test.dart -d emulator-5554 \
+  --dart-define=TEST_API_BASE_URL=https://farmconnect-api-sn98.onrender.com/api \
+  --dart-define=TEST_SOCKET_URL=https://farmconnect-api-sn98.onrender.com
 ```
+
+The HTTP evidence of step 5 is stored verbatim in
+`docs/route-smoke-report.json` and `docs/api-endpoint-smoke-report.json`.
 
 ---
 
@@ -296,26 +383,42 @@ estimated. The live route and cross-platform matrices are kept separately in
 
 | Check | Command | Result | Evidence |
 | --- | --- | --- | --- |
-| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 26 / 26 tests green (3 suites: `language`, `productQuery`, `categoryResolver`) |
+| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 34 / 34 tests green (3 suites: `language`, `productQuery`, `categoryResolver`) |
 | Backend type check | `cd backend && npx tsc --noEmit` | PASS | exit code 0 |
 | Website type check | `cd frontend && npx tsc --noEmit` | PASS | exit code 0 |
-| Website production build | `cd frontend && npm run build` | see the matrix | recorded in `docs/VERIFICATION_MATRICES.md` |
+| Website production build | `cd frontend && npm run build` | PASS | exit code 0 — 21 routes prerendered/built, no prerender errors |
 | Android static analysis | `cd mobile && flutter analyze` | PASS | "No issues found!" |
 | Android unit + widget tests | `cd mobile && flutter test` | PASS | 31 / 31 tests green (includes `locale_test.dart` and `crop_listing_test.dart`) |
-| Localisation key parity | `node scripts/verify-i18n.mjs` | PASS | website `core` 120, `auth` 126, `farmer` 301, `consumer` 232, `misc` 328 keys; Android ARB 381 keys — 0 missing / 0 extra for Kannada and Hindi |
-| Backend database integration suite | `cd backend && npm run test:integration` | BLOCKED | no PostgreSQL/Docker in the local environment — the suite (language storage, catalogue endpoints, independent crop lots, edit isolation, crop filtering) runs in pull-request CI with PostgreSQL 16 |
+| Localisation key parity | `node scripts/verify-i18n.mjs` | PASS | website `core` 120, `auth` 126, `farmer` 301, `consumer` 232, `misc` 352 keys; Android ARB 381 keys — 0 missing / 0 extra for Kannada and Hindi |
+| Hardcoded-English scan of the website JSX | `node C:\Users\user\AppData\Local\Temp\opencode\find-hardcoded-jsx.mjs` | PASS | 3 hits — all false positives (`Promise` type annotations) |
+| Website + API route smoke (deployed) | `node scripts/smoke-routes.mjs` | PASS | 22 / 22 website routes + 24 / 24 API routes answered with the expected status (200, or the expected auth redirect) |
+| API endpoint smoke (deployed) | `node scripts/smoke-api-endpoints.mjs` | PASS | 50 probes, 0 unexpected statuses — every endpoint of the shared backend was exercised with a real request |
+| Live feature verification (deployed) | `node live-verify.mjs` | PASS | 46 / 46 checks green against the deployed API |
+| Android route coverage (emulator, deployed API) | `cd mobile && flutter test integration_test/route_coverage_test.dart -d emulator-5554 …` | PASS | 21 / 21 routes opened, no widget exception — `00:15 +1: All tests passed!` |
+| Cross-platform workflow suite (emulator, deployed API) | `cd mobile && flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 …` | PASS | 8 / 8 tests green |
+| Backend database integration suite | `cd backend && npm run test:integration` | BLOCKED | no PostgreSQL/Docker in the local environment — the suite (language storage, catalogue endpoints, independent crop lots, edit isolation, crop filtering, listing authorisation, notification inbox) runs in pull-request CI with PostgreSQL 16 and is green there |
 
 ### What the unit tests actually cover
 
 `backend/src/__tests__/language.test.ts`
 : exactly English / Kannada / Hindi are supported, regional and alias forms
   (`en-IN`, `kn-IN`, `hi-IN`, `hi`) normalise correctly, unknown values fall
-  back to English.
+  back to English — and `resolveSupportedLanguage()` returns `null` for a
+  genuinely unsupported code so the API can answer HTTP 400 for `de` while
+  still accepting `kn-IN`.
 
 `backend/src/__tests__/productQuery.test.ts`
 : the catalogue filters that both clients share — search, crop, category
   slug/name, `categoryId`, organic and district — plus the crop/variety
-  normalisation that keeps `cropName` and `variety` separate.
+  normalisation that keeps `cropName` and `variety` separate. It also proves
+  the **multilingual crop search**: `crop: 'ಟೊಮೇಟೊ'` expands to the
+  canonical `Tomato` and to the Hindi `टमाटर`, `search: 'tomato'` expands to
+  both native names, and a term shorter than three characters is **not**
+  expanded. Two further tests assert that every one of the 78 catalogue
+  entries and all ten categories really carry a Kannada and a Hindi name in
+  their own script, and that a published APMC commodity ("Green Chilli",
+  "Tomato (Hybrid)") resolves onto the right catalogue entry while an unknown
+  commodity resolves to nothing.
 
 `backend/src/__tests__/categoryResolver.test.ts`
 : the live-category lookup that maps a seeded slug, a canonical name and a
@@ -338,6 +441,28 @@ estimated. The live route and cross-platform matrices are kept separately in
   (`FALLBACK_*`, `INITIAL_SEED_PRODUCTS`, `DEFAULT_PRODUCTS`, `DEFAULT_LEADS`,
   `SEED_THREADS` and the locally simulated farmer chat replies). An empty
   backend answer now renders a translated empty state, not a fake listing.
+* The **website's own mock datasets** were removed as well:
+  `ALL_INDIA_MANDI_DATA` (1150 lines of hardcoded mandi records),
+  `MANDI_TICKER_ITEMS` and `cropEconomics`. The Mandi Rates page, the home
+  ticker and the savings calculator now read the **real** shared backend
+  (`GET /api/apmc/rates` and `GET /api/products`) and show an honest "not
+  published yet" state while the data is missing. The full list is in
+  [`docs/VERIFICATION_MATRICES.md`](VERIFICATION_MATRICES.md), section 1.4.
+* **A listing can only be edited or deleted by the cultivator who published
+  it.** Both endpoints answer HTTP 403 for anyone else (an administrator is
+  still allowed).
+* **Deleting a listing that already carries an order is refused with HTTP
+  409** and an explanation, because the order history has to stay intact. The
+  endpoint never answers "deleted" for a delete that did not happen — the
+  cultivator is asked to mark the lot as unavailable instead.
+* The **notification inbox is filled from the real events**: a farmer gets
+  `NEW_ORDER` and `ORDER_DELIVERED`, a consumer gets `ORDER_STATUS`, and the
+  participants of a conversation get `NEW_ENQUIRY` / `NEW_MESSAGE`. The
+  Socket.IO broadcast is the instant delivery, the stored row is the durable
+  entry that both clients list.
+* The **public catalogue only lists available lots**, so a lot that a farmer
+  has taken off the market disappears from the marketplace immediately — that
+  is the expected behaviour, not a bug.
 
 ---
 
@@ -358,3 +483,39 @@ this work:
 4. **The Render free PostgreSQL instance expires on 27 December 2026.**
 5. **Uploaded images are stored on an ephemeral filesystem** and disappear on
    every redeploy.
+6. **The shared database contains no APMC rate row.** `GET /api/apmc/rates`
+   answers `{"success":true,"data":[],"rates":[],"total":0}`, so the Mandi
+   Rates page, the home ticker and the savings calculator show their honest
+   empty state. There is **no seed or import path** for APMC rates yet — and
+   adding one with invented rows would reintroduce exactly the mock data that
+   was removed. Loading real benchmark rows into the shared database is the
+   open item.
+7. **The deployed database has no administrator account** (registration only
+   creates `FARMER` / `CONSUMER`). The five `/api/admin/*` endpoints and the
+   Android admin dashboard therefore stay `NOT TESTED` in the matrices — the
+   admin guard answers HTTP 403 for every non-admin token.
+8. **The QA accounts created by the live verification scripts stay in the
+   production database** — there is no account-deletion endpoint.
+
+### 7.1 Production defects that were found and fixed
+
+The new Android route coverage test (`mobile/integration_test/route_coverage_test.dart`)
+asserts that **no widget throws** while a route is built, and it therefore
+uncovered five real crashes that the manual walk-through had missed. All of
+them are fixed:
+
+| Defect | Symptom | Fix |
+| --- | --- | --- |
+| `AppLocalizations.of(context)` inside `initState()` on **9** screens | `dependOnInheritedWidgetOfExactType<_LocalizationsScope>() … was called before … initState() completed` | the lookup moved into the `catch` blocks, which run after the `await` and are guarded by `mounted` |
+| `initializeDateFormatting()` was never called | `LocaleDataException: Locale data has not been initialized` on every date-rendering screen | `mobile/lib/main.dart` is now `async` and calls the initialiser |
+| `ref.read(...)` inside `dispose()` | `StateError: Cannot use "ref" after the widget was disposed.` — the socket listener was never removed and the room was never left | the `SocketService` is cached while the screen is alive and the cached instance is used in `dispose()` |
+| Missing `Scaffold` on the market-rates and logistics screens | `No Material widget found.` — both screens could not be opened at all | both screens bring their own `Scaffold` + `AppBar` |
+| Hardcoded English in the farmer dashboard JSX | "Buyer Inquiries & Chats", "{count} Active", "Target Rate: ₹…/kg" stayed English in a translated screen | the existing dictionary keys are now wired up |
+
+The website had two smaller gaps of the same kind, both fixed:
+
+* `document.documentElement.lang` was only updated by the language switcher —
+  a **restored** preference left `lang="en"` on the page. A `useEffect` now
+  keeps the attribute in sync with the active locale.
+* The Mandi Rates page carried the `ALL_INDIA_MANDI_DATA` mock (see
+  limitation 6).

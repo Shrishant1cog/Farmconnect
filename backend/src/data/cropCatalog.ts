@@ -118,25 +118,136 @@ export const CROP_CATALOG: CropCatalogEntry[] = [
 ];
 
 /**
- * Canonical display name of every crop category.
+ * Localised display name of every crop category.
  *
  * The category *slugs* stored in the database can differ between
  * installations (the seed script keeps an already existing slug), so the
  * catalogue only owns the canonical **name**. The API resolves the name
  * against the live `Category` table and returns the real id and slug.
+ *
+ * Every category also carries its Kannada and Hindi name so both clients can
+ * show the filter chips in the language the user picked. The English name
+ * stays the stored value — only the *display* name is localised.
  */
-export const CROP_CATEGORY_NAMES: Record<string, string> = {
-  vegetables: 'Vegetables',
-  fruits: 'Fruits',
-  'grains-millets': 'Grains & Millets',
-  'spices-herbs': 'Spices & Herbs',
-  'pulses-legumes': 'Pulses & Legumes',
-  oilseeds: 'Oilseeds',
-  'plantation-crops': 'Plantation Crops',
-  'cash-crops': 'Cash Crops',
-  'flowers-floriculture': 'Flowers & Floriculture',
-  'nuts-dry-produce': 'Nuts & Dry Produce',
+export const CROP_CATEGORY_LABELS: Record<
+  string,
+  { en: string; kn: string; hi: string }
+> = {
+  vegetables: { en: 'Vegetables', kn: 'ತರೆಕೆಕ್ಕೆಕ್ಕೆ', hi: 'सब्ज़ियाँ' },
+  fruits: { en: 'Fruits', kn: 'ಹಣ್ಣುಗಳು', hi: 'फल' },
+  'grains-millets': { en: 'Grains & Millets', kn: 'ಧಾನ್ಯ ಮತ್ತು ಮಿಲೆಟ್ಸ್', hi: 'अनाज और मिलेट' },
+  'spices-herbs': { en: 'Spices & Herbs', kn: 'ಮಸಾಲೆ ಮತ್ತು ಗಿಡಗಿಡಿ', hi: 'मसाले और जड़ी-बूटियाँ' },
+  'pulses-legumes': { en: 'Pulses & Legumes', kn: 'ಬೇಳು ಮತ್ತು ಕಾಳುಬೇಳು', hi: 'दलहन और फलीदार' },
+  oilseeds: { en: 'Oilseeds', kn: 'ಎಣ್ಣೆಬಿತ್ತ ಬೆಳೆಗಳು', hi: 'तिलहन' },
+  'plantation-crops': { en: 'Plantation Crops', kn: 'ತೋಟದ ಬೆಳೆಗಳು', hi: 'बागवानी फसलें' },
+  'cash-crops': { en: 'Cash Crops', kn: 'ನಗದ ಬೆಳೆಗಳು', hi: 'नकदी फसलें' },
+  'flowers-floriculture': { en: 'Flowers & Floriculture', kn: 'ಹೂವುಗಳು ಮತ್ತು ಹೂವಿನ ಕೃಷಿ', hi: 'फूल और फूलों की खेती' },
+  'nuts-dry-produce': { en: 'Nuts & Dry Produce', kn: 'ಬೀಜಾದ ಹಣ್ಣುಗಳು ಮತ್ತು ಒಣ ಉತ್ಪನ್ನ', hi: 'मेवे और सूखा माल' },
 };
+
+/** Canonical (English) display name of every crop category. */
+export const CROP_CATEGORY_NAMES: Record<string, string> = Object.fromEntries(
+  Object.entries(CROP_CATEGORY_LABELS).map(([key, labels]) => [key, labels.en]),
+);
+
+/** Kannada and Hindi characters used to detect the native alias of a crop. */
+const KANNADA_PATTERN = /[\u0C80-\u0CFF]/;
+const DEVANAGARI_PATTERN = /[\u0900-\u097F]/;
+
+/**
+ * Returns the native Kannada / Hindi name of a catalogue entry.
+ *
+ * Every crop already carries its native name as an alias (the aliases are
+ * used for searching in the farmer's language), so the localised display name
+ * can be derived from the data instead of duplicating it. The English name is
+ * returned when no native alias exists.
+ */
+export function localizedCropNames(entry: CropCatalogEntry): {
+  nameKn: string;
+  nameHi: string;
+} {
+  const nameKn =
+    entry.aliases.find((alias) => KANNADA_PATTERN.test(alias)) ?? entry.name;
+  const nameHi =
+    entry.aliases.find((alias) => DEVANAGARI_PATTERN.test(alias)) ?? entry.name;
+
+  return { nameKn, nameHi };
+}
+
+/**
+ * Finds the catalogue entry that belongs to a commodity name.
+ *
+ * The APMC rates store the commodity as it is published by the market
+ * ("Tomato", "Tomato (Hybrid)", "Ragi"), so the lookup is tolerant: the
+ * catalogue entry whose name is contained in the commodity wins.
+ */
+export function findCatalogueEntry(commodity: string | null | undefined): CropCatalogEntry | null {
+  const normalized = normalize(commodity || '');
+  if (!normalized) return null;
+
+  // An exact match wins.
+  const exact = CROP_CATALOG.find((entry) => normalize(entry.name) === normalized);
+  if (exact) return exact;
+
+  // Otherwise the longest matching catalogue name wins, so "Green Chilli"
+  // resolves to "Chilli" and not to a shorter, unrelated entry.
+  let best: CropCatalogEntry | null = null;
+  for (const entry of CROP_CATALOG) {
+    const name = normalize(entry.name);
+    if (!name || !normalized.includes(name)) continue;
+    if (!best || name.length > normalize(best.name).length) {
+      best = entry;
+    }
+  }
+
+  return best;
+}
+
+/** Localised labels of a category key (falls back to the English name). */
+export function localizedCategoryLabels(key: string | null | undefined): {
+  nameKn: string;
+  nameHi: string;
+} {
+  const labels = key ? CROP_CATEGORY_LABELS[key] : undefined;
+  return {
+    nameKn: labels?.kn ?? key ?? '',
+    nameHi: labels?.hi ?? key ?? '',
+  };
+}
+
+/**
+ * Expands a search term into every name the catalogue knows for that crop.
+ *
+ * A listing stores the canonical crop name (`Tomato`), but the farmer may
+ * search for it in their own script (`ಟೊಮೇಟೊ` / `टमाटर`). The expansion
+ * makes the catalogue searchable in **all** three languages: a term that
+ * matches one catalogue entry also matches every alias of that entry.
+ *
+ * Very short terms are not expanded — they would match half of the
+ * catalogue and destroy the result list.
+ */
+export function expandCropSearchTerms(term: string): string[] {
+  const normalized = normalize(term);
+  if (normalized.length < 3) return [];
+
+  const terms = new Set<string>();
+
+  for (const entry of CROP_CATALOG) {
+    const candidates = [entry.name, ...entry.aliases];
+    const matches = candidates.some((candidate) =>
+      normalize(candidate).includes(normalized),
+    );
+
+    if (!matches) continue;
+
+    for (const candidate of candidates) {
+      const value = candidate.trim();
+      if (value) terms.add(value);
+    }
+  }
+
+  return Array.from(terms);
+}
 
 /** Slug generated from a canonical category name (same rule as the seed). */
 export const slugifyCategoryName = (name: string): string =>

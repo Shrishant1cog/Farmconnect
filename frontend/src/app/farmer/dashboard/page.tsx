@@ -731,16 +731,16 @@ export default function FarmerDashboardPage() {
               <div className="flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-emerald-800" />
                 <h3 className="text-sm font-black uppercase tracking-wider text-stone-900">
-                  Buyer Inquiries & Chats
+                  {t('farmer.dashboard.buyerInquiriesTitle')}
                 </h3>
               </div>
               <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-[10px] font-black uppercase">
-                {stats.unreadLeads} Active
+                {t('farmer.dashboard.activeCount', { count: stats.unreadLeads })}
               </span>
             </div>
 
             <p className="text-xs text-stone-500 leading-relaxed">
-              Direct incoming trade negotiations from retail and institutional commercial buyers discussing container packaging, delivery schedules, and price bids.
+              {t('farmer.dashboard.buyerDescription')}
             </p>
 
             <div className="space-y-3">
@@ -765,7 +765,9 @@ export default function FarmerDashboardPage() {
 
                   <div className="flex items-center justify-between pt-1 border-t border-stone-200/50 text-xs">
                     <span className="text-[11px] font-bold text-stone-700">
-                      Target Rate: ₹{lead.quotedPrice}/kg
+                      {t('farmer.dashboard.targetRate', {
+                        price: Number(lead.quotedPrice || 0),
+                      })}
                     </span>
                     <Link
                       href="/farmer/inquiries"

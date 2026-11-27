@@ -29,7 +29,6 @@ class _ComplaintsPageState extends ConsumerState<ComplaintsPage> {
   }
 
   Future<void> _load() async {
-    final l10n = AppLocalizations.of(context);
     setState(() {
       _loading = true;
       _error = null;
@@ -45,10 +44,12 @@ class _ComplaintsPageState extends ConsumerState<ComplaintsPage> {
       setState(() => _complaints = complaints);
     } on ApiException catch (error) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         setState(() => _error = l10n.commonRequestFailed(error.displayMessage));
       }
     } catch (_) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         setState(() => _error = l10n.commonSomethingWrong);
       }
     } finally {

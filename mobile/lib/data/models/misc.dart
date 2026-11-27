@@ -49,6 +49,8 @@ class MarketRate {
     this.district,
     this.marketCenter,
     this.updatedAt,
+    this.commodityNameKn,
+    this.commodityNameHi,
   });
 
   final String id;
@@ -61,6 +63,23 @@ class MarketRate {
   final String? marketCenter;
   final DateTime? updatedAt;
 
+  /// Kannada display name of the commodity.
+  final String? commodityNameKn;
+
+  /// Hindi display name of the commodity.
+  final String? commodityNameHi;
+
+  /// The display name that matches the given language code.
+  String displayName(String languageCode) {
+    if (languageCode == 'kn' && (commodityNameKn ?? '').isNotEmpty) {
+      return commodityNameKn!;
+    }
+    if (languageCode == 'hi' && (commodityNameHi ?? '').isNotEmpty) {
+      return commodityNameHi!;
+    }
+    return commodity;
+  }
+
   factory MarketRate.fromJson(Map<String, dynamic> json) {
     double parse(dynamic value) {
       if (value is num) return value.toDouble();
@@ -70,7 +89,7 @@ class MarketRate {
 
     return MarketRate(
       id: json['id']?.toString() ?? '',
-      commodity: json['commodity']?.toString() ?? 'Commodity',
+      commodity: json['commodity']?.toString() ?? '',
       modalPrice: parse(json['modalPrice']),
       minPrice: parse(json['minPrice']),
       maxPrice: parse(json['maxPrice']),
@@ -78,6 +97,8 @@ class MarketRate {
       district: json['district']?.toString(),
       marketCenter: json['marketCenter']?.toString(),
       updatedAt: _toDate(json['updatedAt']),
+      commodityNameKn: json['commodityNameKn']?.toString(),
+      commodityNameHi: json['commodityNameHi']?.toString(),
     );
   }
 }

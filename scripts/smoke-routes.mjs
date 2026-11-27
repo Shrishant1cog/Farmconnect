@@ -87,6 +87,23 @@ const API_ROUTES = [
   { route: '/products?category=vegetables', auth: false, note: 'catalogue filtered by category' },
   { route: '/products?search=QA', auth: false, note: 'catalogue filtered by search' },
   { route: '/users/farmers', auth: false, note: 'public farmer directory' },
+  { route: '/apmc/rates', auth: false, note: 'published APMC benchmark rates' },
+  {
+    route: '/logistics/quote',
+    auth: false,
+    method: 'POST',
+    body: {
+      cropQuantityKg: 100,
+      farmerPricePerKg: 20,
+      originLat: 12.5218,
+      originLon: 76.8951,
+      destLat: 12.9716,
+      destLon: 77.5946,
+      containerType: 'STANDARD_CRATE',
+      apmcModalPricePerQuintal: 3200,
+    },
+    note: 'logistics + profit quote',
+  },
   { route: '/auth/me', auth: true, note: 'profile of the signed-in account' },
   { route: '/users/me', auth: true, note: 'profile incl. preferredLanguage' },
   { route: '/products/my-products', auth: true, note: 'farmer inventory' },
@@ -190,9 +207,22 @@ console.log('');
 console.log('API ROUTES');
 console.log('-'.repeat(96));
 for (const item of API_ROUTES) {
-  const options = item.auth && TOKEN
-    ? { headers: { Authorization: `Bearer ${TOKEN}` } }
-    : undefined;
+  const headers = {
+    ...(item.body ? { 'Content-Type': 'application/json' } : {}),
+    ...(item.auth && TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {}),
+  };
+
+  const options =
+    item.body || item.method
+      ? {
+          method: item.method || 'POST',
+          headers,
+          body: item.body ? JSON.stringify(item.body) : undefined,
+        }
+      : item.auth && TOKEN
+        ? { headers }
+        : undefined;
+
   const result = await probe(`${API}${item.route}`, options);
   report.api.push({ ...item, authenticated: Boolean(item.auth && TOKEN), ...result });
   console.log(

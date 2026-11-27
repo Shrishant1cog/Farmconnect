@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/locale/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
@@ -30,7 +31,6 @@ class _MarketRatesPageState extends ConsumerState<MarketRatesPage> {
   }
 
   Future<void> _load() async {
-    final l10n = AppLocalizations.of(context);
     setState(() {
       _loading = true;
       _error = null;
@@ -46,10 +46,12 @@ class _MarketRatesPageState extends ConsumerState<MarketRatesPage> {
       setState(() => _rates = rates);
     } on ApiException catch (error) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         setState(() => _error = l10n.commonRequestFailed(error.displayMessage));
       }
     } catch (_) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         setState(() => _error = l10n.commonSomethingWrong);
       }
     } finally {
@@ -77,27 +79,33 @@ class _MarketRatesPageState extends ConsumerState<MarketRatesPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: TextField(
-            onChanged: (value) =>
-                setState(() => _search = value.trim().toLowerCase()),
-            decoration: InputDecoration(
-              hintText: l10n.marketRatesSearchHint,
-              prefixIcon: const Icon(Icons.trending_up_rounded),
+    // The screen is pushed as a full screen route, so it brings its own
+    // `Scaffold`. Without the `Material` ancestor the search field would
+    // throw "No Material widget found".
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.navMarketRates)),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: TextField(
+              onChanged: (value) =>
+                  setState(() => _search = value.trim().toLowerCase()),
+              decoration: InputDecoration(
+                hintText: l10n.marketRatesSearchHint,
+                prefixIcon: const Icon(Icons.trending_up_rounded),
+              ),
             ),
           ),
-        ),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: _load,
-            color: AppTheme.emerald,
-            child: _buildBody(),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _load,
+              color: AppTheme.emerald,
+              child: _buildBody(),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -139,7 +147,9 @@ class _MarketRatesPageState extends ConsumerState<MarketRatesPage> {
                   children: [
                     Expanded(
                       child: Text(
-                        rate.commodity,
+                        rate.displayName(
+                          ref.watch(localeControllerProvider).languageCode,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(

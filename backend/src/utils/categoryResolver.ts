@@ -9,7 +9,11 @@
 // the website and the Android app always resolve the same category record.
 
 import { db } from '../config/db';
-import { CROP_CATEGORY_NAMES, slugifyCategoryName } from '../data/cropCatalog';
+import {
+  CROP_CATEGORY_NAMES,
+  localizedCategoryLabels,
+  slugifyCategoryName,
+} from '../data/cropCatalog';
 
 export interface ResolvedCategory {
   id: string;
@@ -146,6 +150,28 @@ export function catalogueKeyForCategory(category: { name: string; slug: string }
   }
 
   return null;
+}
+
+/**
+ * Localised display names of a live category record.
+ *
+ * The English name stays the stored value; the Kannada and Hindi names come
+ * from the shared crop catalogue so both clients can render the category in
+ * the language the user picked.
+ */
+export function localizedCategoryNames(category: {
+  name: string;
+  slug: string;
+}): { nameKn: string; nameHi: string } {
+  const key = catalogueKeyForCategory(category);
+  const labels = localizedCategoryLabels(key);
+
+  // A category that is not part of the catalogue keeps its stored name.
+  if (!key) {
+    return { nameKn: category.name, nameHi: category.name };
+  }
+
+  return labels;
 }
 
 /**

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/network/socket_service.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/order.dart';
@@ -28,6 +29,14 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   bool _confirming = false;
   String? _error;
 
+  /// The socket is cached while the screen is alive.
+  ///
+  /// `ref` must not be used inside `dispose()`: Flutter unmounts the element
+  /// before `dispose()` runs, so Riverpod rejects every access with
+  /// "Cannot use \"ref\" after the widget was disposed." — the listener would
+  /// never be removed and the room would never be left.
+  SocketService? _socket;
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +46,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
 
   void _subscribeToSocket() {
     final socket = ref.read(socketServiceProvider);
+    _socket = socket;
     socket.joinOrder(widget.orderId);
     socket.on('order_status_updated', _handleSocketEvent);
     socket.on('order_delivered', _handleSocketEvent);
@@ -50,15 +60,17 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
 
   @override
   void dispose() {
-    final socket = ref.read(socketServiceProvider);
-    socket.off('order_status_updated', _handleSocketEvent);
-    socket.off('order_delivered', _handleSocketEvent);
-    socket.leaveOrder(widget.orderId);
+    final socket = _socket;
+    if (socket != null) {
+      socket.off('order_status_updated', _handleSocketEvent);
+      socket.off('order_delivered', _handleSocketEvent);
+      socket.leaveOrder(widget.orderId);
+    }
+    _socket = null;
     super.dispose();
   }
 
   Future<void> _load() async {
-    final l10n = AppLocalizations.of(context);
     setState(() {
       _loading = true;
       _error = null;
@@ -74,10 +86,12 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       setState(() => _order = order);
     } on ApiException catch (error) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         setState(() => _error = l10n.commonRequestFailed(error.displayMessage));
       }
     } catch (_) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         setState(() => _error = l10n.commonSomethingWrong);
       }
     } finally {

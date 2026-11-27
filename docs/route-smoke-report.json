@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-27T19:35:12.746Z",
+  "generatedAt": "2026-11-27T22:13:22.009Z",
   "web": "https://farmconnect-web.onrender.com",
   "api": [
     {
@@ -10,8 +10,8 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 74,
-      "body": "{\"status\":\"UP\",\"service\":\"FarmConnect Engine\",\"database\":\"UP\",\"uptime\":58,\"timestamp\":\"2026-11-27T19:35:16.050Z\"}"
+      "ms": 89,
+      "body": "{\"status\":\"UP\",\"service\":\"FarmConnect Engine\",\"database\":\"UP\",\"uptime\":8569,\"timestamp\":\"2026-11-27T22:13:24.828Z\"}"
     },
     {
       "route": "/catalog/categories",
@@ -21,7 +21,7 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 81,
+      "ms": 65,
       "body": "{\"success\":true,\"data\":[{\"id\":\"f7e224a1-1bf1-47f5-a1a9-f679051d1659\",\"name\":\"Cash Crops\",\"slug\":\"cash-crops\",\"description\":\"Sugarcane, raw cotton, and commercial agricultural produce.\",\"productCount\":0},{\"id\":\"44167217-1c35-4e22-9369-43e29b8cf1c9\",\"name\":\"Flowers & Floriculture\",\"slug\":\"flowers-floriculture\",\"description\":\"Marigold, jasmine, roses, and commercial festival floriculture.\",\"productCo"
     },
     {
@@ -32,7 +32,7 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 79,
+      "ms": 60,
       "body": "{\"success\":true,\"data\":[{\"name\":\"Tomato\",\"category\":\"vegetables\",\"categoryKey\":\"vegetables\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"categoryName\":\"Vegetables\",\"aliases\":[\"tomatoes\",\"ಟೊಮೇಟೊ\",\"टमाटर\"]},{\"name\":\"Potato\",\"category\":\"vegetables\",\"categoryKey\":\"vegetables\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"categoryName\":\"Vegetables\",\"aliases\":[\"potatoes\",\"ಆಲೂಗಡ್ಡೆ\",\"आलू\"]"
     },
     {
@@ -43,7 +43,7 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 89,
+      "ms": 65,
       "body": "{\"success\":true,\"data\":[{\"name\":\"Tomato\",\"category\":\"vegetables\",\"categoryKey\":\"vegetables\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"categoryName\":\"Vegetables\",\"aliases\":[\"tomatoes\",\"ಟೊಮೇಟೊ\",\"टमाटर\"]}],\"crops\":[{\"name\":\"Tomato\",\"category\":\"vegetables\",\"categoryKey\":\"vegetables\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"categoryName\":\"Vegetables\",\"aliases\":[\"tomatoes\",\"ಟೊಮೇಟೊ"
     },
     {
@@ -54,7 +54,7 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 81,
+      "ms": 62,
       "body": "{\"success\":true,\"data\":[{\"name\":\"Tomato\",\"category\":\"vegetables\",\"categoryKey\":\"vegetables\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"categoryName\":\"Vegetables\",\"aliases\":[\"tomatoes\",\"ಟೊಮೇಟೊ\",\"टमाटर\"]}],\"crops\":[{\"name\":\"Tomato\",\"category\":\"vegetables\",\"categoryKey\":\"vegetables\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"categoryName\":\"Vegetables\",\"aliases\":[\"tomatoes\",\"ಟೊಮೇಟೊ"
     },
     {
@@ -65,7 +65,7 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 76,
+      "ms": 64,
       "body": "{\"success\":true,\"data\":[{\"name\":\"Tomato\",\"category\":\"vegetables\",\"categoryKey\":\"vegetables\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"categoryName\":\"Vegetables\",\"aliases\":[\"tomatoes\",\"ಟೊಮೇಟೊ\",\"टमाटर\"]}],\"crops\":[{\"name\":\"Tomato\",\"category\":\"vegetables\",\"categoryKey\":\"vegetables\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"categoryName\":\"Vegetables\",\"aliases\":[\"tomatoes\",\"ಟೊಮೇಟೊ"
     },
     {
@@ -76,7 +76,7 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 80,
+      "ms": 63,
       "body": "{\"success\":true,\"data\":[{\"name\":\"Tomato\",\"category\":\"vegetables\",\"categoryKey\":\"vegetables\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"categoryName\":\"Vegetables\",\"aliases\":[\"tomatoes\",\"ಟೊಮೇಟೊ\",\"टमाटर\"]},{\"name\":\"Potato\",\"category\":\"vegetables\",\"categoryKey\":\"vegetables\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"categoryName\":\"Vegetables\",\"aliases\":[\"potatoes\",\"ಆಲೂಗಡ್ಡೆ\",\"आलू\"]"
     },
     {
@@ -87,8 +87,8 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 81,
-      "body": "{\"success\":true,\"data\":[{\"id\":\"f439c0a3-fb28-4c37-9c2b-85774f65da5b\",\"farmerId\":\"1423e99d-4ea5-4a6c-a046-22a1ae336d96\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"title\":\"QA Socket Lot 1795793284037\",\"description\":\"QA lot created by the shared-data workflow test.\",\"cropName\":null,\"variety\":null,\"farmerPrice\":15,\"priceUnit\":\"PER_KG\",\"quantityAvailable\":80,\"quantityUnit\":\"KG\",\"minOrderKg\":5"
+      "ms": 78,
+      "body": "{\"success\":true,\"data\":[{\"id\":\"7585ad39-36a4-4507-b9d4-f0cf79a489d7\",\"farmerId\":\"7c42637a-d895-48da-aae1-9a2761accfae\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"title\":\"QA Route Coverage Lot 1795817594368\",\"description\":\"A QA lot used by the route coverage test.\",\"cropName\":\"Tomato\",\"variety\":\"Hybrid\",\"farmerPrice\":21.5,\"priceUnit\":\"PER_KG\",\"quantityAvailable\":140,\"quantityUnit\":\"KG\",\"m"
     },
     {
       "route": "/products?crop=Tomato",
@@ -98,8 +98,8 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 75,
-      "body": "{\"success\":true,\"data\":[],\"products\":[]}"
+      "ms": 104,
+      "body": "{\"success\":true,\"data\":[{\"id\":\"7585ad39-36a4-4507-b9d4-f0cf79a489d7\",\"farmerId\":\"7c42637a-d895-48da-aae1-9a2761accfae\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"title\":\"QA Route Coverage Lot 1795817594368\",\"description\":\"A QA lot used by the route coverage test.\",\"cropName\":\"Tomato\",\"variety\":\"Hybrid\",\"farmerPrice\":21.5,\"priceUnit\":\"PER_KG\",\"quantityAvailable\":140,\"quantityUnit\":\"KG\",\"m"
     },
     {
       "route": "/products?category=vegetables",
@@ -109,8 +109,8 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 82,
-      "body": "{\"success\":true,\"data\":[{\"id\":\"f439c0a3-fb28-4c37-9c2b-85774f65da5b\",\"farmerId\":\"1423e99d-4ea5-4a6c-a046-22a1ae336d96\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"title\":\"QA Socket Lot 1795793284037\",\"description\":\"QA lot created by the shared-data workflow test.\",\"cropName\":null,\"variety\":null,\"farmerPrice\":15,\"priceUnit\":\"PER_KG\",\"quantityAvailable\":80,\"quantityUnit\":\"KG\",\"minOrderKg\":5"
+      "ms": 90,
+      "body": "{\"success\":true,\"data\":[{\"id\":\"7585ad39-36a4-4507-b9d4-f0cf79a489d7\",\"farmerId\":\"7c42637a-d895-48da-aae1-9a2761accfae\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"title\":\"QA Route Coverage Lot 1795817594368\",\"description\":\"A QA lot used by the route coverage test.\",\"cropName\":\"Tomato\",\"variety\":\"Hybrid\",\"farmerPrice\":21.5,\"priceUnit\":\"PER_KG\",\"quantityAvailable\":140,\"quantityUnit\":\"KG\",\"m"
     },
     {
       "route": "/products?search=QA",
@@ -120,8 +120,8 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 82,
-      "body": "{\"success\":true,\"data\":[{\"id\":\"f439c0a3-fb28-4c37-9c2b-85774f65da5b\",\"farmerId\":\"1423e99d-4ea5-4a6c-a046-22a1ae336d96\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"title\":\"QA Socket Lot 1795793284037\",\"description\":\"QA lot created by the shared-data workflow test.\",\"cropName\":null,\"variety\":null,\"farmerPrice\":15,\"priceUnit\":\"PER_KG\",\"quantityAvailable\":80,\"quantityUnit\":\"KG\",\"minOrderKg\":5"
+      "ms": 70,
+      "body": "{\"success\":true,\"data\":[{\"id\":\"7585ad39-36a4-4507-b9d4-f0cf79a489d7\",\"farmerId\":\"7c42637a-d895-48da-aae1-9a2761accfae\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"title\":\"QA Route Coverage Lot 1795817594368\",\"description\":\"A QA lot used by the route coverage test.\",\"cropName\":\"Tomato\",\"variety\":\"Hybrid\",\"farmerPrice\":21.5,\"priceUnit\":\"PER_KG\",\"quantityAvailable\":140,\"quantityUnit\":\"KG\",\"m"
     },
     {
       "route": "/users/farmers",
@@ -131,118 +131,141 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 72,
-      "body": "{\"success\":true,\"data\":[{\"id\":\"248897de-43d3-4e26-a9e6-70159d5778f7\",\"farmName\":\"i18n QA Fields\",\"farmerName\":\"i18n QA Fields\",\"phone\":\"9808072739\",\"district\":\"Mandya\",\"state\":\"Karnataka\",\"address\":null,\"latitude\":12.5218,\"longitude\":76.8951,\"isVerified\":true,\"profileViews\":0,\"availableProducts\":[]},{\"id\":\"fec862bf-8cf3-47f9-b684-a49cccb98cd0\",\"farmName\":\"i18n QA Fields\",\"farmerName\":\"i18n QA Fiel"
+      "ms": 74,
+      "body": "{\"success\":true,\"data\":[{\"id\":\"cd18556a-7eb9-4553-be71-185c1e557595\",\"farmName\":\"Parity QA Fields\",\"farmerName\":\"Android Parity QA Farmer\",\"phone\":\"9372316001\",\"district\":\"Mandya\",\"state\":\"Karnataka\",\"address\":null,\"latitude\":12.5218,\"longitude\":76.8951,\"isVerified\":true,\"profileViews\":0,\"availableProducts\":[{\"id\":\"1d80586b-dfb4-4cbd-b5d7-5a1e1b137bed\",\"title\":\"QA Parity Harvest 1795783372316\",\"fa"
+    },
+    {
+      "route": "/apmc/rates",
+      "auth": false,
+      "note": "published APMC benchmark rates",
+      "authenticated": false,
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 57,
+      "body": "{\"success\":true,\"data\":[]}"
+    },
+    {
+      "route": "/logistics/quote",
+      "auth": false,
+      "method": "POST",
+      "body": "{\"success\":true,\"data\":{\"distanceKm\":90.9,\"containerTypeSelected\":\"Standard Plastic Crates / Sacks\",\"breakdown\":{\"baseFreightCost\":1272.18,\"specialContainerCost\":50,\"totalTransportAndLogistics\":1322.18,\"farmerProduceCost\":2000,\"totalLandedCost\":3322.18},\"profitAssessment\":{\"apmcBenchmarkRatePerKg\":32,\"expectedApmcValue\":3200,\"approxNetProfit\":-122.18,\"profitMarginPercent\":\"-3.7%\",\"isProfitable\":fa",
+      "note": "logistics + profit quote",
+      "authenticated": false,
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 65
     },
     {
       "route": "/auth/me",
       "auth": true,
       "note": "profile of the signed-in account",
-      "authenticated": true,
-      "status": 200,
-      "ok": true,
+      "authenticated": false,
+      "status": 401,
+      "ok": false,
       "location": null,
-      "ms": 80,
-      "body": "{\"success\":true,\"user\":{\"id\":\"5c9423a2-6d99-4879-9fcf-dac7ba9e7e95\",\"name\":\"i18n QA Fields\",\"email\":\"i18n.qa.farmer.1795808072739@farmconnect.test\",\"phone\":\"9808072739\",\"role\":\"FARMER\",\"preferredLanguage\":\"en\",\"createdAt\":\"2026-11-27T19:34:34.554Z\",\"farmerProfile\":{\"id\":\"248897de-43d3-4e26-a9e6-70159d5778f7\",\"userId\":\"5c9423a2-6d99-4879-9fcf-dac7ba9e7e95\",\"farmName\":\"i18n QA Fields\",\"bio\":null,\"di"
+      "ms": 59,
+      "body": "{\"success\":false,\"message\":\"Access denied: No authentication token provided.\"}"
     },
     {
       "route": "/users/me",
       "auth": true,
       "note": "profile incl. preferredLanguage",
-      "authenticated": true,
-      "status": 200,
-      "ok": true,
+      "authenticated": false,
+      "status": 401,
+      "ok": false,
       "location": null,
-      "ms": 108,
-      "body": "{\"success\":true,\"data\":{\"id\":\"5c9423a2-6d99-4879-9fcf-dac7ba9e7e95\",\"email\":\"i18n.qa.farmer.1795808072739@farmconnect.test\",\"name\":\"i18n QA Fields\",\"phone\":\"9808072739\",\"role\":\"FARMER\",\"isActive\":true,\"preferredLanguage\":\"en\",\"createdAt\":\"2026-11-27T19:34:34.554Z\",\"farmerProfile\":{\"id\":\"248897de-43d3-4e26-a9e6-70159d5778f7\",\"userId\":\"5c9423a2-6d99-4879-9fcf-dac7ba9e7e95\",\"farmName\":\"i18n QA Fields"
+      "ms": 64,
+      "body": "{\"success\":false,\"message\":\"Access denied: No authentication token provided.\"}"
     },
     {
       "route": "/products/my-products",
       "auth": true,
       "note": "farmer inventory",
-      "authenticated": true,
-      "status": 200,
-      "ok": true,
+      "authenticated": false,
+      "status": 401,
+      "ok": false,
       "location": null,
-      "ms": 83,
-      "body": "{\"success\":true,\"data\":[],\"products\":[]}"
+      "ms": 74,
+      "body": "{\"success\":false,\"message\":\"Access denied: No authentication token provided.\"}"
     },
     {
       "route": "/orders/my",
       "auth": true,
       "note": "consumer orders",
-      "authenticated": true,
-      "status": 200,
-      "ok": true,
+      "authenticated": false,
+      "status": 401,
+      "ok": false,
       "location": null,
-      "ms": 71,
-      "body": "{\"success\":true,\"data\":[],\"orders\":[]}"
+      "ms": 64,
+      "body": "{\"success\":false,\"message\":\"Access denied: No authentication token provided.\"}"
     },
     {
       "route": "/orders/farmer",
       "auth": true,
       "note": "farmer orders",
-      "authenticated": true,
-      "status": 200,
-      "ok": true,
+      "authenticated": false,
+      "status": 401,
+      "ok": false,
       "location": null,
-      "ms": 75,
-      "body": "{\"success\":true,\"data\":[],\"orders\":[]}"
+      "ms": 54,
+      "body": "{\"success\":false,\"message\":\"Access denied: No authentication token provided.\"}"
     },
     {
       "route": "/enquiries/my",
       "auth": true,
       "note": "consumer enquiries",
-      "authenticated": true,
-      "status": 200,
-      "ok": true,
+      "authenticated": false,
+      "status": 401,
+      "ok": false,
       "location": null,
-      "ms": 82,
-      "body": "{\"success\":true,\"data\":[],\"enquiries\":[]}"
+      "ms": 59,
+      "body": "{\"success\":false,\"message\":\"Access denied: No authentication token provided.\"}"
     },
     {
       "route": "/enquiries/farmer",
       "auth": true,
       "note": "farmer enquiries",
-      "authenticated": true,
-      "status": 200,
-      "ok": true,
+      "authenticated": false,
+      "status": 401,
+      "ok": false,
       "location": null,
-      "ms": 79,
-      "body": "{\"success\":true,\"data\":[],\"enquiries\":[]}"
+      "ms": 62,
+      "body": "{\"success\":false,\"message\":\"Access denied: No authentication token provided.\"}"
     },
     {
       "route": "/favorites/",
       "auth": true,
       "note": "favourites",
-      "authenticated": true,
-      "status": 200,
-      "ok": true,
+      "authenticated": false,
+      "status": 401,
+      "ok": false,
       "location": null,
-      "ms": 97,
-      "body": "{\"success\":true,\"data\":{\"products\":[],\"farmers\":[]},\"products\":[],\"farmers\":[]}"
+      "ms": 65,
+      "body": "{\"success\":false,\"message\":\"Access denied: No authentication token provided.\"}"
     },
     {
       "route": "/notifications/",
       "auth": true,
       "note": "notification inbox",
-      "authenticated": true,
-      "status": 200,
-      "ok": true,
+      "authenticated": false,
+      "status": 401,
+      "ok": false,
       "location": null,
-      "ms": 89,
-      "body": "{\"success\":true,\"data\":[],\"notifications\":[],\"unreadCount\":0}"
+      "ms": 64,
+      "body": "{\"success\":false,\"message\":\"Access denied: No authentication token provided.\"}"
     },
     {
       "route": "/complaints/mine",
       "auth": true,
       "note": "own complaints",
-      "authenticated": true,
-      "status": 200,
-      "ok": true,
+      "authenticated": false,
+      "status": 401,
+      "ok": false,
       "location": null,
-      "ms": 81,
-      "body": "{\"success\":true,\"data\":[],\"complaints\":[]}"
+      "ms": 61,
+      "body": "{\"success\":false,\"message\":\"Access denied: No authentication token provided.\"}"
     }
   ],
   "website": [
@@ -253,8 +276,8 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 91,
-      "body": "<!DOCTYPE html><!--H2kkLLWw2eb3mBNEX7cpW--><html lang=\"en\" class=\"__variable_64a611 scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a179e24df3b76e0b.css\""
+      "ms": 479,
+      "body": "<!DOCTYPE html><!--wCwnzDT5dfrA5WCIzta2j--><html lang=\"en\" class=\"__variable_64a611 scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a179e24df3b76e0b.css\""
     },
     {
       "route": "/login",
@@ -263,8 +286,8 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 68,
-      "body": "<!DOCTYPE html><!--H2kkLLWw2eb3mBNEX7cpW--><html lang=\"en\" class=\"__variable_64a611 scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a179e24df3b76e0b.css\""
+      "ms": 71,
+      "body": "<!DOCTYPE html><!--wCwnzDT5dfrA5WCIzta2j--><html lang=\"en\" class=\"__variable_64a611 scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a179e24df3b76e0b.css\""
     },
     {
       "route": "/register",
@@ -273,8 +296,8 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 74,
-      "body": "<!DOCTYPE html><!--H2kkLLWw2eb3mBNEX7cpW--><html lang=\"en\" class=\"__variable_64a611 scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a179e24df3b76e0b.css\""
+      "ms": 78,
+      "body": "<!DOCTYPE html><!--wCwnzDT5dfrA5WCIzta2j--><html lang=\"en\" class=\"__variable_64a611 scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a179e24df3b76e0b.css\""
     },
     {
       "route": "/consumer/explore",
@@ -283,8 +306,8 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 64,
-      "body": "<!DOCTYPE html><!--H2kkLLWw2eb3mBNEX7cpW--><html lang=\"en\" class=\"__variable_64a611 scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a179e24df3b76e0b.css\""
+      "ms": 79,
+      "body": "<!DOCTYPE html><!--wCwnzDT5dfrA5WCIzta2j--><html lang=\"en\" class=\"__variable_64a611 scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a179e24df3b76e0b.css\""
     },
     {
       "route": "/mandi-rates",
@@ -293,8 +316,8 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 68,
-      "body": "<!DOCTYPE html><!--H2kkLLWw2eb3mBNEX7cpW--><html lang=\"en\" class=\"__variable_64a611 scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a179e24df3b76e0b.css\""
+      "ms": 81,
+      "body": "<!DOCTYPE html><!--wCwnzDT5dfrA5WCIzta2j--><html lang=\"en\" class=\"__variable_64a611 scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a179e24df3b76e0b.css\""
     },
     {
       "route": "/consumer/map",
@@ -303,8 +326,8 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 77,
-      "body": "<!DOCTYPE html><!--H2kkLLWw2eb3mBNEX7cpW--><html lang=\"en\" class=\"__variable_64a611 scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a179e24df3b76e0b.css\""
+      "ms": 73,
+      "body": "<!DOCTYPE html><!--wCwnzDT5dfrA5WCIzta2j--><html lang=\"en\" class=\"__variable_64a611 scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a179e24df3b76e0b.css\""
     },
     {
       "route": "/buy",
@@ -313,7 +336,7 @@
       "status": 308,
       "ok": false,
       "location": "/checkout",
-      "ms": 68,
+      "ms": 65,
       "body": "/checkout"
     },
     {
@@ -323,7 +346,7 @@
       "status": 307,
       "ok": false,
       "location": "/login?redirect=%2Fcheckout",
-      "ms": 91,
+      "ms": 71,
       "body": "/login?redirect=%2Fcheckout"
     },
     {
@@ -333,7 +356,7 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 123,
+      "ms": 566,
       "body": "<!DOCTYPE html><html lang=\"en\" class=\"__variable_64a611 scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a179e24df3b76e0b.css\" data-precedence=\"next\"/><link rel=\"stylesheet\" href=\"/_next/static/css/5f6eeac4752cca62.css\" data-precedence=\"next\"/><link rel=\"preload\" as=\"scri"
     },
     {
@@ -343,7 +366,7 @@
       "status": 307,
       "ok": false,
       "location": "/login?redirect=%2Fconsumer%2Forders",
-      "ms": 56,
+      "ms": 65,
       "body": "/login?redirect=%2Fconsumer%2Forders"
     },
     {
@@ -353,7 +376,7 @@
       "status": 308,
       "ok": false,
       "location": "/consumer/enquiries",
-      "ms": 82,
+      "ms": 66,
       "body": "/consumer/enquiries"
     },
     {
@@ -363,8 +386,8 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 63,
-      "body": "<!DOCTYPE html><!--H2kkLLWw2eb3mBNEX7cpW--><html lang=\"en\" class=\"__variable_64a611 scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a179e24df3b76e0b.css\""
+      "ms": 90,
+      "body": "<!DOCTYPE html><!--wCwnzDT5dfrA5WCIzta2j--><html lang=\"en\" class=\"__variable_64a611 scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a179e24df3b76e0b.css\""
     },
     {
       "route": "/consumer/enquiries/unknown-id",
@@ -373,7 +396,7 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 96,
+      "ms": 85,
       "body": "<!DOCTYPE html><html lang=\"en\" class=\"__variable_64a611 scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a179e24df3b76e0b.css\" data-precedence=\"next\"/><link rel=\"stylesheet\" href=\"/_next/static/css/5f6eeac4752cca62.css\" data-precedence=\"next\"/><link rel=\"preload\" as=\"scri"
     },
     {
@@ -383,7 +406,7 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 600,
+      "ms": 196,
       "body": "<!DOCTYPE html><html lang=\"en\" class=\"__variable_64a611 scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a179e24df3b76e0b.css\" data-precedence=\"next\"/><link rel=\"stylesheet\" href=\"/_next/static/css/5f6eeac4752cca62.css\" data-precedence=\"next\"/><link rel=\"preload\" as=\"scri"
     },
     {
@@ -393,7 +416,7 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 147,
+      "ms": 202,
       "body": "<!DOCTYPE html><html lang=\"en\" class=\"__variable_64a611 scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a179e24df3b76e0b.css\" data-precedence=\"next\"/><link rel=\"stylesheet\" href=\"/_next/static/css/5f6eeac4752cca62.css\" data-precedence=\"next\"/><link rel=\"preload\" as=\"scri"
     },
     {
@@ -403,7 +426,7 @@
       "status": 307,
       "ok": false,
       "location": "/login?redirect=%2Ffarmer%2Fdashboard",
-      "ms": 65,
+      "ms": 62,
       "body": "/login?redirect=%2Ffarmer%2Fdashboard"
     },
     {
@@ -413,7 +436,7 @@
       "status": 307,
       "ok": false,
       "location": "/login?redirect=%2Ffarmer%2Fproducts",
-      "ms": 63,
+      "ms": 78,
       "body": "/login?redirect=%2Ffarmer%2Fproducts"
     },
     {
@@ -423,7 +446,7 @@
       "status": 307,
       "ok": false,
       "location": "/login?redirect=%2Ffarmer%2Forders",
-      "ms": 60,
+      "ms": 67,
       "body": "/login?redirect=%2Ffarmer%2Forders"
     },
     {
@@ -433,7 +456,7 @@
       "status": 307,
       "ok": false,
       "location": "/login?redirect=%2Ffarmer%2Finquiries",
-      "ms": 63,
+      "ms": 65,
       "body": "/login?redirect=%2Ffarmer%2Finquiries"
     },
     {
@@ -443,7 +466,7 @@
       "status": 308,
       "ok": false,
       "location": "/farmer/dashboard",
-      "ms": 62,
+      "ms": 69,
       "body": "/farmer/dashboard"
     },
     {
@@ -453,7 +476,7 @@
       "status": 308,
       "ok": false,
       "location": "/farmer/orders",
-      "ms": 62,
+      "ms": 69,
       "body": "/farmer/orders"
     },
     {
@@ -463,8 +486,8 @@
       "status": 200,
       "ok": true,
       "location": null,
-      "ms": 68,
-      "body": "<!DOCTYPE html><!--H2kkLLWw2eb3mBNEX7cpW--><html lang=\"en\" class=\"__variable_64a611 scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a179e24df3b76e0b.css\""
+      "ms": 64,
+      "body": "<!DOCTYPE html><!--wCwnzDT5dfrA5WCIzta2j--><html lang=\"en\" class=\"__variable_64a611 scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a179e24df3b76e0b.css\""
     }
   ]
 }

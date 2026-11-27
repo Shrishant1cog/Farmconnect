@@ -606,6 +606,16 @@ void main() {
         (category) => category.slug == 'vegetables',
         orElse: () => categories.first,
       );
+      // The deployed installation stores the grain category as
+      // `grains-millets`, so the lookup matches the name as well.
+      final grainCategory = categories.firstWhere(
+        (category) =>
+            category.slug == 'grains-millets' ||
+            category.slug == 'grains' ||
+            (category.name?.toLowerCase().contains('grain') ?? false) ||
+            (category.name?.toLowerCase().contains('millet') ?? false),
+        orElse: () => vegetableCategory,
+      );
 
       final suggestions = await androidFarmer.catalog.fetchCropSuggestions(search: 'Tomato');
       expect(suggestions, isNotEmpty,
@@ -629,7 +639,7 @@ void main() {
         quantity: 90,
         cropName: 'Ragi',
         variety: 'Local',
-        categoryId: vegetableCategory.id,
+        categoryId: grainCategory.id,
       );
 
       expect(tomatoLot.id, isNot(ragiLot.id));
@@ -689,6 +699,15 @@ void main() {
         category: vegetableCategory.slug,
       );
       expect(byCategory.any((product) => product.id == tomatoLot.id), isTrue);
+      expect(byCategory.any((product) => product.id == ragiLot.id), isFalse,
+          reason: 'A different crop category must not return this crop');
+
+      // --- ... and by the category the grain lot belongs to -----------------
+      final byGrainCategory = await androidConsumer.catalog.fetchProducts(
+        category: grainCategory.slug,
+      );
+      expect(byGrainCategory.any((product) => product.id == ragiLot.id), isTrue,
+          reason: 'The grain lot must be found under its own live category');
     });
 
     testWidgets('the interface language preference is shared between the clients',

@@ -599,4 +599,43 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
     const gone = await prisma.product.findUnique({ where: { id: disposableId } });
     expect(gone).toBeNull();
   });
+
+  it('NOTIFICATIONS: order and enquiry events reach the shared inbox', async () => {
+    // The farmer received the order above, so the inbox must contain a
+    // `NEW_ORDER` entry that both clients list.
+    const farmerInbox = await agent
+      .get('/api/notifications')
+      .set('Authorization', `Bearer ${farmerToken}`);
+
+    expect(farmerInbox.status).toBe(200);
+    const farmerNotifications = farmerInbox.body.data || [];
+    expect(
+      farmerNotifications.some((n: any) => n.type === 'NEW_ORDER'),
+    ).toBe(true);
+
+    // The consumer saw the order status change, so their inbox has the
+    // matching `ORDER_STATUS` entry.
+    const consumerInbox = await agent
+      .get('/api/notifications')
+      .set('Authorization', `Bearer ${consumerToken}`);
+
+    expect(consumerInbox.status).toBe(200);
+    const consumerNotifications = consumerInbox.body.data || [];
+    expect(
+      consumerNotifications.some((n: any) => n.type === 'ORDER_STATUS'),
+    ).toBe(true);
+
+    // One notification can be marked as read, and then all of them.
+    const notificationId = farmerNotifications[0].id;
+    const markRead = await agent
+      .patch(`/api/notifications/${notificationId}/read`)
+      .set('Authorization', `Bearer ${farmerToken}`);
+    expect(markRead.status).toBe(200);
+    expect(markRead.body.data.isRead).toBe(true);
+
+    const markAllRead = await agent
+      .patch('/api/notifications/read-all')
+      .set('Authorization', `Bearer ${farmerToken}`);
+    expect(markAllRead.status).toBe(200);
+  });
 });

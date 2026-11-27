@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db } from '../../config/db';
 import { AuthenticatedRequest } from '../../middleware/auth.middleware';
 import { getIO } from '../../socket';
+import { createNotification, resolveFarmerUserId as resolveFarmerUserIdForNotification } from '../../utils/notifications';
 
 const orderItemSchema = z.object({
   productId: z.string().min(1, 'Product ID is required'),
@@ -153,6 +154,20 @@ export const createOrder = async (req: AuthenticatedRequest, res: Response) => {
       }
     } catch {
       // Safe fallback if socket is unmounted
+    }
+
+    // The same event is stored in the shared notification inbox so the
+    // farmer sees it in the notification screen of either client, even when
+    // the app was closed at the time.
+    const farmerUserId = await resolveFarmerUserIdForNotification(order.farmerId);
+    if (farmerUserId) {
+      await createNotification({
+        userId: farmerUserId,
+        title: 'New order received',
+        message: `A buyer placed order ${order.id} for ${order.grandTotal}.`,
+        type: 'NEW_ORDER',
+        link: '/farmer/orders',
+      });
     }
 
     return res.status(201).json({
@@ -306,6 +321,15 @@ export const updateOrderStatus = async (req: AuthenticatedRequest, res: Response
       // Safe fallback
     }
 
+    // The same change is stored in the shared notification inbox.
+    await createNotification({
+      userId: order.consumerId,
+      title: 'Order status updated',
+      message: `Order ${order.id} is now ${prismaStatus.replace(/_/g, ' ').toLowerCase()}.`,
+      type: 'ORDER_STATUS',
+      link: '/consumer/orders',
+    });
+
     return res.json({ success: true, data: updatedOrder, order: updatedOrder });
   } catch (err: any) {
     return res.status(500).json({ success: false, message: err.message });
@@ -346,6 +370,17 @@ export const confirmOrderDelivery = async (req: AuthenticatedRequest, res: Respo
       }
     } catch {
       // Safe fallback
+    }
+
+    const farmerUserId = await resolveFarmerUserIdForNotification(order.farmerId);
+    if (farmerUserId) {
+      await createNotification({
+        userId: farmerUserId,
+        title: 'Order delivered',
+        message: `The buyer confirmed the delivery of order ${order.id}.`,
+        type: 'ORDER_DELIVERED',
+        link: '/farmer/orders',
+      });
     }
 
     return res.json({ success: true, data: updatedOrder, order: updatedOrder });

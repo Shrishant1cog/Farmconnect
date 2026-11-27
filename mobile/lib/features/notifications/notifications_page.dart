@@ -167,8 +167,12 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     switch (type.toUpperCase()) {
       case 'NEW_ENQUIRY':
       case 'ENQUIRY_MSG':
+      case 'NEW_MESSAGE':
         return Icons.forum_outlined;
       case 'ORDER':
+      case 'NEW_ORDER':
+      case 'ORDER_STATUS':
+      case 'ORDER_DELIVERED':
         return Icons.receipt_long_outlined;
       case 'COMPLAINT_RAISED':
         return Icons.report_gmailerrorred_outlined;

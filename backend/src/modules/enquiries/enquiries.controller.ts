@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db } from '../../config/db';
 import { AuthenticatedRequest } from '../../middleware/auth.middleware';
 import { getIO } from '../../socket';
+import { createNotification } from '../../utils/notifications';
 
 const createEnquirySchema = z.object({
   productId: z.string().min(1, 'Product ID is required'),
@@ -94,6 +95,19 @@ export const createEnquiry = async (req: AuthenticatedRequest, res: Response) =>
       }
     } catch {
       // Safe fallback if socket is unmounted
+    }
+
+    // The same event is stored in the shared notification inbox so the
+    // farmer sees it in the notification screen of either client.
+    const farmerUserId = enquiry.farmer?.userId || enquiry.farmer?.user?.id;
+    if (farmerUserId) {
+      await createNotification({
+        userId: farmerUserId,
+        title: 'New buyer enquiry',
+        message: `New inquiry received for ${product.title}: "${body.subject}"`,
+        type: 'NEW_ENQUIRY',
+        link: '/farmer/inquiries',
+      });
     }
 
     return res.status(201).json({ success: true, data: enquiry, enquiry });
@@ -267,6 +281,21 @@ export const sendEnquiryMessage = async (req: AuthenticatedRequest, res: Respons
       }
     } catch {
       // Safe fallback
+    }
+
+    // The same message is stored in the shared notification inbox of the
+    // other participant, so it is not lost when their app is closed.
+    const recipientUserId = isConsumer
+      ? enquiry.farmer?.userId
+      : enquiry.consumerId;
+    if (recipientUserId) {
+      await createNotification({
+        userId: recipientUserId,
+        title: 'New message',
+        message: body.content.trim().slice(0, 140),
+        type: 'NEW_MESSAGE',
+        link: '/consumer/enquiries',
+      });
     }
 
     return res.status(201).json({ success: true, data: message, message });

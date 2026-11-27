@@ -115,6 +115,10 @@ const farmerReg = await call('POST', '/auth/register', {
 record('register farmer', '/auth/register', 'POST', farmerReg, '201');
 const farmerToken = farmerReg.json?.data?.token || farmerReg.json?.token;
 const farmerUserId = farmerReg.json?.data?.user?.id || farmerReg.json?.user?.id;
+const farmerProfileId =
+  farmerReg.json?.data?.user?.farmerProfile?.id ||
+  farmerReg.json?.user?.farmerProfile?.id ||
+  null;
 
 const consumerReg = await call('POST', '/auth/register', {
   body: {
@@ -245,10 +249,10 @@ record('public farmer directory', '/users/farmers', 'GET', usersFarmers, '200');
 // 4. Favourites
 // ---------------------------------------------------------------------------
 const favProduct = await call('POST', `/favorites/products/${createdProductId}`, { token: consumerToken });
-record('favourite a listing', '/favorites/products/[id]', 'POST', favProduct, '200');
+record('favourite a listing', '/favorites/products/[id]', 'POST', favProduct, '201');
 
-const favFarmers = await call('POST', `/favorites/farmers/${farmerUserId}`, { token: consumerToken });
-record('favourite a farmer', '/favorites/farmers/[id]', 'POST', favFarmers, '200');
+const favFarmers = await call('POST', `/favorites/farmers/${farmerProfileId}`, { token: consumerToken });
+record('favourite a farmer', '/favorites/farmers/[id]', 'POST', favFarmers, '201');
 
 const favList = await call('GET', '/favorites', { token: consumerToken });
 record('favourites', '/favorites', 'GET', favList, '200');
@@ -324,7 +328,13 @@ record('notification inbox', '/notifications', 'GET', notifications, '200');
 const notificationsConsumer = await call('GET', '/notifications', { token: consumerToken });
 record('notification inbox (consumer)', '/notifications', 'GET', notificationsConsumer, '200');
 
-const notificationIds = (notifications.json?.data || []).map((n) => n.id);
+const notificationList = [
+  ...(notifications.json?.data || []),
+  ...(notifications.json?.notifications || []),
+  ...(notificationsConsumer.json?.data || []),
+  ...(notificationsConsumer.json?.notifications || []),
+];
+const notificationIds = notificationList.map((n) => n?.id).filter(Boolean);
 if (notificationIds.length > 0) {
   const markRead = await call('PATCH', `/notifications/${notificationIds[0]}/read`, { token: farmerToken });
   record('mark one notification read', '/notifications/[id]/read', 'PATCH', markRead, '200');
@@ -362,17 +372,49 @@ for (const [name, route, method] of [
 }
 
 // ---------------------------------------------------------------------------
-// 9. Cleanup
+// 9. Cleanup and the delete behaviour
 // ---------------------------------------------------------------------------
 if (createdProductId) {
-  const deleteProduct = await call('DELETE', `/products/${createdProductId}`, { token: farmerToken });
-  record('delete one listing', '/products/[id]', 'DELETE', deleteProduct, '200');
+  // The listing carries an order now, so the backend refuses to delete it
+  // and says why — the endpoint must never report a delete that did not
+  // happen.
+  const deleteWithOrder = await call('DELETE', `/products/${createdProductId}`, { token: farmerToken });
+  record('delete a listing that carries an order', '/products/[id]', 'DELETE', deleteWithOrder, '409 (refused, order history is protected)');
+
+  const stillThere = await call('GET', `/products/${createdProductId}`);
+  record('the refused listing is still present', '/products/[id]', 'GET', stillThere, '200 (nothing was deleted)');
+
+  // A listing without an order is deleted for real.
+  const disposable = await call('POST', '/products', {
+    token: farmerToken,
+    body: {
+      title: `API-Smoke-Disposable-${runId}`,
+      cropName: 'Tomato',
+      description: 'A listing that may be deleted.',
+      categoryId: vegetables?.id,
+      farmerPrice: 10,
+      priceUnit: 'PER_KG',
+      quantityAvailable: 10,
+      quantityUnit: 'KG',
+      minOrderKg: 5,
+      isOrganic: false,
+    },
+  });
+  const disposableId = disposable.json?.data?.id || null;
+
+  if (disposableId) {
+    const deleteDisposable = await call('DELETE', `/products/${disposableId}`, { token: farmerToken });
+    record('delete a listing without an order', '/products/[id]', 'DELETE', deleteDisposable, '200');
+
+    const gone = await call('GET', `/products/${disposableId}`);
+    record('the deleted listing is gone', '/products/[id]', 'GET', gone, '404');
+  }
 }
 
 const afterDelete = await call('GET', '/products/my-products', { token: farmerToken });
 const leftovers = (afterDelete.json?.data || []).filter((p) => p.id === createdProductId);
 console.log('');
-console.log(`Cleanup: ${leftovers.length} QA listing(s) left behind.`);
+console.log(`Cleanup: ${leftovers.length} QA listing(s) left behind (it carries an order and is protected).`);
 
 const report = {
   generatedAt: new Date().toISOString(),
@@ -384,7 +426,11 @@ fs.writeFileSync(OUT, `${JSON.stringify(report, null, 2)}\n`);
 console.log(`Report written to ${path.relative(ROOT, OUT)}`);
 
 const unexpected = results.filter(
-  (r) => r.status === null || (r.expectation.startsWith('20') && !String(r.status).startsWith('20')),
+  (r) =>
+    r.status === null ||
+    (r.expectation.startsWith('20') && !String(r.status).startsWith('20')) ||
+    (r.expectation.startsWith('40') && !String(r.status).startsWith('40')) ||
+    (r.expectation.startsWith('SKIPPED') && r.status !== 'SKIPPED'),
 );
 console.log('');
 console.log(`${results.length} endpoints probed, ${unexpected.length} unexpected status(es).`);

@@ -30,6 +30,9 @@ class Category {
 }
 
 /// A harvest listing created by a farmer.
+///
+/// One listing represents exactly one crop, so a farmer can publish several
+/// independent crop lots without one overwriting another.
 class Product {
   const Product({
     required this.id,
@@ -51,6 +54,8 @@ class Product {
     this.viewCount = 0,
     this.farmerId,
     this.categoryId,
+    this.cropName,
+    this.variety,
     this.farmer,
     this.category,
     this.createdAt,
@@ -76,6 +81,12 @@ class Product {
   final int viewCount;
   final String? farmerId;
   final String? categoryId;
+
+  /// Crop this lot represents (e.g. "Tomato").
+  final String? cropName;
+
+  /// Variety of the crop where applicable (e.g. "Hybrid").
+  final String? variety;
   final Map<String, dynamic>? farmer;
   final Category? category;
   final DateTime? createdAt;
@@ -112,6 +123,8 @@ class Product {
       viewCount: json['viewCount'] is num ? (json['viewCount'] as num).toInt() : 0,
       farmerId: json['farmerId']?.toString(),
       categoryId: json['categoryId']?.toString(),
+      cropName: json['cropName']?.toString(),
+      variety: json['variety']?.toString(),
       farmer: json['farmer'] is Map ? Map<String, dynamic>.from(json['farmer']) : null,
       category: json['category'] is Map
           ? Category.fromJson(Map<String, dynamic>.from(json['category']))
@@ -123,6 +136,59 @@ class Product {
 
   /// The farmer profile id that owns this listing.
   String? get ownerFarmerProfileId => farmer?['id']?.toString() ?? farmerId;
+}
+
+/// A crop category returned by the shared catalogue endpoint.
+class CropCategory {
+  const CropCategory({
+    this.id,
+    this.name,
+    this.slug,
+    this.description,
+    this.productCount = 0,
+  });
+
+  final String? id;
+  final String? name;
+  final String? slug;
+  final String? description;
+  final int productCount;
+
+  factory CropCategory.fromJson(Map<String, dynamic> json) {
+    return CropCategory(
+      id: json['id']?.toString(),
+      name: json['name']?.toString(),
+      slug: json['slug']?.toString(),
+      description: json['description']?.toString(),
+      productCount: json['productCount'] is num
+          ? (json['productCount'] as num).toInt()
+          : 0,
+    );
+  }
+}
+
+/// A crop from the shared crop catalogue (search assistance for farmers).
+class CropSuggestion {
+  const CropSuggestion({
+    this.name,
+    this.category,
+    this.aliases = const [],
+  });
+
+  final String? name;
+  final String? category;
+  final List<String> aliases;
+
+  factory CropSuggestion.fromJson(Map<String, dynamic> json) {
+    final rawAliases = json['aliases'];
+    return CropSuggestion(
+      name: json['name']?.toString(),
+      category: json['category']?.toString(),
+      aliases: rawAliases is List
+          ? rawAliases.map((item) => item.toString()).toList()
+          : const [],
+    );
+  }
 }
 
 /// A farmer profile as returned by the discovery endpoints.

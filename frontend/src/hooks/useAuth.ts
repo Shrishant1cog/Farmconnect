@@ -17,6 +17,8 @@ export interface AuthUser {
   address?: string;
   latitude?: number;
   longitude?: number;
+  /** Interface language stored on the shared account (en | kn | hi). */
+  preferredLanguage?: string;
   farmerProfile?: {
     id: string;
     farmName: string;

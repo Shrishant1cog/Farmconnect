@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../data/models/order.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/app_states.dart';
 import '../../../shared/widgets/farmer_card.dart';
 import '../auth/auth_controller.dart';
@@ -57,24 +58,27 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   }
 
   Future<void> _load() async {
+    final l10n = AppLocalizations.of(context);
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
-      final order = await ref.read(orderRepositoryProvider).fetchOrder(widget.orderId);
+      final order = await ref
+          .read(orderRepositoryProvider)
+          .fetchOrder(widget.orderId);
       if (!mounted) {
         return;
       }
       setState(() => _order = order);
     } on ApiException catch (error) {
       if (mounted) {
-        setState(() => _error = error.displayMessage);
+        setState(() => _error = l10n.commonRequestFailed(error.displayMessage));
       }
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
-        setState(() => _error = error.toString());
+        setState(() => _error = l10n.commonSomethingWrong);
       }
     } finally {
       if (mounted) {
@@ -84,18 +88,23 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   }
 
   Future<void> _confirmDelivery() async {
+    final l10n = AppLocalizations.of(context);
     setState(() => _confirming = true);
     try {
       await ref.read(orderRepositoryProvider).confirmDelivery(widget.orderId);
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Delivery receipt confirmed')),
+          SnackBar(content: Text(l10n.ordersDeliveryReceiptConfirmed)),
         );
       }
     } on ApiException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.displayMessage)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.commonRequestFailed(error.displayMessage)),
+          ),
+        );
       }
     } finally {
       if (mounted) {
@@ -106,36 +115,41 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final user = ref.watch(currentUserProvider);
     final isConsumer = user?.isConsumer ?? true;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Order tracking')),
+      appBar: AppBar(title: Text(l10n.ordersTrackingTitle)),
       body: _buildBody(isConsumer),
       bottomNavigationBar: (_order == null || !isConsumer)
           ? null
           : (_order!.status == OrderStatus.dispatched
-              ? SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                    child: FilledButton.icon(
-                      onPressed: _confirming ? null : _confirmDelivery,
-                      icon: _confirming
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
-                            )
-                          : const Icon(Icons.task_alt_rounded),
-                      label: const Text('Confirm Delivery Receipt'),
+                ? SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                      child: FilledButton.icon(
+                        onPressed: _confirming ? null : _confirmDelivery,
+                        icon: _confirming
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.task_alt_rounded),
+                        label: Text(l10n.ordersConfirmDeliveryReceipt),
+                      ),
                     ),
-                  ),
-                )
-              : null),
+                  )
+                : null),
     );
   }
 
   Widget _buildBody(bool isConsumer) {
+    final l10n = AppLocalizations.of(context);
     if (_loading) {
       return const LoadingView();
     }
@@ -157,12 +171,17 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                   children: [
                     Expanded(
                       child: Text(
-                        'Order #${order.id.substring(0, order.id.length.clamp(0, 8))}',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                        l10n.consumerOrderNumber(
+                          order.id.substring(0, order.id.length.clamp(0, 8)),
+                        ),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                     OrderStatusChip(
-                      label: order.status.label,
+                      label: _orderStatusLabel(l10n, order.status),
                       color: orderStatusColor(order.status),
                     ),
                   ],
@@ -180,7 +199,13 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Items', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                Text(
+                  l10n.consumerItems,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
                 const SizedBox(height: 12),
                 for (final item in order.items)
                   Padding(
@@ -189,23 +214,49 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                       children: [
                         Expanded(
                           child: Text(
-                            '${item.productTitle} × ${Formatters.quantity(item.quantity, 'KG')}',
+                            '${item.productTitle} × ${_formatQuantity(context, item.quantity, l10n)}',
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                         ),
-                        Text(
-                          Formatters.currency(item.quantity * item.unitPrice),
-                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            _formatCurrency(
+                              context,
+                              item.quantity * item.unitPrice,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.end,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
                         ),
                       ],
                     ),
                   ),
                 const Divider(height: 20),
-                _amountRow('Items total', order.totalItemsCost),
-                _amountRow('Transport', order.transportCost),
-                _amountRow('Container', order.containerCost),
+                _amountRow(
+                  context,
+                  l10n.ordersItemsTotal,
+                  order.totalItemsCost,
+                ),
+                _amountRow(
+                  context,
+                  l10n.ordersTransportCost,
+                  order.transportCost,
+                ),
+                _amountRow(
+                  context,
+                  l10n.ordersContainerCost,
+                  order.containerCost,
+                ),
                 const Divider(height: 20),
-                _amountRow('Grand total', order.grandTotal, bold: true),
+                _amountRow(
+                  context,
+                  l10n.ordersGrandTotal,
+                  order.grandTotal,
+                  bold: true,
+                ),
               ],
             ),
           ),
@@ -217,15 +268,22 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Delivery',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                Text(
+                  l10n.ordersDelivery,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.location_on_outlined, size: 18, color: AppTheme.stone500),
+                    const Icon(
+                      Icons.location_on_outlined,
+                      size: 18,
+                      color: AppTheme.stone500,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -237,12 +295,14 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  isConsumer ? 'Cultivator: ${order.farmerName}' : 'Buyer: ${order.consumerName}',
+                  isConsumer
+                      ? l10n.ordersCultivatorLabel(_farmerName(l10n, order))
+                      : l10n.ordersBuyerLabel(_consumerName(l10n, order)),
                   style: const TextStyle(color: AppTheme.stone500),
                 ),
                 if (isConsumer && order.farmerPhone.isNotEmpty)
                   Text(
-                    'Phone: ${order.farmerPhone}',
+                    l10n.ordersPhoneLabel(order.farmerPhone),
                     style: const TextStyle(color: AppTheme.stone500),
                   ),
               ],
@@ -254,11 +314,12 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   }
 
   Widget _statusTimeline(OrderStatus status) {
+    final l10n = AppLocalizations.of(context);
     final steps = [
-      (OrderStatus.pending, 'Order placed'),
-      (OrderStatus.confirmed, 'Packed by farmer'),
-      (OrderStatus.dispatched, 'Dispatched'),
-      (OrderStatus.delivered, 'Delivered'),
+      (OrderStatus.pending, l10n.ordersTimelinePlaced),
+      (OrderStatus.confirmed, l10n.ordersTimelinePacked),
+      (OrderStatus.dispatched, l10n.consumerOrderStatusDispatched),
+      (OrderStatus.delivered, l10n.consumerOrderStatusDelivered),
     ];
     final currentIndex = steps.indexWhere((step) => step.$1 == status);
 
@@ -274,14 +335,22 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                       ? Icons.check_circle_rounded
                       : Icons.radio_button_unchecked_rounded,
                   size: 20,
-                  color: index <= currentIndex ? AppTheme.emeraldDark : AppTheme.stone200,
+                  color: index <= currentIndex
+                      ? AppTheme.emeraldDark
+                      : AppTheme.stone200,
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  steps[index].$2,
-                  style: TextStyle(
-                    fontWeight: index == currentIndex ? FontWeight.w800 : FontWeight.w500,
-                    color: index <= currentIndex ? AppTheme.stone900 : AppTheme.stone500,
+                Expanded(
+                  child: Text(
+                    steps[index].$2,
+                    style: TextStyle(
+                      fontWeight: index == currentIndex
+                          ? FontWeight.w800
+                          : FontWeight.w500,
+                      color: index <= currentIndex
+                          ? AppTheme.stone900
+                          : AppTheme.stone500,
+                    ),
                   ),
                 ),
               ],
@@ -291,7 +360,12 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     );
   }
 
-  Widget _amountRow(String label, double value, {bool bold = false}) {
+  Widget _amountRow(
+    BuildContext context,
+    String label,
+    double value, {
+    bool bold = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
@@ -305,12 +379,68 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               ),
             ),
           ),
-          Text(
-            Formatters.currency(value),
-            style: TextStyle(fontWeight: bold ? FontWeight.w900 : FontWeight.w700),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              _formatCurrency(context, value),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontWeight: bold ? FontWeight.w900 : FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
+}
+
+String _orderStatusLabel(AppLocalizations l10n, OrderStatus status) {
+  switch (status) {
+    case OrderStatus.pending:
+      return l10n.consumerOrderStatusPending;
+    case OrderStatus.confirmed:
+      return l10n.consumerOrderStatusConfirmed;
+    case OrderStatus.dispatched:
+      return l10n.consumerOrderStatusDispatched;
+    case OrderStatus.delivered:
+      return l10n.consumerOrderStatusDelivered;
+    case OrderStatus.cancelled:
+      return l10n.consumerOrderStatusCancelled;
+  }
+}
+
+String _consumerName(AppLocalizations l10n, Order order) {
+  final name = order.consumer?['name']?.toString().trim();
+  return name == null || name.isEmpty ? l10n.commonBuyer : name;
+}
+
+String _farmerName(AppLocalizations l10n, Order order) {
+  final user = order.farmer?['user'];
+  final name = user is Map ? user['name']?.toString().trim() : null;
+  if (name != null && name.isNotEmpty) {
+    return name;
+  }
+  final farmName = order.farmer?['farmName']?.toString().trim();
+  return farmName == null || farmName.isEmpty
+      ? l10n.commonCultivator
+      : farmName;
+}
+
+String _formatQuantity(BuildContext context, num value, AppLocalizations l10n) {
+  final locale = Localizations.localeOf(context).toString();
+  final number = NumberFormat.decimalPattern(locale).format(value);
+  return '$number ${l10n.commonKg}';
+}
+
+String _formatCurrency(BuildContext context, num value) {
+  final locale = Localizations.localeOf(context).toString();
+  final formatted = NumberFormat.currency(
+    locale: locale,
+    symbol: '₹',
+    decimalDigits: 2,
+  ).format(value);
+  return formatted.replaceFirst(RegExp(r'\.00$'), '');
 }

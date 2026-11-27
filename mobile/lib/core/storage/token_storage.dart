@@ -66,6 +66,7 @@ class TokenStorage {
   static const _tokenKey = 'farmconnect_token';
   static const _userKey = 'farmconnect_user';
   static const _roleKey = 'farmconnect_role';
+  static const _localeKey = 'farmconnect_locale';
 
   Future<String?> readToken() => _storage.read(key: _tokenKey);
 
@@ -81,9 +82,18 @@ class TokenStorage {
 
   Future<void> writeRole(String role) => _storage.write(key: _roleKey, value: role);
 
+  /// Locally stored interface language. It survives a logout so a signed-out
+  /// visitor keeps the language they chose.
+  Future<String?> readLocale() => _storage.read(key: _localeKey);
+
+  Future<void> writeLocale(String languageCode) =>
+      _storage.write(key: _localeKey, value: languageCode);
+
   Future<void> clearAll() async {
     await _storage.delete(key: _tokenKey);
     await _storage.delete(key: _userKey);
     await _storage.delete(key: _roleKey);
+    // The language preference is deliberately kept: it is a device level
+    // preference and must survive signing out.
   }
 }

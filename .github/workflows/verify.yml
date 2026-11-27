@@ -80,6 +80,9 @@ jobs:
             frontend/package-lock.json
             backend/package-lock.json
 
+      - name: Localisation completeness check (en / kn / hi)
+        run: node scripts/verify-i18n.mjs
+
       - name: Install frontend from lockfile
         working-directory: frontend
         run: npm ci

@@ -5,6 +5,7 @@ import 'package:farmconnect_mobile/core/theme/app_theme.dart';
 import 'package:farmconnect_mobile/features/consumer/cart_controller.dart';
 import 'package:farmconnect_mobile/features/consumer/cart_page.dart';
 import 'package:farmconnect_mobile/data/models/product.dart';
+import 'package:farmconnect_mobile/l10n/generated/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 Product _product({
@@ -25,11 +26,16 @@ Product _product({
 }
 
 void main() {
-  testWidgets('cart screen shows an empty state and adds products', (tester) async {
+  testWidgets('cart screen shows an empty state and adds products', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
           theme: AppTheme.light(),
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: const CartPage(),
         ),
       ),
@@ -37,16 +43,18 @@ void main() {
 
     await tester.pump();
 
-    expect(find.text('Your Cart is Empty'), findsOneWidget);
+    expect(find.text('Your cart is empty'), findsOneWidget);
 
     final container = ProviderScope.containerOf(
       tester.element(find.byType(CartPage)),
     );
-    container.read(cartControllerProvider.notifier).add(_product(), quantity: 25);
+    container
+        .read(cartControllerProvider.notifier)
+        .add(_product(), quantity: 25);
 
     await tester.pump();
 
-    expect(find.text('Your Cart is Empty'), findsNothing);
+    expect(find.text('Your cart is empty'), findsNothing);
     expect(find.text('Native Tomatoes'), findsOneWidget);
     expect(find.textContaining('Qty'), findsNothing);
   });

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/providers.dart';
 import '../features/admin/admin_dashboard_page.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../features/auth/auth_controller.dart';
 import '../features/auth/login_page.dart';
 import '../features/auth/register_page.dart';
@@ -135,30 +136,33 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => _EditProductRoute(productId: state.pathParameters['id']!),
       ),
     ],
-    errorBuilder: (context, state) => Scaffold(
-      appBar: AppBar(title: const Text('FarmConnect')),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.explore_off_outlined, size: 46, color: Colors.grey),
-              const SizedBox(height: 14),
-              Text(
-                'This screen is not available (${state.error})',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 18),
-              FilledButton(
-                onPressed: () => context.go('/home'),
-                child: const Text('Back to home'),
-              ),
-            ],
+    errorBuilder: (context, state) {
+      final l10n = AppLocalizations.of(context);
+      return Scaffold(
+        appBar: AppBar(title: Text(l10n.appTitle)),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.explore_off_outlined, size: 46, color: Colors.grey),
+                const SizedBox(height: 14),
+                Text(
+                  '${l10n.commonNotFound} (${state.error})',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 18),
+                FilledButton(
+                  onPressed: () => context.go('/home'),
+                  child: Text(l10n.navDashboard),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
-    ),
+      );
+    },
   );
 });
 
@@ -263,8 +267,9 @@ class _EditProductRouteState extends ConsumerState<_EditProductRoute> {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
         if (snapshot.hasError) {
+          final l10n = AppLocalizations.of(context);
           return Scaffold(
-            appBar: AppBar(title: const Text('Modify Crop Lot')),
+            appBar: AppBar(title: Text(l10n.farmerFormEditTitle)),
             body: Center(child: Text('${snapshot.error}')),
           );
         }

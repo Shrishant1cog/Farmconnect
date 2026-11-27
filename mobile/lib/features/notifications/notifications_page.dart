@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../data/models/misc.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/app_states.dart';
 
 /// Notification inbox — backed by the shared `Notification` table.
@@ -28,24 +29,27 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   }
 
   Future<void> _load() async {
+    final l10n = AppLocalizations.of(context);
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
-      final notifications = await ref.read(engagementRepositoryProvider).fetchNotifications();
+      final notifications = await ref
+          .read(engagementRepositoryProvider)
+          .fetchNotifications();
       if (!mounted) {
         return;
       }
       setState(() => _notifications = notifications);
     } on ApiException catch (error) {
       if (mounted) {
-        setState(() => _error = error.displayMessage);
+        setState(() => _error = l10n.commonRequestFailed(error.displayMessage));
       }
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
-        setState(() => _error = error.toString());
+        setState(() => _error = l10n.commonSomethingWrong);
       }
     } finally {
       if (mounted) {
@@ -55,26 +59,32 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   }
 
   Future<void> _markAllRead() async {
+    final l10n = AppLocalizations.of(context);
     try {
       await ref.read(engagementRepositoryProvider).markAllNotificationsRead();
       await _load();
     } on ApiException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.displayMessage)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.commonRequestFailed(error.displayMessage)),
+          ),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notifications'),
+        title: Text(l10n.notificationsTitle),
         actions: [
           IconButton(
             onPressed: _notifications.isEmpty ? null : _markAllRead,
             icon: const Icon(Icons.done_all_rounded),
-            tooltip: 'Mark all as read',
+            tooltip: l10n.notificationsMarkAllRead,
           ),
         ],
       ),
@@ -87,18 +97,21 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   }
 
   Widget _buildBody() {
+    final l10n = AppLocalizations.of(context);
     if (_loading) {
       return const LoadingView();
     }
     if (_error != null) {
-      return ListView(children: [ErrorView(message: _error!, onRetry: _load)]);
+      return ListView(
+        children: [ErrorView(message: _error!, onRetry: _load)],
+      );
     }
     if (_notifications.isEmpty) {
       return ListView(
-        children: const [
+        children: [
           EmptyState(
-            title: 'No notifications',
-            message: 'Order updates and buyer enquiries will appear here in real time.',
+            title: l10n.notificationsEmpty,
+            message: l10n.notificationsEmptyBody,
             icon: Icons.notifications_none_rounded,
           ),
         ],
@@ -120,16 +133,27 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                     : AppTheme.emerald.withValues(alpha: 0.14),
                 child: Icon(
                   _iconFor(notification.type),
-                  color: notification.isRead ? AppTheme.stone500 : AppTheme.emeraldDark,
+                  color: notification.isRead
+                      ? AppTheme.stone500
+                      : AppTheme.emeraldDark,
                 ),
               ),
               title: Text(
                 notification.title,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14.5,
+                ),
               ),
-              subtitle: Text(notification.message),
+              subtitle: Text(
+                notification.message,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
               trailing: Text(
-                Formatters.relative(notification.createdAt),
+                _formatRelative(context, l10n, notification.createdAt),
                 style: const TextStyle(color: AppTheme.stone500, fontSize: 11),
               ),
             ),
@@ -152,4 +176,30 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
         return Icons.notifications_none_rounded;
     }
   }
+}
+
+String _formatRelative(
+  BuildContext context,
+  AppLocalizations l10n,
+  DateTime? value,
+) {
+  if (value == null) {
+    return '—';
+  }
+  final locale = Localizations.localeOf(context).toString();
+  final numberFormat = NumberFormat.decimalPattern(locale);
+  final difference = DateTime.now().difference(value.toLocal());
+  if (difference.inMinutes < 1) {
+    return l10n.commonJustNow;
+  }
+  if (difference.inMinutes < 60) {
+    return l10n.commonMinutesAgo(numberFormat.format(difference.inMinutes));
+  }
+  if (difference.inHours < 24) {
+    return l10n.commonHoursAgo(numberFormat.format(difference.inHours));
+  }
+  if (difference.inDays < 7) {
+    return l10n.commonDaysAgo(numberFormat.format(difference.inDays));
+  }
+  return DateFormat.yMMMd(locale).format(value.toLocal());
 }

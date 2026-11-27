@@ -65,4 +65,19 @@ class UserRepository {
   Future<void> verifyAadhaar(String aadhaarNumber) async {
     await _api.post(ApiEndpoints.verifyAadhaar, body: {'aadhaarNumber': aadhaarNumber});
   }
+
+  /// Stores the interface language on the shared account so the website and
+  /// the Android app always speak the same language.
+  Future<String> updatePreferredLanguage(String languageCode) async {
+    final payload = await _api.patch(ApiEndpoints.userMe, body: {
+      'preferredLanguage': languageCode,
+    });
+
+    final map = payload is Map ? Map<String, dynamic>.from(payload) : <String, dynamic>{};
+    final raw = map['data'] ?? map['user'] ?? map;
+    if (raw is Map && raw['preferredLanguage'] != null) {
+      return raw['preferredLanguage'].toString();
+    }
+    return languageCode;
+  }
 }

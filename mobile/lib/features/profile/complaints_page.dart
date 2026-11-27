@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../data/models/misc.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/app_states.dart';
 
 /// Complaints raised by the signed-in user.
@@ -28,24 +29,27 @@ class _ComplaintsPageState extends ConsumerState<ComplaintsPage> {
   }
 
   Future<void> _load() async {
+    final l10n = AppLocalizations.of(context);
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
-      final complaints = await ref.read(engagementRepositoryProvider).fetchMyComplaints();
+      final complaints = await ref
+          .read(engagementRepositoryProvider)
+          .fetchMyComplaints();
       if (!mounted) {
         return;
       }
       setState(() => _complaints = complaints);
     } on ApiException catch (error) {
       if (mounted) {
-        setState(() => _error = error.displayMessage);
+        setState(() => _error = l10n.commonRequestFailed(error.displayMessage));
       }
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
-        setState(() => _error = error.toString());
+        setState(() => _error = l10n.commonSomethingWrong);
       }
     } finally {
       if (mounted) {
@@ -55,6 +59,7 @@ class _ComplaintsPageState extends ConsumerState<ComplaintsPage> {
   }
 
   Future<void> _raiseComplaint() async {
+    final l10n = AppLocalizations.of(context);
     final entityTypeController = TextEditingController(text: 'ORDER');
     final entityIdController = TextEditingController();
     final reasonController = TextEditingController();
@@ -63,19 +68,31 @@ class _ComplaintsPageState extends ConsumerState<ComplaintsPage> {
     final submitted = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Raise a complaint'),
+        title: Text(l10n.complaintsRaiseTitle),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
                 initialValue: 'ORDER',
-                decoration: const InputDecoration(labelText: 'Against'),
-                items: const [
-                  DropdownMenuItem(value: 'ORDER', child: Text('Order')),
-                  DropdownMenuItem(value: 'PRODUCT', child: Text('Product listing')),
-                  DropdownMenuItem(value: 'FARMER', child: Text('Cultivator')),
-                  DropdownMenuItem(value: 'ENQUIRY', child: Text('Conversation')),
+                decoration: InputDecoration(labelText: l10n.complaintsAgainst),
+                items: [
+                  DropdownMenuItem(
+                    value: 'ORDER',
+                    child: Text(l10n.complaintsEntityOrder),
+                  ),
+                  DropdownMenuItem(
+                    value: 'PRODUCT',
+                    child: Text(l10n.complaintsEntityProduct),
+                  ),
+                  DropdownMenuItem(
+                    value: 'FARMER',
+                    child: Text(l10n.complaintsEntityCultivator),
+                  ),
+                  DropdownMenuItem(
+                    value: 'ENQUIRY',
+                    child: Text(l10n.complaintsEntityConversation),
+                  ),
                 ],
                 onChanged: (value) =>
                     entityTypeController.text = value ?? 'ORDER',
@@ -83,27 +100,32 @@ class _ComplaintsPageState extends ConsumerState<ComplaintsPage> {
               const SizedBox(height: 10),
               TextField(
                 controller: entityIdController,
-                decoration: const InputDecoration(labelText: 'Reference id'),
+                decoration: InputDecoration(
+                  labelText: l10n.complaintsReferenceId,
+                ),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: reasonController,
-                decoration: const InputDecoration(labelText: 'Reason'),
+                decoration: InputDecoration(labelText: l10n.complaintsReason),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: detailsController,
                 maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Details'),
+                decoration: InputDecoration(labelText: l10n.complaintsDetails),
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.commonCancel),
+          ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Submit'),
+            child: Text(l10n.commonSubmit),
           ),
         ],
       ),
@@ -114,7 +136,9 @@ class _ComplaintsPageState extends ConsumerState<ComplaintsPage> {
     }
 
     try {
-      await ref.read(engagementRepositoryProvider).createComplaint(
+      await ref
+          .read(engagementRepositoryProvider)
+          .createComplaint(
             entityType: entityTypeController.text.trim(),
             entityId: entityIdController.text.trim().isEmpty
                 ? 'GENERAL'
@@ -124,27 +148,31 @@ class _ComplaintsPageState extends ConsumerState<ComplaintsPage> {
           );
       await _load();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Complaint registered')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(l10n.complaintsRegistered)));
       }
     } on ApiException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.displayMessage)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.commonRequestFailed(error.displayMessage)),
+          ),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('My complaints')),
+      appBar: AppBar(title: Text(l10n.complaintsPageTitle)),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _raiseComplaint,
         backgroundColor: AppTheme.emerald,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Raise complaint'),
+        label: Text(l10n.complaintsRaiseButton),
       ),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -155,18 +183,21 @@ class _ComplaintsPageState extends ConsumerState<ComplaintsPage> {
   }
 
   Widget _buildBody() {
+    final l10n = AppLocalizations.of(context);
     if (_loading) {
       return const LoadingView();
     }
     if (_error != null) {
-      return ListView(children: [ErrorView(message: _error!, onRetry: _load)]);
+      return ListView(
+        children: [ErrorView(message: _error!, onRetry: _load)],
+      );
     }
     if (_complaints.isEmpty) {
       return ListView(
-        children: const [
+        children: [
           EmptyState(
-            title: 'No complaints registered',
-            message: 'Raise a complaint when an order, listing or conversation needs attention.',
+            title: l10n.complaintsEmptyTitle,
+            message: l10n.complaintsEmptyMessage,
             icon: Icons.verified_user_outlined,
           ),
         ],
@@ -195,13 +226,16 @@ class _ComplaintsPageState extends ConsumerState<ComplaintsPage> {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
                           color: AppTheme.amber.withValues(alpha: 0.14),
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
-                          complaint.status,
+                          _complaintStatusLabel(l10n, complaint.status),
                           style: const TextStyle(
                             color: Color(0xFFB45309),
                             fontSize: 11,
@@ -214,17 +248,24 @@ class _ComplaintsPageState extends ConsumerState<ComplaintsPage> {
                   const SizedBox(height: 6),
                   Text(
                     complaint.details,
-                    style: const TextStyle(color: AppTheme.stone700, height: 1.4),
+                    style: const TextStyle(
+                      color: AppTheme.stone700,
+                      height: 1.4,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${complaint.entityType} · ${Formatters.dateTime(complaint.createdAt)}',
-                    style: const TextStyle(color: AppTheme.stone500, fontSize: 11.5),
+                    '${_complaintEntityLabel(l10n, complaint.entityType)} · ${_formatDateTime(context, complaint.createdAt)}',
+                    style: const TextStyle(
+                      color: AppTheme.stone500,
+                      fontSize: 11.5,
+                    ),
                   ),
-                  if (complaint.adminNotes != null && complaint.adminNotes!.isNotEmpty) ...[
+                  if (complaint.adminNotes != null &&
+                      complaint.adminNotes!.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(
-                      'Admin response: ${complaint.adminNotes}',
+                      l10n.complaintsAdminResponse(complaint.adminNotes!),
                       style: const TextStyle(
                         color: AppTheme.emeraldDark,
                         fontWeight: FontWeight.w600,
@@ -240,4 +281,46 @@ class _ComplaintsPageState extends ConsumerState<ComplaintsPage> {
       },
     );
   }
+}
+
+String _complaintEntityLabel(AppLocalizations l10n, String entityType) {
+  switch (entityType.toUpperCase()) {
+    case 'ORDER':
+      return l10n.complaintsEntityOrder;
+    case 'PRODUCT':
+      return l10n.complaintsEntityProduct;
+    case 'FARMER':
+      return l10n.complaintsEntityCultivator;
+    case 'ENQUIRY':
+    case 'CONVERSATION':
+      return l10n.complaintsEntityConversation;
+    default:
+      return l10n.complaintsEntityGeneral;
+  }
+}
+
+String _complaintStatusLabel(AppLocalizations l10n, String status) {
+  switch (status.toUpperCase()) {
+    case 'PENDING':
+    case 'OPEN':
+      return l10n.complaintStatusPending;
+    case 'IN_REVIEW':
+    case 'REVIEWING':
+      return l10n.complaintStatusInReview;
+    case 'RESOLVED':
+      return l10n.complaintStatusResolved;
+    case 'DISMISSED':
+    case 'REJECTED':
+      return l10n.complaintStatusDismissed;
+    default:
+      return l10n.commonUnknown;
+  }
+}
+
+String _formatDateTime(BuildContext context, DateTime? value) {
+  if (value == null) {
+    return '—';
+  }
+  final locale = Localizations.localeOf(context).toString();
+  return DateFormat.yMMMd(locale).add_jm().format(value.toLocal());
 }

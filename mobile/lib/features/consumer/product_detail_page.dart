@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../data/models/product.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/app_states.dart';
 import '../../../shared/widgets/farmer_card.dart';
 import 'cart_controller.dart';
@@ -50,11 +51,13 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       });
     } on ApiException catch (error) {
       if (mounted) {
-        setState(() => _error = error.displayMessage);
+        final l10n = AppLocalizations.of(context);
+        setState(() => _error = l10n.consumerRequestFailed(error.message));
       }
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
-        setState(() => _error = error.toString());
+        final l10n = AppLocalizations.of(context);
+        setState(() => _error = l10n.commonSomethingWrong);
       }
     } finally {
       if (mounted) {
@@ -69,37 +72,54 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       return;
     }
 
-    final subjectController = TextEditingController(text: 'Bulk purchase enquiry');
+    final l10n = AppLocalizations.of(context);
+    final subjectController = TextEditingController(
+      text: l10n.consumerEnquiryDefaultSubject,
+    );
     final messageController = TextEditingController();
 
     final submitted = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Send Direct Crop Enquiry to Farmer'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: subjectController,
-              decoration: const InputDecoration(labelText: 'Subject'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: messageController,
-              maxLines: 3,
-              decoration: const InputDecoration(labelText: 'Message'),
-            ),
-          ],
+        title: Text(
+          l10n.consumerEnquiryTitle,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: subjectController,
+                decoration: InputDecoration(labelText: l10n.consumerEnquirySubject),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: messageController,
+                maxLines: 3,
+                decoration: InputDecoration(labelText: l10n.consumerEnquiryMessage),
+              ),
+            ],
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.commonCancel),
+          ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Send enquiry'),
+            child: Text(l10n.consumerSendEnquiry),
           ),
         ],
       ),
     );
+
+    final subject = subjectController.text.trim();
+    final message = messageController.text.trim();
+    subjectController.dispose();
+    messageController.dispose();
 
     if (submitted != true || !mounted) {
       return;
@@ -108,38 +128,52 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     try {
       final enquiry = await ref.read(enquiryRepositoryProvider).createEnquiry(
             productId: product.id,
-            subject: subjectController.text.trim().isEmpty
-                ? 'Bulk purchase enquiry'
-                : subjectController.text.trim(),
-            message: messageController.text.trim().isEmpty
-                ? 'I am interested in your ${product.title}. Please share the best wholesale rate.'
-                : messageController.text.trim(),
+            subject: subject.isEmpty
+                ? l10n.consumerEnquiryDefaultSubject
+                : subject,
+            message: message.isEmpty
+                ? l10n.consumerEnquiryDefaultMessage(product.title)
+                : message,
           );
 
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enquiry sent to the farmer')),
+        SnackBar(content: Text(l10n.consumerEnquirySent)),
       );
       context.push('/chat/${enquiry.id}');
     } on ApiException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.displayMessage)));
+        final currentL10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(currentL10n.consumerRequestFailed(error.message)),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        final currentL10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(currentL10n.commonSomethingWrong)),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Listing')),
+      appBar: AppBar(title: Text(l10n.consumerListingTitle)),
       body: _buildBody(),
       bottomNavigationBar: _product == null ? null : _buildBottomBar(),
     );
   }
 
   Widget _buildBody() {
+    final l10n = AppLocalizations.of(context);
     if (_loading) {
       return const LoadingView();
     }
@@ -148,6 +182,9 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     }
 
     final product = _product!;
+    final cropName = product.cropName?.trim();
+    final variety = product.variety?.trim();
+    final categoryName = product.category?.name?.trim();
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
@@ -184,15 +221,19 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
               ),
             ),
             if (product.isOrganic)
-              const Chip(
-                avatar: Icon(Icons.eco_rounded, size: 16, color: AppTheme.emeraldDark),
-                label: Text('Organic'),
+              Chip(
+                avatar: const Icon(Icons.eco_rounded, size: 16, color: AppTheme.emeraldDark),
+                label: Text(l10n.commonOrganic),
               ),
           ],
         ),
         const SizedBox(height: 6),
         Text(
-          product.farmName ?? product.farmerName,
+          product.farmName?.trim().isNotEmpty == true
+              ? product.farmName!.trim()
+              : l10n.commonFarmer,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(color: AppTheme.stone500, fontSize: 14),
         ),
         const SizedBox(height: 18),
@@ -206,25 +247,45 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                   children: [
                     Expanded(
                       child: Text(
-                        '${Formatters.currency(product.farmerPrice)} / ${product.priceUnit.replaceFirst('PER_', '')}',
+                        '${_formatCurrency(context, product.farmerPrice)} / ${_priceUnitLabel(l10n, product.priceUnit)}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
                       ),
                     ),
+                    const SizedBox(width: 8),
                     OrderStatusChip(
-                      label: product.farmerPriceNotice ?? 'Farmer Listed Price',
+                      label: product.farmerPriceNotice?.trim().isNotEmpty == true
+                          ? product.farmerPriceNotice!.trim()
+                          : l10n.consumerFarmerListedPrice,
                       color: AppTheme.emeraldDark,
                     ),
                   ],
                 ),
                 const SizedBox(height: 14),
-                _infoRow(Icons.inventory_2_outlined, 'Available',
-                    Formatters.quantity(product.quantityAvailable, product.quantityUnit)),
-                _infoRow(Icons.scale_outlined, 'Minimum order',
-                    Formatters.quantity(product.minOrderKg, product.quantityUnit)),
-                _infoRow(Icons.workspace_premium_outlined, 'Grade', product.grade),
-                _infoRow(Icons.place_outlined, 'Location', product.location),
-                _infoRow(Icons.calendar_today_outlined, 'Harvested',
-                    Formatters.date(product.harvestDate)),
+                if (cropName?.isNotEmpty == true)
+                  _infoRow(Icons.grass_outlined, l10n.commonCrop, cropName!),
+                if (variety?.isNotEmpty == true)
+                  _infoRow(Icons.workspace_premium_outlined, l10n.commonVariety, variety!),
+                if (categoryName?.isNotEmpty == true)
+                  _infoRow(Icons.category_outlined, l10n.commonCategory, categoryName!),
+                _infoRow(
+                  Icons.inventory_2_outlined,
+                  l10n.commonAvailable,
+                  _formatQuantity(context, product.quantityAvailable, l10n, product.quantityUnit),
+                ),
+                _infoRow(
+                  Icons.scale_outlined,
+                  l10n.commonMinOrder,
+                  _formatQuantity(context, product.minOrderKg, l10n, product.quantityUnit),
+                ),
+                _infoRow(Icons.workspace_premium_outlined, l10n.commonGrade, product.grade),
+                _infoRow(Icons.place_outlined, l10n.commonLocation, product.location),
+                _infoRow(
+                  Icons.calendar_today_outlined,
+                  l10n.consumerHarvested,
+                  _formatDate(context, product.harvestDate),
+                ),
               ],
             ),
           ),
@@ -235,7 +296,11 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         OutlinedButton.icon(
           onPressed: _sendEnquiry,
           icon: const Icon(Icons.forum_outlined),
-          label: const Text('Send Direct Crop Enquiry to Farmer'),
+          label: Text(
+            l10n.consumerEnquiryTitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ],
     );
@@ -250,7 +315,12 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
           const SizedBox(width: 10),
           Text('$label: ', style: const TextStyle(color: AppTheme.stone500)),
           Expanded(
-            child: Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
+            child: Text(
+              value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),
@@ -258,6 +328,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
   }
 
   Widget _buildBottomBar() {
+    final l10n = AppLocalizations.of(context);
     final product = _product!;
     return SafeArea(
       child: Container(
@@ -272,7 +343,9 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
               child: OutlinedButton(
                 onPressed: () => _showQuantitySheet(),
                 child: Text(
-                  'Qty ${Formatters.quantity(_quantity, product.quantityUnit)}',
+                  '${l10n.commonQuantity}: ${_formatQuantity(context, _quantity, l10n, product.quantityUnit)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ),
@@ -283,12 +356,18 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                     ? () {
                         ref.read(cartControllerProvider.notifier).add(product, quantity: _quantity);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('${product.title} added to the cart')),
+                          SnackBar(
+                            content: Text(l10n.consumerAddedToCart(product.title)),
+                          ),
                         );
                       }
                     : null,
                 icon: const Icon(Icons.add_shopping_cart_rounded, size: 18),
-                label: const Text('Add to cart'),
+                label: Text(
+                  l10n.consumerAddToCart,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
           ],
@@ -303,6 +382,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       return;
     }
 
+    final l10n = AppLocalizations.of(context);
     final controller = TextEditingController(text: _quantity.toStringAsFixed(0));
     final result = await showModalBottomSheet<double>(
       context: context,
@@ -317,20 +397,22 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Order quantity',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            Text(
+              l10n.consumerOrderQuantity,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 6),
             Text(
-              'Minimum order is ${Formatters.quantity(product.minOrderKg, product.quantityUnit)}',
+              '${l10n.commonMinOrder}: ${_formatQuantity(context, product.minOrderKg, l10n, product.quantityUnit)}',
               style: const TextStyle(color: AppTheme.stone500),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: controller,
               keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: 'Quantity (${product.quantityUnit})'),
+              decoration: InputDecoration(
+                labelText: '${l10n.commonQuantity} (${_quantityUnitLabel(l10n, product.quantityUnit)})',
+              ),
             ),
             const SizedBox(height: 16),
             FilledButton(
@@ -338,17 +420,78 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                 final value = double.tryParse(controller.text.trim()) ?? _quantity;
                 Navigator.of(context).pop(value);
               },
-              child: const Text('Update quantity'),
+              child: Text(l10n.consumerUpdateQuantity),
             ),
           ],
         ),
       ),
     );
+    controller.dispose();
 
     if (result != null && mounted) {
       setState(() {
         _quantity = result < product.minOrderKg ? product.minOrderKg : result;
       });
     }
+  }
+}
+
+String _formatCurrency(BuildContext context, num value) {
+  final locale = Localizations.localeOf(context).toString();
+  final formatted = NumberFormat.currency(
+    locale: locale,
+    symbol: '₹',
+    decimalDigits: 2,
+  ).format(value);
+  return formatted.replaceFirst(RegExp(r'\.00$'), '');
+}
+
+String _formatQuantity(
+  BuildContext context,
+  num value,
+  AppLocalizations l10n,
+  String unit,
+) {
+  final number = NumberFormat.decimalPattern(
+    Localizations.localeOf(context).toString(),
+  ).format(value);
+  return '$number ${_quantityUnitLabel(l10n, unit)}';
+}
+
+String _formatDate(BuildContext context, DateTime? value) {
+  if (value == null) {
+    return '—';
+  }
+  final locale = Localizations.localeOf(context).toString();
+  return DateFormat('d MMM yyyy', locale).format(value.toLocal());
+}
+
+String _priceUnitLabel(AppLocalizations l10n, String unit) {
+  switch (unit.toUpperCase()) {
+    case 'PER_KG':
+      return l10n.commonPerKg;
+    case 'PER_QUINTAL':
+      return l10n.farmerPerQuintal;
+    case 'PER_DOZEN':
+      return l10n.farmerPerDozen;
+    case 'PER_TON':
+      return l10n.farmerPerTon;
+    default:
+      return unit.replaceFirst('PER_', '').toLowerCase();
+  }
+}
+
+String _quantityUnitLabel(AppLocalizations l10n, String unit) {
+  switch (unit.toUpperCase()) {
+    case 'KG':
+      return l10n.commonKg;
+    case 'QUINTAL':
+      return l10n.farmerQuintal;
+    case 'DOZEN':
+      return l10n.farmerDozen;
+    case 'TON':
+      return l10n.farmerTon;
+    default:
+      return unit.toUpperCase();
   }
 }

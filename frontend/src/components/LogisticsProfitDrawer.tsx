@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Calculator, X, MessageSquare, Loader2, AlertCircle, TrendingUp, TrendingDown } from 'lucide-react';
 import { fetchApi } from '../lib/api';
+import { useI18n } from '../hooks/useI18n';
 
 interface LogisticsProfitDrawerProps {
   cropData: any;
@@ -10,6 +11,8 @@ interface LogisticsProfitDrawerProps {
 }
 
 export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsProfitDrawerProps) {
+  const { t, formatCurrency, formatNumber } = useI18n();
+
   const [quantityKg, setQuantityKg] = useState<number>(500);
   const [containerType, setContainerType] = useState<string>('COLD_CHAIN_REFRIGERATED');
   const [apmcMandiPrice, setApmcMandiPrice] = useState<number>(3400); // ₹ per Quintal
@@ -25,7 +28,7 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
 
   const handleComputeProfit = async () => {
     if (quantityKg <= 0 || isNaN(quantityKg)) {
-      setError('Please provide a valid quantity to transport in kilograms.');
+      setError(t('misc.logistics.validQuantityError'));
       return;
     }
 
@@ -68,11 +71,11 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
       if (quoteData && (quoteData.breakdown || quoteData.distanceKm !== undefined)) {
         setQuote(quoteData);
       } else {
-        setError(json?.message || 'Unable to compute logistics quote.');
+        setError(json?.message || t('misc.logistics.quoteError'));
       }
     } catch (err: any) {
       console.error('Logistics computation error:', err);
-      setError('Unable to calculate logistics quote at this time.');
+      setError(t('misc.logistics.quoteComputeError'));
     } finally {
       setLoading(false);
     }
@@ -81,13 +84,13 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
   const handleStartChat = async () => {
     const token = getAuthToken();
     if (!token) {
-      setError('Please sign in to message this cultivator directly.');
+      setError(t('misc.logistics.signInMessage'));
       return;
     }
 
     const resolvedProductId = cropData?.id || cropData?.productId;
     if (!resolvedProductId) {
-      setError('Unable to identify product listing details for messaging.');
+      setError(t('misc.logistics.productDetailsError'));
       return;
     }
 
@@ -96,8 +99,10 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
 
     const payload = {
       productId: resolvedProductId,
-      subject: `Inquiry regarding ${cropData?.title || cropData?.name || 'harvest produce'}`,
-      message: 'Hi, I am interested in negotiating transport and pricing for this harvest.',
+      subject: t('misc.logistics.chatSubject', {
+        name: cropData?.title || cropData?.name || t('misc.logistics.defaultProduce'),
+      }),
+      message: t('misc.logistics.chatMessage'),
     };
 
     try {
@@ -124,11 +129,11 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
       if (enquiryId) {
         window.location.href = `/chat/${enquiryId}`;
       } else {
-        setError(json?.message || 'Could not initiate chat conversation thread.');
+        setError(json?.message || t('misc.logistics.chatInitError'));
       }
     } catch (err: any) {
       console.error('Start chat error:', err);
-      setError('Network error connecting to messaging server.');
+      setError(t('misc.logistics.networkError'));
     } finally {
       setChatLoading(false);
     }
@@ -141,9 +146,9 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
           {/* Header */}
           <div className="flex justify-between items-center pb-4 border-b border-stone-200">
             <div>
-              <h3 className="text-xl font-black text-stone-900">Transport & Profit Engine</h3>
+              <h3 className="text-xl font-black text-stone-900">{t('misc.logistics.title')}</h3>
               <p className="text-xs font-bold text-emerald-700">
-                {cropData?.title || cropData?.name || 'Produce Analysis'}
+                {cropData?.title || cropData?.name || t('misc.logistics.produceAnalysis')}
               </p>
             </div>
             <button
@@ -166,7 +171,7 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
           <div className="space-y-4 my-6">
             <div>
               <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
-                Quantity to Transport (KG)
+                {t('misc.logistics.quantity')}
               </label>
               <input
                 type="number"
@@ -179,23 +184,23 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
 
             <div>
               <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
-                Storage & Container Environment
+                {t('misc.logistics.storageEnvironment')}
               </label>
               <select
                 value={containerType}
                 onChange={(e) => setContainerType(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border border-stone-300 text-sm font-semibold bg-white outline-none focus:border-emerald-600"
               >
-                <option value="COLD_CHAIN_REFRIGERATED">Refrigerated Cold Chain (Perishables / Milk)</option>
-                <option value="STANDARD_CRATE">Standard Ventilated Plastic Crates</option>
-                <option value="MOISTURE_CONTROLLED">Moisture Controlled Sealed Chamber (Grains / Pulses)</option>
-                <option value="VENTILATED_JUTE">Open-Burlap Jute Sacks (Onion / Potato)</option>
+                <option value="COLD_CHAIN_REFRIGERATED">{t('misc.logistics.coldChain')}</option>
+                <option value="STANDARD_CRATE">{t('misc.logistics.standardCrates')}</option>
+                <option value="MOISTURE_CONTROLLED">{t('misc.logistics.moistureControlled')}</option>
+                <option value="VENTILATED_JUTE">{t('misc.logistics.juteSacks')}</option>
               </select>
             </div>
 
             <div>
               <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
-                Local APMC Benchmark Rate (₹ / Quintal)
+                {t('misc.logistics.localApmcRate')}
               </label>
               <input
                 type="number"
@@ -214,7 +219,7 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
             className="w-full py-4 bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-black rounded-xl flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-95"
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Calculator className="w-5 h-5" />}
-            {loading ? 'Evaluating Costs...' : 'Check Approx Profit'}
+            {loading ? t('misc.logistics.evaluating') : t('misc.logistics.checkProfit')}
           </button>
 
           {/* Direct Message Action */}
@@ -225,33 +230,33 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
             className="w-full py-3.5 mt-3 bg-stone-100 hover:bg-stone-200 disabled:opacity-50 text-stone-800 border border-stone-300 font-black rounded-xl flex items-center justify-center gap-2 transition-transform active:scale-95"
           >
             {chatLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <MessageSquare className="w-5 h-5" />}
-            Direct Message Farmer
+            {t('misc.logistics.directMessage')}
           </button>
 
           {/* Results Display */}
           {quote && (
             <div className="mt-6 p-5 bg-stone-50 rounded-2xl border border-stone-200 space-y-3 animate-in slide-in-from-bottom-4">
-              <h4 className="text-xs font-black uppercase tracking-wider text-stone-500">Overall Cost Breakdown</h4>
+              <h4 className="text-xs font-black uppercase tracking-wider text-stone-500">{t('misc.logistics.costBreakdown')}</h4>
               <div className="divide-y divide-stone-200 text-sm">
                 <div className="py-2 flex justify-between">
-                  <span>Radial Distance:</span>
-                  <span className="font-bold">{quote?.distanceKm ?? 0} km</span>
+                  <span>{t('misc.logistics.radialDistance')}</span>
+                  <span className="font-bold">{formatNumber(Number(quote?.distanceKm) || 0)} {t('misc.unit.km')}</span>
                 </div>
                 <div className="py-2 flex justify-between">
-                  <span>Base Freight:</span>
-                  <span className="font-bold">₹{quote?.breakdown?.baseFreightCost ?? 0}</span>
+                  <span>{t('misc.logistics.baseFreight')}</span>
+                  <span className="font-bold">{formatCurrency(Number(quote?.breakdown?.baseFreightCost) || 0)}</span>
                 </div>
                 <div className="py-2 flex justify-between">
-                  <span>Special Container Cost:</span>
-                  <span className="font-bold text-amber-700">₹{quote?.breakdown?.specialContainerCost ?? 0}</span>
+                  <span>{t('misc.logistics.specialContainerCost')}</span>
+                  <span className="font-bold text-amber-700">{formatCurrency(Number(quote?.breakdown?.specialContainerCost) || 0)}</span>
                 </div>
                 <div className="py-2 flex justify-between">
-                  <span>Farmer Produce Cost:</span>
-                  <span className="font-bold">₹{quote?.breakdown?.farmerProduceCost ?? 0}</span>
+                  <span>{t('misc.logistics.farmerProduceCost')}</span>
+                  <span className="font-bold">{formatCurrency(Number(quote?.breakdown?.farmerProduceCost) || 0)}</span>
                 </div>
                 <div className="py-3 flex justify-between text-base font-black text-stone-900 border-t-2 border-stone-300">
-                  <span>Total Landed Cost:</span>
-                  <span>₹{quote?.breakdown?.totalLandedCost ?? 0}</span>
+                  <span>{t('misc.logistics.totalLandedCost')}</span>
+                  <span>{formatCurrency(Number(quote?.breakdown?.totalLandedCost) || 0)}</span>
                 </div>
               </div>
 
@@ -272,7 +277,7 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
                       ) : (
                         <TrendingDown className="w-4 h-4 text-rose-700" />
                       )}
-                      Projected Market Profit
+                      {t('misc.logistics.projectedProfit')}
                     </span>
                     <span
                       className={`text-xs font-bold px-2 py-0.5 rounded-full ${
@@ -281,7 +286,9 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
                           : 'bg-rose-200 text-rose-900'
                       }`}
                     >
-                      {quote.profitAssessment.profitMarginPercent || '0%'}
+                      {typeof quote.profitAssessment.profitMarginPercent === 'number'
+                        ? `${formatNumber(quote.profitAssessment.profitMarginPercent)}%`
+                        : quote.profitAssessment.profitMarginPercent || '0%'}
                     </span>
                   </div>
                   <div
@@ -289,15 +296,16 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
                       quote.profitAssessment.isProfitable ? 'text-emerald-900' : 'text-rose-900'
                     }`}
                   >
-                    ₹{quote.profitAssessment.approxNetProfit ?? 0}
+                    {formatCurrency(Number(quote.profitAssessment.approxNetProfit) || 0)}
                   </div>
                   <p
                     className={`text-[11px] mt-2 font-medium ${
                       quote.profitAssessment.isProfitable ? 'text-emerald-700' : 'text-rose-700'
                     }`}
                   >
-                    Calculated against current APMC Mandi value (₹
-                    {quote.profitAssessment.expectedApmcValue ?? 0}) minus transport, packaging, and acquisition costs.
+                    {t('misc.logistics.calculatedAgainstApmc', {
+                      value: formatCurrency(Number(quote.profitAssessment.expectedApmcValue) || 0),
+                    })}
                   </p>
                 </div>
               )}

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// Full-screen loading indicator.
 class LoadingView extends StatelessWidget {
@@ -20,7 +21,10 @@ class LoadingView extends StatelessWidget {
             Text(
               message!,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppTheme.stone500, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                color: AppTheme.stone500,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ],
@@ -74,10 +78,7 @@ class EmptyState extends StatelessWidget {
                 style: const TextStyle(color: AppTheme.stone500, height: 1.4),
               ),
             ],
-            if (action != null) ...[
-              const SizedBox(height: 20),
-              action!,
-            ],
+            if (action != null) ...[const SizedBox(height: 20), action!],
           ],
         ),
       ),
@@ -100,7 +101,11 @@ class ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off_rounded, size: 42, color: AppTheme.stone500),
+            const Icon(
+              Icons.cloud_off_rounded,
+              size: 42,
+              color: AppTheme.stone500,
+            ),
             const SizedBox(height: 16),
             Text(
               message,
@@ -112,7 +117,7 @@ class ErrorView extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Try again'),
+                label: Text(AppLocalizations.of(context).commonRetry),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(160, 46),
                   backgroundColor: Colors.white,
@@ -144,18 +149,25 @@ class InlineErrorBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded, color: Color(0xFFB91C1C), size: 20),
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFB91C1C),
+            size: 20,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(color: Color(0xFF991B1B), fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                color: Color(0xFF991B1B),
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           if (onRetry != null)
             TextButton(
               onPressed: onRetry,
-              child: const Text('Retry'),
+              child: Text(AppLocalizations.of(context).commonRetry),
             ),
         ],
       ),

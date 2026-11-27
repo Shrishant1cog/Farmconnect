@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { fetchApi } from '../../../lib/api';
 import { useAuth } from '../../../hooks/useAuth';
+import { useI18n } from '../../../hooks/useI18n';
 
 // All 28 States and 8 Union Territories of India
 const ALL_INDIA_STATES = [
@@ -39,6 +40,7 @@ const ALL_INDIA_STATES = [
 ];
 
 export default function RegisterPage() {
+  const { t } = useI18n();
   const auth = useAuth() as any;
 
   // Account Type
@@ -85,7 +87,7 @@ export default function RegisterPage() {
   const [fetchingPincode, setFetchingPincode] = useState(false);
   const [detectingGps, setDetectingGps] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [loadingStep, setLoadingStep] = useState('Setting up your verified agricultural profile...');
+  const [loadingStep, setLoadingStep] = useState(t('auth.register.loadingSetupProfile'));
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -152,7 +154,7 @@ export default function RegisterPage() {
           ) as string[];
           setDistrictSuggestions(uniqueDistricts);
         } else {
-          setError('PIN code details not found automatically. Please enter your State and District manually.');
+          setError(t('auth.register.errorPincodeNotFound'));
         }
       } catch {
         // Fallback for offline or throttled postal API
@@ -165,7 +167,7 @@ export default function RegisterPage() {
   // 2. GPS Reverse Geocoding via OpenStreetMap Nominatim
   const handleDetectLocation = () => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
-      setError('Geolocation is not supported by your browser.');
+      setError(t('auth.register.errorGeolocationUnsupported'));
       return;
     }
 
@@ -231,7 +233,7 @@ export default function RegisterPage() {
       },
       () => {
         setDetectingGps(false);
-        setError('Location permission was denied. You can enter your details manually.');
+        setError(t('auth.register.errorLocationPermissionDenied'));
       },
       { timeout: 15000, enableHighAccuracy: true }
     );
@@ -244,32 +246,32 @@ export default function RegisterPage() {
 
     const cleanPhone = phone.trim().replace(/\D/g, '');
     if (cleanPhone.length < 10) {
-      setError('Please provide a valid 10-digit mobile number.');
+      setError(t('auth.register.errorInvalidPhone'));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError(t('auth.register.errorPasswordMismatch'));
       return;
     }
 
     if (password.length < 6) {
-      setError('Password must contain at least 6 characters.');
+      setError(t('auth.register.errorPasswordTooShort'));
       return;
     }
 
     if (!pincode || !stateName || !district) {
-      setError('Please provide your PIN code, State, and District.');
+      setError(t('auth.register.errorMissingLocation'));
       return;
     }
 
     if (role === 'FARMER' && !farmName.trim()) {
-      setError('Please provide your Farm or Estate name.');
+      setError(t('auth.register.errorMissingFarmName'));
       return;
     }
 
     setLoading(true);
-    setLoadingStep('Configuring your direct agricultural exchange profile...');
+    setLoadingStep(t('auth.register.loadingConfigureProfile'));
 
     const cleanEmail = email.trim().toLowerCase();
 
@@ -332,6 +334,11 @@ export default function RegisterPage() {
           localStorage.setItem('farmconnect_role', assignedRole);
           localStorage.setItem('fc_user', JSON.stringify(finalUser));
           localStorage.setItem('farmconnect_user', JSON.stringify(finalUser));
+
+          // Notify the app shell (navbar, language context) immediately so
+          // the signed-in state and the account language appear without
+          // waiting for the navigation below.
+          window.dispatchEvent(new Event('farmconnect_auth_sync'));
         }
 
         if (typeof auth?.login === 'function') {
@@ -342,14 +349,14 @@ export default function RegisterPage() {
           }
         }
 
-        setLoadingStep('Launching portal workspace...');
-        setSuccessMessage('Account registered successfully! Redirecting...');
+        setLoadingStep(t('auth.register.loadingLaunchPortal'));
+        setSuccessMessage(t('auth.register.successRegistered'));
 
         setTimeout(() => {
           window.location.href = assignedRole === 'FARMER' ? '/farmer/dashboard' : '/consumer/explore';
         }, 800);
       } else {
-        setSuccessMessage('Registration completed! Redirecting to sign in...');
+        setSuccessMessage(t('auth.register.successRegistrationCompleted'));
         setTimeout(() => {
           window.location.href = '/login';
         }, 1000);
@@ -359,9 +366,9 @@ export default function RegisterPage() {
       const rawMsg = err?.data?.message || err?.message || '';
 
       if (rawMsg.includes('Failed to fetch') || err?.name === 'TypeError') {
-        setError('Unable to reach the server. Please verify your backend server is running on port 5000 (`npm run dev` in the backend directory).');
+        setError(t('auth.register.errorBackendUnavailable'));
       } else {
-        setError(rawMsg || 'Registration failed. Please check your entries and try again.');
+        setError(rawMsg || t('auth.register.errorRegistrationFailed'));
       }
       setLoading(false);
     }
@@ -381,13 +388,13 @@ export default function RegisterPage() {
           <div className="text-center space-y-2 max-w-sm">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-700 text-emerald-400 text-[11px] font-black uppercase tracking-wider">
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              {role === 'FARMER' ? 'Cultivator Node Provisioning' : 'Buyer Setup'}
+              {role === 'FARMER' ? t('auth.register.loadingFarmer') : t('auth.register.loadingBuyer')}
             </div>
             <h3 className="text-lg sm:text-xl font-black text-white tracking-tight">
               {loadingStep}
             </h3>
             <p className="text-xs text-stone-400 leading-relaxed">
-              Configuring your direct exchange credentials and map permissions.
+              {t('auth.register.loadingDescription')}
             </p>
           </div>
         </div>
@@ -403,10 +410,10 @@ export default function RegisterPage() {
               <Sprout className="w-6 h-6 stroke-[2.5]" />
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight pt-2">
-              Create Your Account
+              {t('auth.register.title')}
             </h1>
             <p className="text-xs text-stone-500 font-medium">
-              Direct all-India cultivator and wholesale exchange.
+              {t('auth.register.subtitle')}
             </p>
           </div>
 
@@ -422,7 +429,7 @@ export default function RegisterPage() {
               }`}
             >
               <Sprout className={`w-4 h-4 ${role === 'FARMER' ? 'text-white' : 'text-stone-400'}`} />
-              <span>Cultivator / Farmer</span>
+              <span>{t('auth.register.farmerRole')}</span>
             </button>
 
             <button
@@ -435,7 +442,7 @@ export default function RegisterPage() {
               }`}
             >
               <ShoppingBag className={`w-4 h-4 ${role === 'CONSUMER' ? 'text-white' : 'text-stone-400'}`} />
-              <span>Buyer / Consumer</span>
+              <span>{t('auth.register.consumerRole')}</span>
             </button>
           </div>
 
@@ -460,14 +467,18 @@ export default function RegisterPage() {
             {/* Full Name */}
             <div>
               <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                Full Legal Name *
+                {t('auth.register.fullName')}
               </label>
               <div className="relative">
                 <User className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   required
-                  placeholder={role === 'FARMER' ? 'e.g. Ramesh Kumar' : 'e.g. Priya Sharma'}
+                  placeholder={
+                    role === 'FARMER'
+                      ? t('auth.register.farmerNamePlaceholder')
+                      : t('auth.register.consumerNamePlaceholder')
+                  }
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-900 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600 transition-all duration-200"
@@ -479,14 +490,14 @@ export default function RegisterPage() {
             {role === 'FARMER' && (
               <div className="animate-in fade-in duration-200">
                 <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                  Farm or Estate Name *
+                  {t('auth.register.farmName')}
                 </label>
                 <div className="relative">
                   <Sprout className="w-4 h-4 text-emerald-700 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Mandya Green Valley Organic Farm"
+                    placeholder={t('auth.register.farmNamePlaceholder')}
                     value={farmName}
                     onChange={(e) => setFarmName(e.target.value)}
                     className="w-full pl-10 pr-4 py-2.5 bg-emerald-50/40 border border-emerald-200 rounded-xl text-xs font-semibold text-stone-900 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600 transition-all duration-200"
@@ -499,7 +510,7 @@ export default function RegisterPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                  Mobile Number *
+                  {t('auth.register.mobileNumber')}
                 </label>
                 <div className="relative flex">
                   <span className="px-3 py-2.5 bg-stone-100 border border-stone-200 border-r-0 rounded-l-xl text-xs font-bold text-stone-600 flex items-center">
@@ -509,7 +520,7 @@ export default function RegisterPage() {
                     type="tel"
                     required
                     maxLength={10}
-                    placeholder="10-digit mobile"
+                    placeholder={t('auth.register.mobilePlaceholder')}
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-r-xl text-xs font-semibold text-stone-900 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600 transition-all duration-200"
@@ -519,13 +530,16 @@ export default function RegisterPage() {
 
               <div>
                 <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                  Email Address <span className="text-stone-400 text-[10px] lowercase font-normal">(optional)</span>
+                  {t('auth.register.emailAddress')}{' '}
+                  <span className="text-stone-400 text-[10px] lowercase font-normal">
+                    {t('auth.register.optional')}
+                  </span>
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="email"
-                    placeholder="optional@domain.com"
+                    placeholder={t('auth.register.emailPlaceholder')}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-900 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600 transition-all duration-200"
@@ -538,7 +552,7 @@ export default function RegisterPage() {
             <div className="p-4 bg-stone-50/90 rounded-2xl border border-stone-200 space-y-3 transition-all duration-200">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-wider text-stone-700 flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-700" /> Location Details
+                  <MapPin className="w-3.5 h-3.5 text-emerald-700" /> {t('auth.register.locationDetails')}
                 </span>
                 
                 {/* GPS Trigger Button */}
@@ -547,14 +561,18 @@ export default function RegisterPage() {
                   onClick={handleDetectLocation}
                   disabled={detectingGps}
                   className="text-[11px] font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-stone-200 shadow-xs transition-all duration-150 active:scale-95"
-                  title="Detect and auto-fill address from GPS coordinates"
+                  title={t('auth.register.gpsTitle')}
                 >
                   {detectingGps ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-700" />
                   ) : (
                     <Navigation className="w-3.5 h-3.5 text-emerald-700" />
                   )}
-                  <span>{coordinates ? 'GPS Attached' : 'Detect via GPS'}</span>
+                  <span>
+                    {coordinates
+                      ? t('auth.register.gpsAttached')
+                      : t('auth.register.gpsDetect')}
+                  </span>
                 </button>
               </div>
 
@@ -563,13 +581,13 @@ export default function RegisterPage() {
                 {/* PIN Code */}
                 <div>
                   <label className="block text-[11px] font-bold text-stone-600 uppercase mb-1">
-                    PIN Code *
+                    {t('auth.register.pinCode')}
                   </label>
                   <div className="relative">
                     <input
                       type="text"
                       required
-                      placeholder="e.g. 571401"
+                      placeholder={t('auth.register.pinCodePlaceholder')}
                       value={pincode}
                       maxLength={6}
                       onChange={(e) => handlePincodeChange(e.target.value)}
@@ -584,12 +602,12 @@ export default function RegisterPage() {
                 {/* State with predictive autocomplete */}
                 <div className="relative">
                   <label className="block text-[11px] font-bold text-stone-600 uppercase mb-1">
-                    State *
+                    {t('auth.register.state')}
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="Type state..."
+                    placeholder={t('auth.register.statePlaceholder')}
                     value={stateName}
                     onFocus={() => setShowStateDropdown(true)}
                     onChange={(e) => {
@@ -627,12 +645,12 @@ export default function RegisterPage() {
                 {/* District */}
                 <div className="relative">
                   <label className="block text-[11px] font-bold text-stone-600 uppercase mb-1">
-                    District *
+                    {t('auth.register.district')}
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Mandya"
+                    placeholder={t('auth.register.districtPlaceholder')}
                     value={district}
                     onFocus={() => setShowDistrictDropdown(true)}
                     onChange={(e) => {
@@ -667,11 +685,11 @@ export default function RegisterPage() {
                 {/* Taluk / Tehsil */}
                 <div className="relative">
                   <label className="block text-[11px] font-bold text-stone-600 uppercase mb-1">
-                    Taluk / Tehsil
+                    {t('auth.register.taluk')}
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Pandavapura"
+                    placeholder={t('auth.register.talukPlaceholder')}
                     value={taluk}
                     onFocus={() => setShowTalukDropdown(true)}
                     onChange={(e) => {
@@ -707,11 +725,11 @@ export default function RegisterPage() {
               {/* Row 3: Street Address / Village */}
               <div>
                 <label className="block text-[11px] font-bold text-stone-600 uppercase mb-1">
-                  Street / Village / Landmark
+                  {t('auth.register.address')}
                 </label>
                 <input
                   type="text"
-                  placeholder="Plot/Door No, Village or Landmark"
+                  placeholder={t('auth.register.addressPlaceholder')}
                   value={addressLine}
                   onChange={(e) => setAddressLine(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl text-xs font-semibold text-stone-900 outline-none focus:ring-2 focus:ring-emerald-600 transition-all duration-150"
@@ -732,11 +750,11 @@ export default function RegisterPage() {
                   <div>
                     <span className="text-xs font-black text-white block">
                       {role === 'FARMER'
-                        ? 'Show my farm location on the Public Farm Map'
-                        : 'Enable regional location discovery on the Delivery Map'}
+                        ? t('auth.register.mapFarmerConsent')
+                        : t('auth.register.mapConsumerConsent')}
                     </span>
                     <span className="text-[10px] text-stone-300 block mt-0.5">
-                      Your location will only appear on the map with your explicit consent.
+                      {t('auth.register.mapConsentDescription')}
                     </span>
                   </div>
                 </label>
@@ -745,7 +763,7 @@ export default function RegisterPage() {
                   type="button"
                   onClick={() => setShowMapBenefits(!showMapBenefits)}
                   className="p-1 rounded-lg text-emerald-400 hover:text-white transition-colors"
-                  title="View benefits"
+                  title={t('auth.register.viewBenefits')}
                 >
                   <HelpCircle className="w-4 h-4" />
                 </button>
@@ -755,12 +773,21 @@ export default function RegisterPage() {
               {showMapBenefits && (
                 <div className="pt-2.5 border-t border-emerald-800/80 text-[11px] text-stone-200 space-y-1.5 animate-in fade-in duration-150">
                   <p className="font-bold text-emerald-300 flex items-center gap-1.5">
-                    <Info className="w-3.5 h-3.5" /> Why show your location on the map?
+                    <Info className="w-3.5 h-3.5" /> {t('auth.register.whyShowLocation')}
                   </p>
                   <ul className="list-disc pl-4 space-y-1 text-stone-300">
-                    <li><strong>Direct Farm Gate Pickups:</strong> Verified institutional buyers and local families can route directly to you for fresh produce.</li>
-                    <li><strong>Zero Middleman Transport Fees:</strong> Accurate road distance eliminates speculative freight markup.</li>
-                    <li><strong>Full Privacy Control:</strong> Exact door numbers or residential rooms are never displayed; map visibility can be modified anytime in settings.</li>
+                    <li>
+                      <strong>{t('auth.register.directPickupTitle')}</strong>{' '}
+                      {t('auth.register.directPickupBody')}
+                    </li>
+                    <li>
+                      <strong>{t('auth.register.transportFeesTitle')}</strong>{' '}
+                      {t('auth.register.transportFeesBody')}
+                    </li>
+                    <li>
+                      <strong>{t('auth.register.privacyTitle')}</strong>{' '}
+                      {t('auth.register.privacyBody')}
+                    </li>
                   </ul>
                 </div>
               )}
@@ -770,14 +797,14 @@ export default function RegisterPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                  Password *
+                  {t('auth.register.password')}
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     required
-                    placeholder="Min 6 characters"
+                    placeholder={t('auth.register.passwordPlaceholder')}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full pl-10 pr-10 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-900 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600 transition-all duration-200"
@@ -794,14 +821,14 @@ export default function RegisterPage() {
 
               <div>
                 <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                  Confirm Password *
+                  {t('auth.register.confirmPassword')}
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}
                     required
-                    placeholder="Repeat password"
+                    placeholder={t('auth.register.confirmPasswordPlaceholder')}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     className="w-full pl-10 pr-10 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-900 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600 transition-all duration-200"
@@ -827,7 +854,10 @@ export default function RegisterPage() {
                 <Loader2 className="w-4 h-4 animate-spin text-white" />
               ) : (
                 <>
-                  Create {role === 'FARMER' ? 'Cultivator' : 'Buyer'} Account <ArrowRight className="w-4 h-4" />
+                  {role === 'FARMER'
+                    ? t('auth.register.createFarmerAccount')
+                    : t('auth.register.createBuyerAccount')}{' '}
+                  <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
@@ -836,12 +866,12 @@ export default function RegisterPage() {
           {/* Existing Member Redirection */}
           <div className="text-center pt-2 border-t border-stone-100">
             <p className="text-xs text-stone-500 font-medium">
-              Already have an account?{' '}
+              {t('auth.register.haveAccount')}{' '}
               <Link
                 href="/login"
                 className="text-emerald-800 hover:text-emerald-900 font-bold underline decoration-emerald-800/40"
               >
-                Sign In here
+                {t('auth.register.signInHere')}
               </Link>
             </p>
           </div>

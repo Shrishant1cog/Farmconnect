@@ -8,6 +8,7 @@ import {
   Download, ArrowUpDown, CheckCircle2, ChevronRight,
   Scale, X, MapPin, Calendar, Layers
 } from 'lucide-react';
+import { useI18n } from '../../hooks/useI18n';
 
 export interface MandiRecord {
   id: string;
@@ -1181,6 +1182,8 @@ const ALL_INDIA_MANDI_DATA: MandiRecord[] = [
 ];
 
 export default function MandiRatesPage() {
+  const { t, formatNumber, formatCurrency } = useI18n();
+
   // Filters & Search
   const [search, setSearch] = useState('');
   const [selectedState, setSelectedState] = useState<string>('ALL');
@@ -1212,6 +1215,19 @@ export default function MandiRatesPage() {
     'Spices & Cash Crops', 
     'Plantation'
   ];
+
+  const categoryLabel = (category: string) => {
+    const labels: Record<string, string> = {
+      Vegetables: 'misc.mandi.categoryVegetables',
+      Fruits: 'misc.mandi.categoryFruits',
+      'Grains & Millets': 'misc.mandi.categoryGrainsMillets',
+      Pulses: 'misc.mandi.categoryPulses',
+      Oilseeds: 'misc.mandi.categoryOilseeds',
+      'Spices & Cash Crops': 'misc.mandi.categorySpicesCashCrops',
+      Plantation: 'misc.mandi.categoryPlantation',
+    };
+    return labels[category] ? t(labels[category]) : category;
+  };
 
   // Filter and Sort Pipeline
   const filteredData = useMemo(() => {
@@ -1256,12 +1272,19 @@ export default function MandiRatesPage() {
   const formatPrice = (valInQuintal: number) => {
     if (priceUnitMode === 'KG') {
       const perKg = valInQuintal / 100;
-      return `₹${perKg % 1 === 0 ? perKg : perKg.toFixed(1)}`;
+      return formatCurrency(perKg, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 1,
+      });
     }
-    return `₹${valInQuintal.toLocaleString()}`;
+    return formatCurrency(valInQuintal, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
   };
 
-  const getUnitSuffix = () => (priceUnitMode === 'KG' ? '/kg' : '/qtl');
+  const getUnitSuffix = () =>
+    priceUnitMode === 'KG' ? t('misc.unit.perKg') : t('misc.unit.perQuintal');
 
   // CSV Exporter
   const handleExportCSV = () => {
@@ -1269,17 +1292,17 @@ export default function MandiRatesPage() {
     const rows = filteredData.map((d) => [
       `"${d.commodity}"`,
       `"${d.variety}"`,
-      `"${d.category}"`,
+      `"${categoryLabel(d.category)}"`,
       `"${d.market}"`,
       `"${d.district}"`,
       `"${d.state}"`,
-      d.minPrice,
-      d.maxPrice,
-      d.modalPrice,
-      d.farmConnectPrice,
-      'Quintal',
-      d.arrivalQtyTonnes,
-      `${d.trendPercent}%`,
+      formatNumber(d.minPrice),
+      formatNumber(d.maxPrice),
+      formatNumber(d.modalPrice),
+      formatNumber(d.farmConnectPrice),
+      t('misc.unit.quintal'),
+      formatNumber(d.arrivalQtyTonnes),
+      `${formatNumber(d.trendPercent)}%`,
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
@@ -1300,17 +1323,17 @@ export default function MandiRatesPage() {
         <div>
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className="px-3 py-0.5 rounded-full bg-emerald-100 text-emerald-950 border border-emerald-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-700" /> APMC Price Intelligence Terminal
+              <Sparkles className="w-3.5 h-3.5 text-emerald-700" /> {t('misc.mandi.terminalBadge')}
             </span>
             <span className="px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-600 text-[10px] font-bold">
-              60+ Indian Agricultural Commodities
+              {t('misc.mandi.commoditiesCount')}
             </span>
           </div>
           <h1 className="text-2xl sm:text-4xl font-black text-stone-900 tracking-tight">
-            All-India Mandi Benchmark Rates
+            {t('misc.mandi.title')}
           </h1>
           <p className="text-stone-500 text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed">
-            Real-time modal auction rates across major regulated market committees in Karnataka, Maharashtra, Punjab, UP, MP, Gujarat, Rajasthan, and Kerala. Verify modal indices before procurement.
+            {t('misc.mandi.body')}
           </p>
         </div>
 
@@ -1319,16 +1342,16 @@ export default function MandiRatesPage() {
             type="button"
             onClick={handleExportCSV}
             className="px-4 py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs rounded-2xl flex items-center gap-2 transition-colors border border-stone-200 active:scale-95"
-            title="Export filtered records to CSV"
+            title={t('misc.mandi.exportTooltip')}
           >
-            <Download className="w-4 h-4" /> Export CSV
+            <Download className="w-4 h-4" /> {t('misc.mandi.exportCsv')}
           </button>
 
           <Link
             href="/consumer/explore"
             className="px-6 py-3.5 bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/15 transition-all active:scale-95 shrink-0"
           >
-            Procure Direct <ArrowRight className="w-4 h-4" />
+            {t('misc.mandi.procureDirect')} <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
       </div>
@@ -1338,47 +1361,47 @@ export default function MandiRatesPage() {
         
         <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs transition-transform duration-200 hover:scale-[1.01]">
           <div className="flex items-center justify-between text-stone-400 mb-2">
-            <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Tracked Commodities</span>
+            <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">{t('misc.mandi.trackedCommodities')}</span>
             <Layers className="w-4 h-4 text-emerald-700" />
           </div>
-          <p className="text-3xl font-black text-stone-900">{stats.totalListed} Lots</p>
+          <p className="text-3xl font-black text-stone-900">{formatNumber(stats.totalListed)} {t('misc.mandi.lots')}</p>
           <span className="text-xs text-stone-500 mt-1 block">
-            {stats.karnatakaCount} local Karnataka APMCs tracked
+            {t('misc.mandi.localApmcTracked', { count: formatNumber(stats.karnatakaCount) })}
           </span>
         </div>
 
         <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs transition-transform duration-200 hover:scale-[1.01]">
           <div className="flex items-center justify-between text-stone-400 mb-2">
-            <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Highest Gainer Today</span>
+            <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">{t('misc.mandi.highestGainerToday')}</span>
             <TrendingUp className="w-4 h-4 text-emerald-600" />
           </div>
           <p className="text-xl sm:text-2xl font-black text-stone-900 truncate">
-            {stats.topGainer ? stats.topGainer.commodity.split('(')[0] : 'N/A'}
+            {stats.topGainer ? stats.topGainer.commodity.split('(')[0] : t('misc.mandi.notAvailable')}
           </p>
           <span className="text-xs font-bold text-emerald-700 mt-1 flex items-center gap-1">
-            +{stats.topGainer?.trendPercent}% ({stats.topGainer?.market.split(' ')[0]})
+            +{formatNumber(stats.topGainer?.trendPercent ?? 0)}% ({stats.topGainer?.market.split(' ')[0]})
           </span>
         </div>
 
         <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs transition-transform duration-200 hover:scale-[1.01]">
           <div className="flex items-center justify-between text-stone-400 mb-2">
-            <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Arrivals Today</span>
+            <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">{t('misc.mandi.arrivalsToday')}</span>
             <Building2 className="w-4 h-4 text-stone-400" />
           </div>
-          <p className="text-3xl font-black text-stone-900">{stats.totalArrivals.toLocaleString()} MT</p>
+          <p className="text-3xl font-black text-stone-900">{formatNumber(stats.totalArrivals)} {t('misc.unit.metricTonnes')}</p>
           <span className="text-xs text-stone-500 mt-1 block">
-            Aggregated metric tonnes in yards
+            {t('misc.mandi.aggregatedMetricTonnes')}
           </span>
         </div>
 
         <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs transition-transform duration-200 hover:scale-[1.01]">
           <div className="flex items-center justify-between text-stone-400 mb-2">
-            <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Direct Farm Advantage</span>
+            <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">{t('misc.mandi.directFarmAdvantage')}</span>
             <Scale className="w-4 h-4 text-emerald-700" />
           </div>
-          <p className="text-3xl font-black text-emerald-800">0% Cartel Fee</p>
+          <p className="text-3xl font-black text-emerald-800">{t('misc.mandi.cartelFee', { percentage: formatNumber(0) })}</p>
           <span className="text-xs text-stone-500 mt-1 block">
-            Zero commission agent deductions
+            {t('misc.mandi.zeroCommissionDeductions')}
           </span>
         </div>
 
@@ -1394,7 +1417,7 @@ export default function MandiRatesPage() {
             <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search crop, state, mandi yard, or district (e.g. Tomato, Mandya, Byadgi, Coffee, Cardamom)..."
+              placeholder={t('misc.mandi.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-stone-50 rounded-2xl text-xs font-semibold text-stone-900 border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-600 transition-all"
@@ -1414,7 +1437,7 @@ export default function MandiRatesPage() {
                     : 'text-stone-500 hover:text-stone-900'
                 }`}
               >
-                All-India Yards
+                {t('misc.mandi.allIndiaYards')}
               </button>
               <button
                 type="button"
@@ -1425,7 +1448,7 @@ export default function MandiRatesPage() {
                     : 'text-stone-500 hover:text-stone-900'
                 }`}
               >
-                Karnataka APMCs Only
+                {t('misc.mandi.karnatakaApmcOnly')}
               </button>
             </div>
 
@@ -1440,7 +1463,7 @@ export default function MandiRatesPage() {
                     : 'text-stone-500 hover:text-stone-900'
                 }`}
               >
-                ₹ / KG
+                {t('misc.mandi.perKgUnit')}
               </button>
               <button
                 type="button"
@@ -1451,7 +1474,7 @@ export default function MandiRatesPage() {
                     : 'text-stone-500 hover:text-stone-900'
                 }`}
               >
-                ₹ / Qtl (100kg)
+                {t('misc.mandi.perQuintalUnit')}
               </button>
             </div>
 
@@ -1464,7 +1487,7 @@ export default function MandiRatesPage() {
               >
                 {states.map((s) => (
                   <option key={s} value={s}>
-                    {s === 'ALL' ? 'All Indian States' : s}
+                    {s === 'ALL' ? t('misc.mandi.allIndianStates') : s}
                   </option>
                 ))}
               </select>
@@ -1480,10 +1503,10 @@ export default function MandiRatesPage() {
               }}
               className="px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-2xl text-xs font-semibold text-stone-800 outline-none focus:ring-2 focus:ring-emerald-600"
             >
-              <option value="modalPrice-desc">Price: Highest First</option>
-              <option value="modalPrice-asc">Price: Lowest First</option>
-              <option value="arrivalQtyTonnes-desc">Arrivals: High Volume</option>
-              <option value="trendPercent-desc">Top Gainers (%)</option>
+              <option value="modalPrice-desc">{t('misc.mandi.sortPriceHigh')}</option>
+              <option value="modalPrice-asc">{t('misc.mandi.sortPriceLow')}</option>
+              <option value="arrivalQtyTonnes-desc">{t('misc.mandi.sortArrivalsVolume')}</option>
+              <option value="trendPercent-desc">{t('misc.mandi.sortTopGainers')}</option>
             </select>
 
           </div>
@@ -1493,7 +1516,7 @@ export default function MandiRatesPage() {
         {/* Category Filter Pills */}
         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-stone-100">
           <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider mr-1">
-            Filter Category:
+            {t('misc.mandi.filterCategory')}
           </span>
           {categories.map((cat) => (
             <button
@@ -1506,7 +1529,7 @@ export default function MandiRatesPage() {
                   : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
               }`}
             >
-              {cat === 'ALL' ? 'All Commodities' : cat}
+              {cat === 'ALL' ? t('misc.mandi.allCommodities') : categoryLabel(cat)}
             </button>
           ))}
         </div>
@@ -1519,23 +1542,23 @@ export default function MandiRatesPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-stone-50/90 border-b border-stone-200 text-[11px] font-black uppercase text-stone-500 tracking-wider">
-                <th className="py-4 px-6">Commodity & Grade</th>
-                <th className="py-4 px-4">Market Yard (APMC)</th>
-                <th className="py-4 px-4 text-right">Min - Max Band</th>
-                <th className="py-4 px-4 text-right">Mandi Modal Rate</th>
-                <th className="py-4 px-4 text-right">FarmConnect Rate</th>
-                <th className="py-4 px-6">Price Position</th>
-                <th className="py-4 px-4 text-center">Trend</th>
-                <th className="py-4 px-4 text-right">Arrivals</th>
-                <th className="py-4 px-4 text-center">Inspect</th>
+                <th className="py-4 px-6">{t('misc.mandi.commodityGrade')}</th>
+                <th className="py-4 px-4">{t('misc.mandi.marketYard')}</th>
+                <th className="py-4 px-4 text-right">{t('misc.mandi.minMaxBand')}</th>
+                <th className="py-4 px-4 text-right">{t('misc.mandi.mandiModalRate')}</th>
+                <th className="py-4 px-4 text-right">{t('misc.mandi.farmConnectRate')}</th>
+                <th className="py-4 px-6">{t('misc.mandi.pricePosition')}</th>
+                <th className="py-4 px-4 text-center">{t('misc.mandi.trend')}</th>
+                <th className="py-4 px-4 text-right">{t('misc.mandi.arrivals')}</th>
+                <th className="py-4 px-4 text-center">{t('misc.mandi.inspect')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 text-xs">
               {filteredData.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-16 text-center text-stone-400 font-semibold space-y-2">
-                    <p className="text-base font-bold text-stone-700">No mandi records matched your filters</p>
-                    <p className="text-xs text-stone-400">Try switching to &apos;All-India Yards&apos; or resetting your search query.</p>
+                    <p className="text-base font-bold text-stone-700">{t('misc.mandi.noMatchingRecords')}</p>
+                    <p className="text-xs text-stone-400">{t('misc.mandi.noMatchingRecordsHint')}</p>
                   </td>
                 </tr>
               ) : (
@@ -1557,7 +1580,7 @@ export default function MandiRatesPage() {
                           {row.commodity}
                         </div>
                         <div className="text-[11px] text-stone-500 font-medium line-clamp-1">
-                          {row.variety} • <span className="text-emerald-700 font-bold">{row.category}</span>
+                          {row.variety} • <span className="text-emerald-700 font-bold">{categoryLabel(row.category)}</span>
                         </div>
                       </td>
 
@@ -1592,7 +1615,7 @@ export default function MandiRatesPage() {
                           {formatPrice(row.farmConnectPrice)}
                         </span>
                         <span className="block text-[10px] font-black uppercase tracking-wider text-emerald-600">
-                          Direct Gate
+                          {t('misc.mandi.directGate')}
                         </span>
                       </td>
 
@@ -1605,9 +1628,9 @@ export default function MandiRatesPage() {
                           />
                         </div>
                         <div className="flex justify-between text-[9px] text-stone-400 font-bold mt-1">
-                          <span>Low</span>
-                          <span>Modal: {spreadPercent}%</span>
-                          <span>High</span>
+                          <span>{t('misc.mandi.low')}</span>
+                          <span>{t('misc.mandi.modalPosition', { percentage: formatNumber(spreadPercent) })}</span>
+                          <span>{t('misc.mandi.high')}</span>
                         </div>
                       </td>
 
@@ -1615,15 +1638,15 @@ export default function MandiRatesPage() {
                       <td className="py-4 px-4 text-center whitespace-nowrap">
                         {row.trend === 'UP' ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 font-black text-[11px]">
-                            <TrendingUp className="w-3 h-3" /> +{row.trendPercent}%
+                            <TrendingUp className="w-3 h-3" /> +{formatNumber(row.trendPercent)}%
                           </span>
                         ) : row.trend === 'DOWN' ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-black text-[11px]">
-                            <TrendingDown className="w-3 h-3" /> -{row.trendPercent}%
+                            <TrendingDown className="w-3 h-3" /> -{formatNumber(Math.abs(row.trendPercent))}%
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-stone-100 text-stone-600 font-black text-[11px]">
-                            <Minus className="w-3 h-3" /> Stable
+                            <Minus className="w-3 h-3" /> {t('misc.status.stable')}
                           </span>
                         )}
                       </td>
@@ -1631,9 +1654,9 @@ export default function MandiRatesPage() {
                       {/* Volume Arrivals */}
                       <td className="py-4 px-4 text-right whitespace-nowrap">
                         <span className="font-bold text-stone-800 text-sm">
-                          {row.arrivalQtyTonnes} MT
+                          {formatNumber(row.arrivalQtyTonnes)} {t('misc.unit.metricTonnes')}
                         </span>
-                        <span className="block text-[10px] text-stone-400">{row.lastUpdated}</span>
+                        <span className="block text-[10px] text-stone-400">{t('misc.mandi.updatedToday', { time: row.lastUpdated.replace('Today, ', '') })}</span>
                       </td>
 
                       {/* Inspect Trigger */}
@@ -1645,7 +1668,7 @@ export default function MandiRatesPage() {
                             setInspectRecord(row);
                           }}
                           className="p-2 rounded-xl text-stone-400 hover:text-emerald-800 hover:bg-emerald-50 transition-colors"
-                          title="View APMC Inspection Details"
+                          title={t('misc.mandi.inspectTooltip')}
                         >
                           <ChevronRight className="w-4 h-4" />
                         </button>
@@ -1663,13 +1686,13 @@ export default function MandiRatesPage() {
       <div className="bg-emerald-950 text-emerald-100 rounded-3xl p-6 sm:p-10 border border-emerald-900 flex flex-col lg:flex-row items-center justify-between gap-8 shadow-xl">
         <div className="space-y-2 text-center lg:text-left">
           <div className="flex items-center justify-center lg:justify-start gap-2 text-xs font-black uppercase text-emerald-400 tracking-wider">
-            <Info className="w-4 h-4" /> The Mandi Commission Arbitrage
+            <Info className="w-4 h-4" /> {t('misc.mandi.commissionArbitrage')}
           </div>
           <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-            How FarmConnect Protects Cultivator Margin
+            {t('misc.mandi.protectsCultivatorMargin')}
           </h3>
           <p className="text-xs sm:text-sm text-stone-300 max-w-2xl leading-relaxed">
-            In typical APMC auction yards, commission agents (Adathiyas), mandi taxes, weighment charges, and grading markdowns deduct up to <strong>15% to 28%</strong> from what farmers actually take home. FarmConnect lets verified growers list directly around modal benchmarks, earning the full value while providing institutional buyers wholesale discounts.
+            {t('misc.mandi.commissionArbitrageBody')}
           </p>
         </div>
 
@@ -1678,13 +1701,13 @@ export default function MandiRatesPage() {
             href="/consumer/explore"
             className="px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg transition-all text-center"
           >
-            Direct Marketplace
+            {t('misc.mandi.directMarketplace')}
           </Link>
           <Link
             href="/farmer/dashboard"
             className="px-6 py-3.5 bg-emerald-900 hover:bg-emerald-800 text-white font-black text-xs uppercase tracking-wider rounded-2xl border border-emerald-700 transition-all text-center"
           >
-            List Farm Harvest
+            {t('misc.mandi.listFarmHarvest')}
           </Link>
         </div>
       </div>
@@ -1698,13 +1721,13 @@ export default function MandiRatesPage() {
             <div className="flex items-start justify-between">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900">
-                  {inspectRecord.category}
+                  {categoryLabel(inspectRecord.category)}
                 </span>
                 <h2 className="text-2xl font-black text-stone-900 tracking-tight mt-1.5">
                   {inspectRecord.commodity}
                 </h2>
                 <p className="text-xs text-stone-500 font-medium">
-                  Variety: {inspectRecord.variety}
+                  {t('misc.mandi.varietyLabel')} {inspectRecord.variety}
                 </p>
               </div>
 
@@ -1720,42 +1743,42 @@ export default function MandiRatesPage() {
             {/* Yard Details */}
             <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200 space-y-2 text-xs">
               <div className="flex justify-between">
-                <span className="text-stone-500 font-semibold">APMC Yard:</span>
+                <span className="text-stone-500 font-semibold">{t('misc.mandi.apmcYard')}</span>
                 <strong className="text-stone-900">{inspectRecord.market}</strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-stone-500 font-semibold">District & State:</span>
+                <span className="text-stone-500 font-semibold">{t('misc.mandi.districtState')}</span>
                 <strong className="text-stone-900">{inspectRecord.district}, {inspectRecord.state}</strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-stone-500 font-semibold">Auction Timings:</span>
-                <strong className="text-stone-900">{inspectRecord.tradingHours}</strong>
+                <span className="text-stone-500 font-semibold">{t('misc.mandi.auctionTimings')}</span>
+                <strong className="text-stone-900">{t('misc.mandi.tradingHours', { start: inspectRecord.tradingHours.split(' - ')[0], end: inspectRecord.tradingHours.split(' - ')[1] })}</strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-stone-500 font-semibold">Daily Arrival Volume:</span>
-                <strong className="text-emerald-800">{inspectRecord.arrivalQtyTonnes} Metric Tonnes</strong>
+                <span className="text-stone-500 font-semibold">{t('misc.mandi.dailyArrivalVolume')}</span>
+                <strong className="text-emerald-800">{formatNumber(inspectRecord.arrivalQtyTonnes)} {t('misc.unit.metricTonnes')}</strong>
               </div>
             </div>
 
             {/* Price Economics Grid */}
             <div className="grid grid-cols-2 gap-3">
               <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200">
-                <span className="text-[10px] font-bold text-stone-400 uppercase block">APMC Modal Rate</span>
+                <span className="text-[10px] font-bold text-stone-400 uppercase block">{t('misc.mandi.mandiModalRate')}</span>
                 <span className="text-2xl font-black text-stone-900 mt-0.5 block">
                   {formatPrice(inspectRecord.modalPrice)}
                 </span>
                 <span className="text-[11px] text-stone-500 block mt-0.5">
-                  Band: {formatPrice(inspectRecord.minPrice)} - {formatPrice(inspectRecord.maxPrice)}
+                  {t('misc.mandi.band', { min: formatPrice(inspectRecord.minPrice), max: formatPrice(inspectRecord.maxPrice) })}
                 </span>
               </div>
 
               <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200">
-                <span className="text-[10px] font-bold text-emerald-800 uppercase block">FarmConnect Direct</span>
+                <span className="text-[10px] font-bold text-emerald-800 uppercase block">{t('misc.mandi.farmConnectDirect')}</span>
                 <span className="text-2xl font-black text-emerald-950 mt-0.5 block">
                   {formatPrice(inspectRecord.farmConnectPrice)}
                 </span>
                 <span className="text-[11px] text-emerald-700 block mt-0.5">
-                  Zero commission markup
+                  {t('misc.mandi.zeroCommissionMarkup')}
                 </span>
               </div>
             </div>
@@ -1763,7 +1786,7 @@ export default function MandiRatesPage() {
             {/* Quality Standard Specification */}
             <div className="space-y-1">
               <h4 className="text-xs font-bold uppercase tracking-wider text-stone-500">
-                Physical Grading & Harvest Specification
+                {t('misc.mandi.gradingSpec')}
               </h4>
               <p className="text-xs text-stone-700 font-medium bg-stone-50 p-3 rounded-xl border border-stone-200 leading-relaxed">
                 {inspectRecord.gradeSpec}
@@ -1777,13 +1800,13 @@ export default function MandiRatesPage() {
                 onClick={() => setInspectRecord(null)}
                 className="flex-1 py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs rounded-xl transition-colors"
               >
-                Close Terminal
+                {t('misc.mandi.closeTerminal')}
               </button>
               <Link
                 href={`/consumer/explore?search=${encodeURIComponent(inspectRecord.commodity.split(' ')[0])}`}
                 className="flex-1 py-3 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all"
               >
-                Find Harvest Lots <ArrowRight className="w-3.5 h-3.5" />
+                {t('misc.mandi.findHarvestLots')} <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 

@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../data/models/misc.dart';
 import '../../../data/models/product.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/app_states.dart';
 
 /// Farmer dashboard — parity with `/farmer/dashboard`.
@@ -48,11 +49,13 @@ class _FarmerDashboardPageState extends ConsumerState<FarmerDashboardPage> {
       });
     } on ApiException catch (error) {
       if (mounted) {
-        setState(() => _error = error.displayMessage);
+        final l10n = AppLocalizations.of(context);
+        setState(() => _error = l10n.farmerRequestFailed(error.message));
       }
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
-        setState(() => _error = error.toString());
+        final l10n = AppLocalizations.of(context);
+        setState(() => _error = l10n.commonSomethingWrong);
       }
     } finally {
       if (mounted) {
@@ -70,7 +73,17 @@ class _FarmerDashboardPageState extends ConsumerState<FarmerDashboardPage> {
       ref.read(catalogRevisionProvider.notifier).state++;
     } on ApiException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.displayMessage)));
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.farmerRequestFailed(error.message))),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.commonSomethingWrong)),
+        );
       }
     }
   }
@@ -90,6 +103,7 @@ class _FarmerDashboardPageState extends ConsumerState<FarmerDashboardPage> {
   }
 
   Widget _buildBody() {
+    final l10n = AppLocalizations.of(context);
     if (_loading) {
       return const LoadingView();
     }
@@ -102,7 +116,11 @@ class _FarmerDashboardPageState extends ConsumerState<FarmerDashboardPage> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
       children: [
         Text(
-          dashboard.farmerName,
+          dashboard.farmerName.trim().isEmpty
+              ? l10n.commonFarmer
+              : dashboard.farmerName.trim(),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 14),
@@ -114,25 +132,52 @@ class _FarmerDashboardPageState extends ConsumerState<FarmerDashboardPage> {
           crossAxisSpacing: 12,
           childAspectRatio: 1.5,
           children: [
-            _statCard('Harvest lots', dashboard.totalProducts, Icons.inventory_2_outlined),
-            _statCard('Available', dashboard.availableProducts, Icons.check_circle_outline),
-            _statCard('Enquiries', dashboard.totalEnquiries, Icons.forum_outlined),
-            _statCard('Profile views', dashboard.profileViews, Icons.visibility_outlined),
+            _statCard(
+              context,
+              l10n.farmerDashboardHarvestLots,
+              dashboard.totalProducts,
+              Icons.inventory_2_outlined,
+            ),
+            _statCard(
+              context,
+              l10n.farmerDashboardAvailableLots,
+              dashboard.availableProducts,
+              Icons.check_circle_outline,
+            ),
+            _statCard(
+              context,
+              l10n.farmerDashboardEnquiries,
+              dashboard.totalEnquiries,
+              Icons.forum_outlined,
+            ),
+            _statCard(
+              context,
+              l10n.farmerDashboardProfileViews,
+              dashboard.profileViews,
+              Icons.visibility_outlined,
+            ),
           ],
         ),
         const SizedBox(height: 22),
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
-                'My harvest batches',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                l10n.farmerDashboardMyHarvestBatches,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
               ),
             ),
+            const SizedBox(width: 8),
             FilledButton.icon(
               onPressed: () => context.push('/farmer/products/new'),
               icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('List lot'),
+              label: Text(
+                l10n.farmerDashboardListLot,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               style: FilledButton.styleFrom(
                 minimumSize: const Size(0, 42),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -142,13 +187,13 @@ class _FarmerDashboardPageState extends ConsumerState<FarmerDashboardPage> {
         ),
         const SizedBox(height: 12),
         if (_products.isEmpty)
-          const Card(
+          Card(
             child: Padding(
-              padding: EdgeInsets.all(22),
+              padding: const EdgeInsets.all(22),
               child: Text(
-                'No Harvest Batches Found',
+                l10n.farmerDashboardNoHarvestBatches,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppTheme.stone500, fontWeight: FontWeight.w600),
+                style: const TextStyle(color: AppTheme.stone500, fontWeight: FontWeight.w600),
               ),
             ),
           )
@@ -189,9 +234,34 @@ class _FarmerDashboardPageState extends ConsumerState<FarmerDashboardPage> {
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(fontWeight: FontWeight.w800),
                             ),
+                            if (product.cropName?.trim().isNotEmpty == true) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                '${l10n.commonCrop}: ${product.cropName!.trim()}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppTheme.stone700,
+                                  fontSize: 12.5,
+                                ),
+                              ),
+                            ],
+                            if (product.variety?.trim().isNotEmpty == true) ...[
+                              Text(
+                                '${l10n.commonVariety}: ${product.variety!.trim()}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppTheme.stone700,
+                                  fontSize: 12.5,
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 2),
                             Text(
-                              '${Formatters.currency(product.farmerPrice)} · ${Formatters.quantity(product.quantityAvailable, product.quantityUnit)}',
+                              '${_formatCurrency(context, product.farmerPrice)} · ${_formatQuantity(context, product.quantityAvailable, l10n, product.quantityUnit)}',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(color: AppTheme.stone500, fontSize: 12.5),
                             ),
                           ],
@@ -211,7 +281,15 @@ class _FarmerDashboardPageState extends ConsumerState<FarmerDashboardPage> {
     );
   }
 
-  Widget _statCard(String label, int value, IconData icon) {
+  Widget _statCard(
+    BuildContext context,
+    String label,
+    int value,
+    IconData icon,
+  ) {
+    final formattedValue = NumberFormat.decimalPattern(
+      Localizations.localeOf(context).toString(),
+    ).format(value);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -222,13 +300,54 @@ class _FarmerDashboardPageState extends ConsumerState<FarmerDashboardPage> {
             Icon(icon, size: 20, color: AppTheme.emeraldDark),
             const SizedBox(height: 8),
             Text(
-              '$value',
+              formattedValue,
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
             ),
-            Text(label, style: const TextStyle(color: AppTheme.stone500, fontSize: 12.5)),
+            Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: AppTheme.stone500, fontSize: 12.5),
+            ),
           ],
         ),
       ),
     );
+  }
+}
+
+String _formatCurrency(BuildContext context, num value) {
+  final locale = Localizations.localeOf(context).toString();
+  final formatted = NumberFormat.currency(
+    locale: locale,
+    symbol: '₹',
+    decimalDigits: 2,
+  ).format(value);
+  return formatted.replaceFirst(RegExp(r'\.00$'), '');
+}
+
+String _formatQuantity(
+  BuildContext context,
+  num value,
+  AppLocalizations l10n,
+  String unit,
+) {
+  final number = NumberFormat.decimalPattern(Localizations.localeOf(context).toString())
+      .format(value);
+  return '$number ${_quantityUnitLabel(l10n, unit)}';
+}
+
+String _quantityUnitLabel(AppLocalizations l10n, String unit) {
+  switch (unit.toUpperCase()) {
+    case 'KG':
+      return l10n.commonKg;
+    case 'QUINTAL':
+      return l10n.farmerQuintal;
+    case 'DOZEN':
+      return l10n.farmerDozen;
+    case 'TON':
+      return l10n.farmerTon;
+    default:
+      return unit.toUpperCase();
   }
 }

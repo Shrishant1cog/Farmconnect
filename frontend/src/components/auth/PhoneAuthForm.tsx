@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Phone, ArrowRight, Loader2, AlertCircle, CheckCircle2, ShieldCheck, KeyRound } from 'lucide-react';
 import { fetchApi } from '../../lib/api';
 import { auth, setupRecaptcha } from '../../lib/firebase';
+import { useI18n } from '../../hooks/useI18n';
 import { signInWithPhoneNumber } from 'firebase/auth';
 
 interface PhoneAuthFormProps {
@@ -13,6 +14,7 @@ interface PhoneAuthFormProps {
 }
 
 export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
+  const { t } = useI18n();
   const router = useRouter();
 
   const [phone, setPhone] = useState('');
@@ -43,7 +45,7 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
 
     const cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length < 10) {
-      setError('Please provide a valid 10-digit mobile number.');
+      setError(t('auth.phone.errorInvalidPhone'));
       return;
     }
 
@@ -52,7 +54,7 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
 
     try {
       if (!auth) {
-        throw new Error('Firebase Auth is not initialized. Using local verification mode.');
+        throw new Error(t('auth.phone.errorFirebaseNotInitialized'));
       }
 
       const appVerifier = setupRecaptcha('recaptcha-container');
@@ -73,7 +75,7 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
         setStep('OTP');
         setError(null);
       } else {
-        setError(err?.message || 'Unable to dispatch verification SMS.');
+        setError(err?.message || t('auth.phone.errorUnableDispatch'));
       }
     } finally {
       setLoading(false);
@@ -85,7 +87,7 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
     setError(null);
 
     if (otp.length < 6) {
-      setError('Please enter the 6-digit verification code.');
+      setError(t('auth.phone.errorInvalidOtpLength'));
       return;
     }
 
@@ -98,7 +100,7 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
       if (confirmationResult && !isTestBypass) {
         await confirmationResult.confirm(otp);
       } else if (isTestBypass && otp !== '123456') {
-        throw new Error('Invalid test code. Enter 123456 to verify.');
+        throw new Error(t('auth.phone.errorInvalidTestCode'));
       }
 
       // 2. Complete session with backend
@@ -129,7 +131,7 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
         router.push(role === 'FARMER' ? '/farmer/dashboard' : '/consumer/explore');
       }
     } catch (err: any) {
-      setError(err?.message || 'Verification code failed. Please try again.');
+      setError(err?.message || t('auth.phone.errorVerificationFailed'));
     } finally {
       setLoading(false);
     }
@@ -153,7 +155,8 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
         <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2 text-xs text-amber-900">
           <KeyRound className="w-4 h-4 shrink-0 text-amber-600" />
           <span>
-            <strong>Local Dev Mode:</strong> Region SMS is restricted. Use test OTP: <strong>123456</strong>
+            <strong>{t('auth.phone.localDevMode')}</strong>{' '}
+            {t('auth.phone.regionRestricted')} <strong>{t('auth.phone.testOtp')}</strong>
           </span>
         </div>
       )}
@@ -162,23 +165,25 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
         <form onSubmit={handleSendCode} className="space-y-4">
           <div>
             <label className="text-[11px] font-bold uppercase text-stone-700 block mb-1">
-              Mobile Number
+              {t('auth.phone.mobileNumber')}
             </label>
             <div className="flex gap-2">
               <span className="px-3.5 py-2.5 bg-stone-100 border border-stone-200 rounded-xl text-xs font-bold text-stone-700 flex items-center">
-                IN +91
+                {t('auth.phone.countryCode')}
               </span>
               <input
                 type="tel"
                 maxLength={10}
                 required
-                placeholder="8073477125"
+                placeholder={t('auth.phone.phonePlaceholder')}
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 className="flex-1 px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600"
               />
             </div>
-            <p className="text-[11px] text-stone-400 mt-1">An SMS verification code will be sent to your phone.</p>
+            <p className="text-[11px] text-stone-400 mt-1">
+              {t('auth.phone.smsHelper')}
+            </p>
           </div>
 
           <button
@@ -187,21 +192,21 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
             className="w-full py-3.5 bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-            {loading ? 'Sending OTP Code...' : 'Send Verification Code'}
+            {loading ? t('auth.phone.sendingOtp') : t('auth.phone.sendCode')}
           </button>
         </form>
       ) : (
         <form onSubmit={handleVerifyOtp} className="space-y-4">
           <div>
             <label className="text-[11px] font-bold uppercase text-stone-700 block mb-1">
-              Enter 6-Digit OTP Code
+              {t('auth.phone.otpLabel')}
             </label>
             <input
               type="text"
               maxLength={6}
               required
               autoFocus
-              placeholder="123456"
+              placeholder={t('auth.phone.otpPlaceholder')}
               value={otp}
               onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
               className="w-full text-center tracking-widest text-lg font-black py-2.5 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600"
@@ -214,7 +219,7 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
             className="w-full py-3.5 bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-            {loading ? 'Verifying OTP...' : 'Verify & Enter Workspace'}
+            {loading ? t('auth.phone.verifyingOtp') : t('auth.phone.verifyWorkspace')}
           </button>
 
           <button
@@ -222,7 +227,7 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
             onClick={() => setStep('PHONE')}
             className="w-full text-center text-xs font-bold text-stone-500 hover:text-stone-800"
           >
-            Change Mobile Number
+            {t('auth.phone.changeMobile')}
           </button>
         </form>
       )}

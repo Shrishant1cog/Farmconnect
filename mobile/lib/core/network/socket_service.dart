@@ -48,12 +48,22 @@ class SocketService {
         debugPrint('[Socket] connect error: $error');
       }
     });
+
+    // Re-attach every listener that was registered before the socket existed.
+    // The language preference listener is registered when the session starts
+    // and the socket is connected a moment later, so without this the event
+    // would never arrive.
+    _listeners.forEach((event, handler) {
+      _socket!.on(event, handler);
+    });
   }
 
   void disconnect() {
     _socket?.dispose();
     _socket = null;
-    _listeners.clear();
+    // The listener registry is kept on purpose: the listeners are re-attached
+    // by the next `connect()` call, so a sign-out / sign-in cycle does not
+    // silently drop the real-time channels.
   }
 
   /// Subscribe to a server event. The returned callback removes the listener.

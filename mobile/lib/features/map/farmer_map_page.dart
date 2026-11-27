@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/product.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/app_states.dart';
 import '../../../shared/widgets/farmer_card.dart';
 
@@ -37,13 +39,16 @@ class _FarmerMapPageState extends ConsumerState<FarmerMapPage> {
   }
 
   Future<void> _load() async {
+    final l10n = AppLocalizations.of(context);
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
-      final farmers = await ref.read(catalogRepositoryProvider).fetchFarmersOnMap(
+      final farmers = await ref
+          .read(catalogRepositoryProvider)
+          .fetchFarmersOnMap(
             latitude: _deviceLocation?.latitude,
             longitude: _deviceLocation?.longitude,
           );
@@ -53,11 +58,11 @@ class _FarmerMapPageState extends ConsumerState<FarmerMapPage> {
       setState(() => _farmers = farmers);
     } on ApiException catch (error) {
       if (mounted) {
-        setState(() => _error = error.displayMessage);
+        setState(() => _error = l10n.commonRequestFailed(error.displayMessage));
       }
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
-        setState(() => _error = error.toString());
+        setState(() => _error = l10n.commonSomethingWrong);
       }
     } finally {
       if (mounted) {
@@ -67,6 +72,7 @@ class _FarmerMapPageState extends ConsumerState<FarmerMapPage> {
   }
 
   Future<void> _locateMe() async {
+    final l10n = AppLocalizations.of(context);
     setState(() => _locating = true);
     try {
       final permission = await Geolocator.checkPermission();
@@ -75,7 +81,12 @@ class _FarmerMapPageState extends ConsumerState<FarmerMapPage> {
         final requested = await Geolocator.requestPermission();
         if (requested == LocationPermission.denied ||
             requested == LocationPermission.deniedForever) {
-          throw StateError('Location permission was denied.');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(l10n.mapLocationPermissionDenied)),
+            );
+          }
+          return;
         }
       }
 
@@ -90,11 +101,10 @@ class _FarmerMapPageState extends ConsumerState<FarmerMapPage> {
       });
       _mapController.move(location, 12);
       await _load();
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.toString())),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(l10n.commonSomethingWrong)));
       }
     } finally {
       if (mounted) {
@@ -105,6 +115,10 @@ class _FarmerMapPageState extends ConsumerState<FarmerMapPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context).toString();
+    final numberFormat = NumberFormat.decimalPattern(locale);
+
     return Stack(
       children: [
         FlutterMap(
@@ -138,10 +152,18 @@ class _FarmerMapPageState extends ConsumerState<FarmerMapPage> {
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 2),
                           boxShadow: const [
-                            BoxShadow(color: Color(0x33000000), blurRadius: 6, offset: Offset(0, 2)),
+                            BoxShadow(
+                              color: Color(0x33000000),
+                              blurRadius: 6,
+                              offset: Offset(0, 2),
+                            ),
                           ],
                         ),
-                        child: const Icon(Icons.agriculture_rounded, color: Colors.white, size: 22),
+                        child: const Icon(
+                          Icons.agriculture_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
                       ),
                     ),
                   ),
@@ -161,14 +183,32 @@ class _FarmerMapPageState extends ConsumerState<FarmerMapPage> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
                 children: [
-                  const Icon(Icons.storefront_outlined, color: AppTheme.emeraldDark),
+                  const Icon(
+                    Icons.storefront_outlined,
+                    color: AppTheme.emeraldDark,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       _loading
-                          ? 'Loading nearby farms…'
-                          : '${_farmers.length} verified farms near ${_center.latitude.toStringAsFixed(2)}, ${_center.longitude.toStringAsFixed(2)}',
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                          ? l10n.mapLoadingNearbyFarms
+                          : l10n.mapVerifiedFarmsNearby(
+                              numberFormat.format(_farmers.length),
+                              numberFormat.format(
+                                double.parse(
+                                  _center.latitude.toStringAsFixed(2),
+                                ),
+                              ),
+                              numberFormat.format(
+                                double.parse(
+                                  _center.longitude.toStringAsFixed(2),
+                                ),
+                              ),
+                            ),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                   IconButton(
@@ -180,17 +220,18 @@ class _FarmerMapPageState extends ConsumerState<FarmerMapPage> {
                             child: CircularProgressIndicator(strokeWidth: 2.2),
                           )
                         : const Icon(Icons.my_location_rounded),
-                    tooltip: 'Use my location',
+                    tooltip: l10n.mapUseMyLocation,
                   ),
                 ],
               ),
             ),
           ),
         ),
-        if (_loading)
-          const Positioned.fill(child: LoadingView()),
+        if (_loading) const Positioned.fill(child: LoadingView()),
         if (_error != null)
-          Positioned.fill(child: ErrorView(message: _error!, onRetry: _load)),
+          Positioned.fill(
+            child: ErrorView(message: _error!, onRetry: _load),
+          ),
         Positioned(
           left: 12,
           right: 12,

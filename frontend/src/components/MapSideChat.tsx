@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { Send, MessageSquare, Sprout, Loader2, CheckCheck, AlertCircle } from 'lucide-react';
 import { fetchApi } from '../lib/api';
+import { useI18n } from '../hooks/useI18n';
 
 interface ChatMessage {
   id?: string;
@@ -19,6 +20,8 @@ interface MapSideChatProps {
 }
 
 export default function MapSideChat({ activeNode }: MapSideChatProps) {
+  const { t, formatDateTime } = useI18n();
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -58,6 +61,13 @@ export default function MapSideChat({ activeNode }: MapSideChatProps) {
   }, []);
 
   const currentUserId = getCurrentUserId();
+
+  // Translated labels for the participant role codes
+  const roleLabels: Record<string, string> = {
+    CONSUMER: t('misc.role.consumer'),
+    FARMER: t('misc.role.farmer'),
+    ADMIN: t('misc.role.admin'),
+  };
 
   // Auto-scroll to bottom of chat
   useEffect(() => {
@@ -104,7 +114,7 @@ export default function MapSideChat({ activeNode }: MapSideChatProps) {
           {
             id: msg.id || String(Date.now()),
             senderId: msg.senderId || msg.sender?.id || '',
-            senderName: msg.sender?.name || msg.senderName || 'Participant',
+            senderName: msg.sender?.name || msg.senderName || t('misc.chat.participant'),
             role: (msg.sender?.role || msg.role || 'FARMER').toUpperCase(),
             content: msg.content || '',
             createdAt: msg.createdAt || new Date().toISOString(),
@@ -119,7 +129,7 @@ export default function MapSideChat({ activeNode }: MapSideChatProps) {
       socket.off('new_chat_message');
       socket.disconnect();
     };
-  }, [activeEnquiryId]);
+  }, [activeEnquiryId, t]);
 
   // 3. Switch conversation room when map node changes
   useEffect(() => {
@@ -133,7 +143,7 @@ export default function MapSideChat({ activeNode }: MapSideChatProps) {
     const initThread = async () => {
       const token = getAuthToken();
       if (!token) {
-        setChatError('Please sign in to negotiate with this cultivator.');
+        setChatError(t('misc.sideChat.signInNegotiate'));
         return;
       }
 
@@ -146,8 +156,12 @@ export default function MapSideChat({ activeNode }: MapSideChatProps) {
       try {
         const payload = {
           productId: targetProductId,
-          subject: `Price Negotiation: ${activeNode.name || activeNode.title || 'Produce'}`,
-          message: `Namaskara! Inquiring about ${activeNode.produce || activeNode.name || 'produce'} listed on the map.`,
+          subject: t('misc.sideChat.priceSubject', {
+            name: activeNode.name || activeNode.title || t('misc.sideChat.defaultProduce'),
+          }),
+          message: t('misc.sideChat.mapInquiry', {
+            produce: activeNode.produce || activeNode.name || t('misc.sideChat.defaultProduce'),
+          }),
         };
 
         let json: any;
@@ -195,7 +209,7 @@ export default function MapSideChat({ activeNode }: MapSideChatProps) {
                 rawList.map((m: any) => ({
                   id: m.id,
                   senderId: m.senderId || m.sender?.id,
-                  senderName: m.sender?.name || 'User',
+                  senderName: m.sender?.name || t('misc.sideChat.user'),
                   role: (m.sender?.role || 'FARMER').toUpperCase(),
                   content: m.content,
                   createdAt: m.createdAt,
@@ -208,11 +222,15 @@ export default function MapSideChat({ activeNode }: MapSideChatProps) {
         }
       } catch (err: any) {
         console.error('Failed to initialize side chat:', err);
-        setChatError('Could not start negotiation thread.');
+        setChatError(t('misc.sideChat.startThreadError'));
       }
     };
 
     initThread();
+    // The translations are read from the latest render inside the effect body,
+    // so the locale is not part of the dependency list (a language switch must
+    // not open a second negotiation thread).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeNode]);
 
   // 4. Send Message Handler
@@ -223,7 +241,7 @@ export default function MapSideChat({ activeNode }: MapSideChatProps) {
 
     const token = getAuthToken();
     if (!token) {
-      setChatError('Please sign in to send messages.');
+      setChatError(t('misc.sideChat.signInSend'));
       return;
     }
 
@@ -234,7 +252,7 @@ export default function MapSideChat({ activeNode }: MapSideChatProps) {
     const optimisticMessage: ChatMessage = {
       id: `temp-${Date.now()}`,
       senderId: currentUserId || 'me',
-      senderName: 'You',
+      senderName: t('misc.chat.you'),
       role: 'CONSUMER',
       content: cleanText,
       createdAt: new Date().toISOString(),
@@ -274,7 +292,7 @@ export default function MapSideChat({ activeNode }: MapSideChatProps) {
       }
     } catch (err: any) {
       console.error('Failed to send message:', err);
-      setChatError('Failed to send message. Please try again.');
+      setChatError(t('misc.sideChat.sendError'));
       // Remove failed optimistic message
       setMessages((prev) => prev.filter((m) => m.id !== optimisticMessage.id));
       setInputText(cleanText);
@@ -293,13 +311,13 @@ export default function MapSideChat({ activeNode }: MapSideChatProps) {
           </div>
           <div>
             <h3 className="text-sm font-black text-stone-900">
-              {activeNode ? activeNode.name || activeNode.title : 'Cultivator ↔ Buyer Negotiation'}
+              {activeNode ? activeNode.name || activeNode.title : t('misc.sideChat.defaultTitle')}
             </h3>
             <p className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
               <Sprout className="w-3 h-3" />
               {activeNode
                 ? `${(activeNode.type || 'FARM').toUpperCase()}${activeNode.dist ? ` • ${activeNode.dist}` : ''}`
-                : 'Select any pin on the map to negotiate'}
+                : t('misc.sideChat.selectPin')}
             </p>
           </div>
         </div>
@@ -309,7 +327,7 @@ export default function MapSideChat({ activeNode }: MapSideChatProps) {
           className={`w-2.5 h-2.5 rounded-full transition-colors ${
             isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-stone-300'
           }`}
-          title={isConnected ? 'Live Socket Sync Active' : 'Connecting to Chat Engine...'}
+          title={isConnected ? t('misc.sideChat.liveSync') : t('misc.sideChat.connecting')}
         />
       </div>
 
@@ -325,15 +343,15 @@ export default function MapSideChat({ activeNode }: MapSideChatProps) {
         {!activeNode ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 text-stone-400">
             <MessageSquare className="w-10 h-10 mb-2 opacity-30 text-emerald-700" />
-            <p className="text-xs font-bold text-stone-600">No active map pin selected</p>
+            <p className="text-xs font-bold text-stone-600">{t('misc.sideChat.noPin')}</p>
             <p className="text-[11px] mt-1 text-stone-400 max-w-xs">
-              Click any pin on the map to begin direct price and pickup negotiations.
+              {t('misc.sideChat.noPinHint')}
             </p>
           </div>
         ) : messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 text-stone-400">
-            <p className="text-xs font-bold text-stone-500">No prior messages with this cultivator</p>
-            <p className="text-[11px] mt-1 text-stone-400">Send an inquiry below to discuss rates and volume.</p>
+            <p className="text-xs font-bold text-stone-500">{t('misc.sideChat.noPriorMessages')}</p>
+            <p className="text-[11px] mt-1 text-stone-400">{t('misc.sideChat.noPriorHint')}</p>
           </div>
         ) : (
           messages.map((m, idx) => {
@@ -341,7 +359,7 @@ export default function MapSideChat({ activeNode }: MapSideChatProps) {
             return (
               <div key={m.id || idx} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                 <span className="text-[10px] font-bold text-stone-400 mb-0.5 px-1">
-                  {isMe ? 'You' : m.senderName} ({m.role})
+                  {isMe ? t('misc.chat.you') : m.senderName} ({roleLabels[m.role] || m.role})
                 </span>
                 <div
                   className={`max-w-[85%] px-3.5 py-2 rounded-2xl text-xs font-medium shadow-sm ${
@@ -353,9 +371,7 @@ export default function MapSideChat({ activeNode }: MapSideChatProps) {
                   {m.content}
                 </div>
                 <span className="text-[9px] text-stone-400 mt-0.5 flex items-center gap-1">
-                  {m.createdAt
-                    ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                    : ''}
+                  {m.createdAt ? formatDateTime(m.createdAt) : ''}
                   {isMe && <CheckCheck className="w-3 h-3 text-emerald-600" />}
                 </span>
               </div>
@@ -374,8 +390,10 @@ export default function MapSideChat({ activeNode }: MapSideChatProps) {
           onChange={(e) => setInputText(e.target.value)}
           placeholder={
             activeNode
-              ? `Negotiate with ${activeNode.name || activeNode.title || 'farmer'}...`
-              : 'Select a node on the map first...'
+              ? t('misc.sideChat.negotiateWith', {
+                  name: activeNode.name || activeNode.title || t('misc.sideChat.farmer'),
+                })
+              : t('misc.sideChat.selectNodeFirst')
           }
           className="flex-1 px-4 py-2.5 text-xs bg-stone-100 rounded-xl border-transparent focus:bg-white focus:border-emerald-600 outline-none transition-all disabled:opacity-60"
         />

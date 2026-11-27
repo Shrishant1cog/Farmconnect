@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/formatters.dart';
+import '../../../data/models/order.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../auth/auth_controller.dart';
 import 'cart_controller.dart';
 
@@ -19,6 +21,8 @@ class CheckoutPage extends ConsumerStatefulWidget {
 
 class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   final _addressController = TextEditingController();
+  final _transportController = TextEditingController();
+  final _containerController = TextEditingController();
   bool _isSubmitting = false;
   String? _error;
   double _transportCost = 0;
@@ -38,19 +42,22 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   @override
   void dispose() {
     _addressController.dispose();
+    _transportController.dispose();
+    _containerController.dispose();
     super.dispose();
   }
 
   Future<void> _placeOrder() async {
+    final l10n = AppLocalizations.of(context);
     final address = _addressController.text.trim();
     if (address.isEmpty) {
-      setState(() => _error = 'A delivery address is required.');
+      setState(() => _error = l10n.consumerDeliveryAddressRequired);
       return;
     }
 
     final cart = ref.read(cartControllerProvider);
     if (cart.isEmpty) {
-      setState(() => _error = 'Your cart is empty.');
+      setState(() => _error = l10n.consumerCartEmpty);
       return;
     }
 
@@ -82,14 +89,17 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         return;
       }
 
+      final orderNumber = _orderNumber(order.id);
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
           icon: const Icon(Icons.check_circle_rounded, color: AppTheme.emerald, size: 42),
-          title: const Text('Order placed'),
+          title: Text(l10n.consumerOrderPlaced),
           content: Text(
-            'Order ${order.id.substring(0, order.id.length.clamp(0, 8))} was created with '
-            'status ${order.status.label}. The farmer has been notified in real time.',
+            l10n.consumerOrderPlacedMessage(
+              orderNumber,
+              _orderStatusLabel(l10n, order.status),
+            ),
             textAlign: TextAlign.center,
           ),
           actions: [
@@ -98,18 +108,20 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                 Navigator.of(context).pop();
                 context.go('/home');
               },
-              child: const Text('View orders'),
+              child: Text(l10n.consumerViewOrders),
             ),
           ],
         ),
       );
     } on ApiException catch (error) {
       if (mounted) {
-        setState(() => _error = error.displayMessage);
+        final currentL10n = AppLocalizations.of(context);
+        setState(() => _error = currentL10n.consumerRequestFailed(error.message));
       }
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
-        setState(() => _error = error.toString());
+        final currentL10n = AppLocalizations.of(context);
+        setState(() => _error = currentL10n.commonSomethingWrong);
       }
     } finally {
       if (mounted) {
@@ -120,10 +132,11 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final cart = ref.watch(cartControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Direct Wholesale Checkout')),
+      appBar: AppBar(title: Text(l10n.consumerCheckoutTitle)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
@@ -133,9 +146,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Order summary',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  Text(
+                    l10n.consumerOrderSummary,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 12),
                   for (final line in cart.lines)
@@ -145,12 +158,17 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                         children: [
                           Expanded(
                             child: Text(
-                              '${line.product.title} × ${Formatters.quantity(line.quantity, line.product.quantityUnit)}',
+                              '${line.product.title} × ${_formatQuantity(context, line.quantity, l10n, line.product.quantityUnit)}',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(fontWeight: FontWeight.w600),
                             ),
                           ),
+                          const SizedBox(width: 8),
                           Text(
-                            Formatters.currency(line.lineTotal),
+                            _formatCurrency(context, line.lineTotal),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ],
@@ -159,11 +177,14 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                   const Divider(height: 22),
                   Row(
                     children: [
-                      const Expanded(
-                        child: Text('Items total', style: TextStyle(fontWeight: FontWeight.w700)),
+                      Expanded(
+                        child: Text(
+                          l10n.consumerItemsTotal,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
                       ),
                       Text(
-                        Formatters.currency(cart.itemsTotal),
+                        _formatCurrency(context, cart.itemsTotal),
                         style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
                       ),
                     ],
@@ -176,9 +197,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
           TextField(
             controller: _addressController,
             maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Delivery address',
-              prefixIcon: Icon(Icons.location_on_outlined),
+            decoration: InputDecoration(
+              labelText: l10n.consumerDeliveryAddress,
+              prefixIcon: const Icon(Icons.location_on_outlined),
               alignLabelWithHint: true,
             ),
             onChanged: (value) =>
@@ -191,26 +212,25 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Logistics',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  Text(
+                    l10n.consumerLogistics,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Transport and container charges are computed by the shared backend when '
-                    'the farmer confirms the dispatch.',
-                    style: TextStyle(color: AppTheme.stone500, fontSize: 13, height: 1.4),
+                  Text(
+                    l10n.consumerLogisticsDescription,
+                    style: const TextStyle(color: AppTheme.stone500, fontSize: 13, height: 1.4),
                   ),
                   const SizedBox(height: 14),
                   _costField(
-                    label: 'Transport cost',
-                    value: _transportCost,
+                    label: l10n.consumerTransportCost,
+                    controller: _transportController,
                     onChanged: (value) => setState(() => _transportCost = value),
                   ),
                   const SizedBox(height: 12),
                   _costField(
-                    label: 'Container cost',
-                    value: _containerCost,
+                    label: l10n.consumerContainerCost,
+                    controller: _containerController,
                     onChanged: (value) => setState(() => _containerCost = value),
                   ),
                 ],
@@ -233,7 +253,17 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                     height: 22,
                     child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
                   )
-                : Text('Place order · ${Formatters.currency(cart.itemsTotal + _transportCost + _containerCost)}'),
+                : Text(
+                    l10n.consumerPlaceOrder(
+                      _formatCurrency(
+                        context,
+                        cart.itemsTotal + _transportCost + _containerCost,
+                      ),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
           ),
         ],
       ),
@@ -242,15 +272,71 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
 
   Widget _costField({
     required String label,
-    required double value,
+    required TextEditingController controller,
     required ValueChanged<double> onChanged,
   }) {
-    final controller = TextEditingController(text: value == 0 ? '' : value.toStringAsFixed(2));
     return TextField(
       controller: controller,
       keyboardType: TextInputType.number,
       decoration: InputDecoration(labelText: label, prefixText: '₹ '),
       onChanged: (text) => onChanged(double.tryParse(text.trim()) ?? 0),
     );
+  }
+}
+
+String _orderNumber(String id) {
+  final end = id.length < 8 ? id.length : 8;
+  return id.substring(0, end);
+}
+
+String _orderStatusLabel(AppLocalizations l10n, OrderStatus status) {
+  switch (status) {
+    case OrderStatus.pending:
+      return l10n.consumerOrderStatusPending;
+    case OrderStatus.confirmed:
+      return l10n.consumerOrderStatusConfirmed;
+    case OrderStatus.dispatched:
+      return l10n.consumerOrderStatusDispatched;
+    case OrderStatus.delivered:
+      return l10n.consumerOrderStatusDelivered;
+    case OrderStatus.cancelled:
+      return l10n.consumerOrderStatusCancelled;
+  }
+}
+
+String _formatCurrency(BuildContext context, num value) {
+  final locale = Localizations.localeOf(context).toString();
+  final formatted = NumberFormat.currency(
+    locale: locale,
+    symbol: '₹',
+    decimalDigits: 2,
+  ).format(value);
+  return formatted.replaceFirst(RegExp(r'\.00$'), '');
+}
+
+String _formatQuantity(
+  BuildContext context,
+  num value,
+  AppLocalizations l10n,
+  String unit,
+) {
+  final number = NumberFormat.decimalPattern(
+    Localizations.localeOf(context).toString(),
+  ).format(value);
+  return '$number ${_quantityUnitLabel(l10n, unit)}';
+}
+
+String _quantityUnitLabel(AppLocalizations l10n, String unit) {
+  switch (unit.toUpperCase()) {
+    case 'KG':
+      return l10n.commonKg;
+    case 'QUINTAL':
+      return l10n.farmerQuintal;
+    case 'DOZEN':
+      return l10n.farmerDozen;
+    case 'TON':
+      return l10n.farmerTon;
+    default:
+      return unit.toUpperCase();
   }
 }

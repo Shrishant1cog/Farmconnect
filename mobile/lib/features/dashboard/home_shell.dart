@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../data/models/user.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../admin/admin_dashboard_page.dart';
 import '../auth/auth_controller.dart';
 import '../chat/enquiries_page.dart';
@@ -16,10 +17,16 @@ import '../farmer/products_page.dart';
 import '../map/farmer_map_page.dart';
 import '../market_rates/market_rates_page.dart';
 import '../profile/profile_page.dart';
+import '../../shared/widgets/language_selector.dart';
 
 /// A single bottom-navigation destination.
 class _Tab {
-  const _Tab({required this.label, required this.icon, required this.title, required this.builder});
+  const _Tab({
+    required this.label,
+    required this.icon,
+    required this.title,
+    required this.builder,
+  });
 
   final String label;
   final IconData icon;
@@ -38,37 +45,37 @@ class HomeShell extends ConsumerStatefulWidget {
 class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
 
-  List<_Tab> _tabsFor(UserRole role) {
+  List<_Tab> _tabsFor(UserRole role, AppLocalizations l10n) {
     if (role == UserRole.farmer) {
       return [
         _Tab(
-          label: 'Dashboard',
+          label: l10n.navDashboard,
           icon: Icons.dashboard_outlined,
-          title: 'Farmer dashboard',
+          title: l10n.homeFarmerDashboardTitle,
           builder: (_) => const FarmerDashboardPage(),
         ),
         _Tab(
-          label: 'Lots',
+          label: l10n.navLots,
           icon: Icons.inventory_2_outlined,
-          title: 'Harvest inventory',
+          title: l10n.homeHarvestInventoryTitle,
           builder: (_) => const FarmerProductsPage(),
         ),
         _Tab(
-          label: 'Orders',
+          label: l10n.navOrders,
           icon: Icons.receipt_long_outlined,
-          title: 'Incoming orders',
+          title: l10n.homeIncomingOrdersTitle,
           builder: (_) => const FarmerOrdersPage(),
         ),
         _Tab(
-          label: 'Enquiries',
+          label: l10n.navEnquiries,
           icon: Icons.forum_outlined,
-          title: 'Customer inquiries',
+          title: l10n.homeCustomerInquiriesTitle,
           builder: (_) => const EnquiriesPage(farmerView: true),
         ),
         _Tab(
-          label: 'Profile',
+          label: l10n.navProfile,
           icon: Icons.person_outline_rounded,
-          title: 'My profile',
+          title: l10n.profileTitle,
           builder: (_) => const ProfilePage(),
         ),
       ];
@@ -77,21 +84,21 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     if (role == UserRole.admin) {
       return [
         _Tab(
-          label: 'Console',
+          label: l10n.homeConsoleLabel,
           icon: Icons.admin_panel_settings_outlined,
-          title: 'Admin console',
+          title: l10n.homeAdminConsoleTitle,
           builder: (_) => const AdminDashboardPage(),
         ),
         _Tab(
-          label: 'Rates',
+          label: l10n.homeRatesLabel,
           icon: Icons.query_stats_rounded,
-          title: 'APMC mandi rates',
+          title: l10n.profileApmcRates,
           builder: (_) => const MarketRatesPage(),
         ),
         _Tab(
-          label: 'Profile',
+          label: l10n.navProfile,
           icon: Icons.person_outline_rounded,
-          title: 'My profile',
+          title: l10n.profileTitle,
           builder: (_) => const ProfilePage(),
         ),
       ];
@@ -99,33 +106,33 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
     return [
       _Tab(
-        label: 'Explore',
+        label: l10n.navExplore,
         icon: Icons.shopping_bag_outlined,
-        title: 'Marketplace',
+        title: l10n.homeMarketplaceTitle,
         builder: (_) => const ExplorePage(),
       ),
       _Tab(
-        label: 'Farm map',
+        label: l10n.navMap,
         icon: Icons.map_outlined,
-        title: 'Farm map',
+        title: l10n.navMap,
         builder: (_) => const FarmerMapPage(),
       ),
       _Tab(
-        label: 'Orders',
+        label: l10n.navOrders,
         icon: Icons.receipt_long_outlined,
-        title: 'My orders',
+        title: l10n.homeMyOrdersTitle,
         builder: (_) => const OrdersPage(),
       ),
       _Tab(
-        label: 'Cart',
+        label: l10n.navCart,
         icon: Icons.shopping_cart_outlined,
-        title: 'My cart',
+        title: l10n.homeMyCartTitle,
         builder: (_) => const CartPage(),
       ),
       _Tab(
-        label: 'Profile',
+        label: l10n.navProfile,
         icon: Icons.person_outline_rounded,
-        title: 'My profile',
+        title: l10n.profileTitle,
         builder: (_) => const ProfilePage(),
       ),
     ];
@@ -133,9 +140,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final user = ref.watch(currentUserProvider);
     final role = user?.role ?? UserRole.consumer;
-    final tabs = _tabsFor(role);
+    final tabs = _tabsFor(role, l10n);
 
     if (_index >= tabs.length) {
       _index = 0;
@@ -147,23 +155,26 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       appBar: AppBar(
         title: Text(tab.title),
         actions: [
+          // The language selector lives in the app bar so it is reachable
+          // from every screen of the app, not only from the profile.
+          const LanguageSelector(compact: true, showLabel: false),
           if (role == UserRole.consumer) ...[
             IconButton(
               onPressed: () => context.push('/market-rates'),
               icon: const Icon(Icons.query_stats_rounded),
-              tooltip: 'APMC mandi rates',
+              tooltip: l10n.navMarketRates,
             ),
             IconButton(
               onPressed: () => context.push('/notifications'),
               icon: const Icon(Icons.notifications_none_rounded),
-              tooltip: 'Notifications',
+              tooltip: l10n.navNotifications,
             ),
           ],
           if (role == UserRole.farmer)
             IconButton(
               onPressed: () => context.push('/notifications'),
               icon: const Icon(Icons.notifications_none_rounded),
-              tooltip: 'Notifications',
+              tooltip: l10n.navNotifications,
             ),
         ],
       ),
@@ -176,10 +187,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         onDestinationSelected: (index) => setState(() => _index = index),
         destinations: [
           for (final item in tabs)
-            NavigationDestination(
-              icon: Icon(item.icon),
-              label: item.label,
-            ),
+            NavigationDestination(icon: Icon(item.icon), label: item.label),
         ],
       ),
       floatingActionButton: role == UserRole.farmer && _index == 1
@@ -188,7 +196,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
               backgroundColor: AppTheme.emerald,
               foregroundColor: Colors.white,
               icon: const Icon(Icons.add_rounded),
-              label: const Text('List lot'),
+              label: Text(l10n.farmerDashboardListLot),
             )
           : null,
     );

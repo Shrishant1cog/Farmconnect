@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { db } from '../../config/db';
+import { buildProductWhereClause, normalizeCropFields } from '../../utils/productQuery';
+import { resolveCategory } from '../../utils/categoryResolver';
 
 const JWT_SECRETS = [
   process.env.JWT_SECRET,
@@ -56,6 +58,8 @@ export const createProduct = async (req: Request, res: Response) => {
       location = 'Karnataka',
       imageUrl = '',
       categoryId,
+      cropName,
+      variety,
       farmName,
       district,
       state,
@@ -106,8 +110,9 @@ export const createProduct = async (req: Request, res: Response) => {
       });
     }
 
-    // The UI does not currently collect a category. Keep the endpoint usable by
-    // falling back to the standard Vegetables category when categoryId is absent.
+    // The crop picker sends a `categoryId`. When it is missing (legacy
+    // clients) the listing falls back to the standard Vegetables category so
+    // the endpoint stays usable and backward compatible.
     let resolvedCategoryId = typeof categoryId === 'string' ? categoryId.trim() : '';
     if (resolvedCategoryId) {
       const category = await db.category.findUnique({ where: { id: resolvedCategoryId } });
@@ -115,7 +120,7 @@ export const createProduct = async (req: Request, res: Response) => {
         return res.status(400).json({ success: false, message: 'Selected product category was not found.' });
       }
     } else {
-      let defaultCategory = await db.category.findUnique({ where: { slug: 'vegetables' } });
+      let defaultCategory = await resolveCategory('vegetables');
       if (!defaultCategory) {
         defaultCategory = await db.category.create({
           data: {
@@ -132,6 +137,8 @@ export const createProduct = async (req: Request, res: Response) => {
       data: {
         title: String(title).trim(),
         description: String(description).trim(),
+        cropName: normalizeCropFields(cropName, null).cropName,
+        variety: normalizeCropFields(null, variety).variety,
         farmerPrice: parsedPrice,
         priceUnit: String(priceUnit).toUpperCase(),
         quantityAvailable: parsedQty,
@@ -196,11 +203,13 @@ export const getMyProducts = async (req: Request, res: Response) => {
             { farmerId: userId },
           ],
         },
+        include: { category: true },
         orderBy: { createdAt: 'desc' },
       });
     } catch {
       products = await db.product.findMany({
         where: { farmerId: userId },
+        include: { category: true },
         orderBy: { createdAt: 'desc' },
       }).catch(() => []);
     }
@@ -229,34 +238,48 @@ export const getMyProducts = async (req: Request, res: Response) => {
  */
 export const getProducts = async (req: Request, res: Response) => {
   try {
-    const { search, district, isOrganic } = req.query;
+    const { search, district, isOrganic, crop, category, categoryId } = req.query;
 
-    const whereClause: any = {
-      isAvailable: true,
-    };
+    const whereClause: any = buildProductWhereClause({
+      search,
+      district,
+      isOrganic,
+      crop,
+      category,
+      categoryId,
+    });
 
-    if (search && typeof search === 'string') {
-      const q = search.trim();
-      whereClause.OR = [
-        { title: { contains: q, mode: 'insensitive' } },
-        { description: { contains: q, mode: 'insensitive' } },
-        { location: { contains: q, mode: 'insensitive' } },
-      ];
+    // The category filter is resolved against the live `Category` table so
+    // that a slug such as `grains` and the display name `Grains & Millets`
+    // select exactly the same listings on both clients.
+    if (category && typeof category === 'string' && category.trim()) {
+      const resolvedCategory = await resolveCategory(category);
+      if (resolvedCategory) {
+        whereClause.categoryId = resolvedCategory.id;
+        delete whereClause.category;
+      }
     }
 
-    if (isOrganic === 'true' || isOrganic === '1') {
-      whereClause.isOrganic = true;
-    }
-
-    if (district && typeof district === 'string') {
-      whereClause.location = { contains: district.trim(), mode: 'insensitive' };
-    }
+    // The caller asked for a filtered view (crop, category, search …). If the
+    // filtered query fails we must NOT silently answer with the unfiltered
+    // catalogue — that would be a fake success state and the client would
+    // show listings that do not match the requested crop. The error is
+    // reported instead so both clients show their real error state.
+    const hasActiveFilter = Boolean(
+      (typeof search === 'string' && search.trim()) ||
+        (typeof crop === 'string' && crop.trim()) ||
+        (typeof category === 'string' && category.trim()) ||
+        (typeof categoryId === 'string' && categoryId.trim()) ||
+        (typeof district === 'string' && district.trim()) ||
+        (typeof isOrganic === 'string' && isOrganic.trim()),
+    );
 
     let products: any[] = [];
     try {
       products = await db.product.findMany({
         where: whereClause,
         include: {
+          category: true,
           farmer: {
             include: {
               user: { select: { name: true, phone: true } },
@@ -265,7 +288,18 @@ export const getProducts = async (req: Request, res: Response) => {
         },
         orderBy: { createdAt: 'desc' },
       });
-    } catch {
+    } catch (queryError: any) {
+      if (hasActiveFilter) {
+        console.error('[getProducts] Filtered catalogue query failed:', queryError?.message);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to fetch the filtered catalogue',
+          error: queryError?.message,
+        });
+      }
+
+      // No filter was requested: a degraded read of the plain catalogue is
+      // still an honest answer.
       products = await db.product.findMany({
         where: { isAvailable: true },
         orderBy: { createdAt: 'desc' },
@@ -303,6 +337,7 @@ export const getProductById = async (req: Request, res: Response) => {
       product = await db.product.findUnique({
         where: { id },
         include: {
+          category: true,
           farmer: {
             include: {
               user: { select: { id: true, name: true, phone: true, email: true } },
@@ -352,6 +387,26 @@ export const updateProduct = async (req: Request, res: Response) => {
         dataToUpdate[field] = field === 'priceUnit' || field === 'quantityUnit'
           ? String(updateBody[field]).toUpperCase()
           : String(updateBody[field] ?? '').trim();
+      }
+    }
+
+    // Crop fields identify the crop this lot represents. They are stored
+    // independently so one listing never overwrites another crop.
+    if (updateBody.cropName !== undefined) {
+      dataToUpdate.cropName = normalizeCropFields(updateBody.cropName, null).cropName;
+    }
+    if (updateBody.variety !== undefined) {
+      dataToUpdate.variety = normalizeCropFields(null, updateBody.variety).variety;
+    }
+
+    if (updateBody.categoryId !== undefined) {
+      const nextCategoryId = String(updateBody.categoryId ?? '').trim();
+      if (nextCategoryId) {
+        const category = await db.category.findUnique({ where: { id: nextCategoryId } });
+        if (!category) {
+          return res.status(400).json({ success: false, message: 'Selected product category was not found.' });
+        }
+        dataToUpdate.categoryId = nextCategoryId;
       }
     }
 

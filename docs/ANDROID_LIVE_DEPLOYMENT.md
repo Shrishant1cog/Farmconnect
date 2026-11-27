@@ -499,11 +499,83 @@ exercised it. "Verified" always refers to the live Render backend, never a mock.
 | 9 | Notifications / Socket.IO | ✅ Verified on device | Integration test 4 (shared notification inbox) and test 6: Android receives a real `new_order_received` Socket.IO event when the order is placed by the other client. |
 | 10 | Logout / session restore / account isolation | ✅ Verified | Release APK: `am force-stop` + relaunch returns straight to the dashboard. Integration test 5: logout wipes the stored session, the account signs in again with the same id, and a second account cannot see the first account's orders. |
 
+> **Note (2026-11-28):** the table above records the workflows that were
+> verified against the deployment that existed **before** the multilingual and
+> multiple-crop work was pushed. The new features add two more workflows
+> (independent crop lots and a shared language preference) and the complete,
+> up-to-date route and cross-platform matrices live in
+> [`docs/VERIFICATION_MATRICES.md`](VERIFICATION_MATRICES.md). Rows in that
+> document stay `NOT TESTED` until the corresponding command has actually been
+> executed — nothing is marked as verified by inference.
+
 ---
 
-## 7. Signing status
+## 7. Multilingual support and multiple crop listings (added 2026-11-27)
 
-### 7.1 Current state
+Two features were added to **both** clients on the **same** backend and the
+**same** PostgreSQL database. The full design is in
+[`docs/MULTILINGUAL_AND_CROPS.md`](MULTILINGUAL_AND_CROPS.md); the route and
+cross-platform matrices are in
+[`docs/VERIFICATION_MATRICES.md`](VERIFICATION_MATRICES.md).
+
+### 7.1 Multilingual support (English / Kannada / Hindi)
+
+| Item | Website | Android |
+| --- | --- | --- |
+| Implementation | `frontend/src/context/LocaleContext.tsx` + `frontend/src/i18n/dictionaries/*.{en,kn,hi}.ts` | `mobile/lib/core/locale/locale_controller.dart` + `mobile/lib/l10n/app_{en,kn,hi}.arb` |
+| Selector | `frontend/src/components/ui/LanguageSwitcher.tsx` (navbar **and** footer) | `mobile/lib/shared/widgets/language_selector.dart` (app bar **and** profile) |
+| Instant switch | yes — `setLocale()` re-renders without a reload | yes — `MaterialApp.router` receives the active `Locale` |
+| Local persistence | `localStorage["farmconnect_locale"]` | encrypted keystore `farmconnect_locale` (survives logout) |
+| Account sync | `PATCH /api/users/me { preferredLanguage }` → `User.preferredLanguage` | same endpoint, same column |
+| Live sync | Socket.IO `language_preference_updated` in room `user_<id>` | same event, same room |
+| Formatting | `Intl.NumberFormat` / `Intl.DateTimeFormat` with `en-IN` / `kn-IN` / `hi-IN` | `intl` `NumberFormat` / `DateFormat` with the active locale |
+
+The account language is the single source of truth for a signed-in user; the
+device value is only the local cache for signed-out visitors.
+
+### 7.2 Multiple independent crop listings
+
+* One listing is one `Product` row with its **own** `cropName`, `variety`,
+  quantity, unit, price, availability, description and image.
+* New shared endpoints: `GET /api/catalog/categories` and
+  `GET /api/catalog/crops?search=&category=`.
+* New product filters: `crop`, `category`, `categoryId` (the existing
+  `search`, `district` and `isOrganic` filters are unchanged).
+* Category filters are resolved against the live `Category` table, because the
+  seeded slugs differ per installation (`Grains & Millets` may be stored as
+  `grains`).
+* Website: `frontend/src/components/farmer/AddCropModal.tsx`,
+  `EditCropModal.tsx` and `frontend/src/app/farmer/products/page.tsx`.
+* Android: `mobile/lib/features/farmer/product_form_page.dart` and
+  `mobile/lib/features/farmer/products_page.dart`.
+
+### 7.3 Database migration
+
+`backend/prisma/migrations/20261127000000_add_language_and_crop_fields/migration.sql`
+adds `User.preferredLanguage`, `Product.cropName`, `Product.variety` and an
+index on `Product.cropName`. It is **additive** — no existing row is rewritten
+— and Render applies it with `npm run db:migrate` in the build command before
+the new API starts. The new columns therefore only exist in production after
+the branch has been pushed and the service redeployed.
+
+### 7.4 New verification tooling
+
+```bash
+# Localisation completeness (website + Android, all three languages)
+npm run i18n:check
+
+# HTTP route evidence against the deployed services
+npm run smoke:routes
+
+# Backend unit tests (no database required)
+cd backend && npm run test:unit
+```
+
+---
+
+## 8. Signing status
+
+### 8.1 Current state
 
 | Item | Status |
 | --- | --- |
@@ -513,7 +585,7 @@ exercised it. "Verified" always refers to the live Render backend, never a mock.
 | Play Store upload key | **Does not exist in this repository and was not generated** |
 | `android/key.properties` | **Not present**, and `android/.gitignore` already excludes it, `*.keystore` and `*.jks` |
 
-### 7.2 Testable vs Play Store ready
+### 8.2 Testable vs Play Store ready
 
 | | Testable APK/AAB | Play Store ready APK/AAB |
 | --- | --- | --- |
@@ -524,7 +596,7 @@ exercised it. "Verified" always refers to the live Render backend, never a mock.
 
 **The delivered artefacts are testable but NOT Play Store ready.**
 
-### 7.3 How to produce a Play Store ready build
+### 8.3 How to produce a Play Store ready build
 
 The owner generates the upload keystore **once**, locally, with the Android
 SDK tools. That key is a secret and must never be committed:
@@ -557,7 +629,7 @@ committed by this work.
 
 ---
 
-## 8. Known limitations
+## 9. Known limitations
 
 1. **The release APK is signed with the debug key.** See section 7. The
    artefact runs correctly against the production API but must be re-signed
@@ -594,7 +666,7 @@ committed by this work.
 
 ---
 
-## 9. Quick reference
+## 10. Quick reference
 
 ```bash
 # Local development

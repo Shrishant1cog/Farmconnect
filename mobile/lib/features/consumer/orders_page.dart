@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../data/models/order.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/app_states.dart';
 import '../../../shared/widgets/farmer_card.dart';
 
@@ -43,11 +44,13 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
       setState(() => _orders = orders);
     } on ApiException catch (error) {
       if (mounted) {
-        setState(() => _error = error.displayMessage);
+        final l10n = AppLocalizations.of(context);
+        setState(() => _error = l10n.consumerRequestFailed(error.message));
       }
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
-        setState(() => _error = error.toString());
+        final l10n = AppLocalizations.of(context);
+        setState(() => _error = l10n.commonSomethingWrong);
       }
     } finally {
       if (mounted) {
@@ -66,6 +69,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
   }
 
   Widget _buildBody() {
+    final l10n = AppLocalizations.of(context);
     if (_loading) {
       return const LoadingView();
     }
@@ -74,10 +78,10 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
     }
     if (_orders.isEmpty) {
       return ListView(
-        children: const [
+        children: [
           EmptyState(
-            title: 'No Orders Placed Yet',
-            message: 'Your wholesale orders will appear here with live dispatch status.',
+            title: l10n.consumerOrdersEmptyTitle,
+            message: l10n.consumerOrdersEmptyMessage,
             icon: Icons.receipt_long_outlined,
           ),
         ],
@@ -104,11 +108,17 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                       children: [
                         Expanded(
                           child: Text(
-                            'Order #${order.id.substring(0, order.id.length.clamp(0, 8))}',
+                            l10n.consumerOrderNumber(_orderNumber(order.id)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ),
-                        OrderStatusChip(label: order.status.label, color: _statusColor(order.status)),
+                        const SizedBox(width: 8),
+                        OrderStatusChip(
+                          label: _orderStatusLabel(l10n, order.status),
+                          color: _statusColor(order.status),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -123,13 +133,19 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                       children: [
                         const Icon(Icons.schedule_rounded, size: 15, color: AppTheme.stone500),
                         const SizedBox(width: 5),
-                        Text(
-                          Formatters.dateTime(order.createdAt),
-                          style: const TextStyle(color: AppTheme.stone500, fontSize: 12.5),
+                        Expanded(
+                          child: Text(
+                            _formatDateTime(context, order.createdAt),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: AppTheme.stone500, fontSize: 12.5),
+                          ),
                         ),
-                        const Spacer(),
+                        const SizedBox(width: 8),
                         Text(
-                          Formatters.currency(order.grandTotal),
+                          _formatCurrency(context, order.grandTotal),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
                         ),
                       ],
@@ -163,3 +179,41 @@ Color orderStatusColor(OrderStatus status) {
 
 /// Convenience alias used by the order list.
 Color _statusColor(OrderStatus status) => orderStatusColor(status);
+
+String _orderStatusLabel(AppLocalizations l10n, OrderStatus status) {
+  switch (status) {
+    case OrderStatus.pending:
+      return l10n.consumerOrderStatusPending;
+    case OrderStatus.confirmed:
+      return l10n.consumerOrderStatusConfirmed;
+    case OrderStatus.dispatched:
+      return l10n.consumerOrderStatusDispatched;
+    case OrderStatus.delivered:
+      return l10n.consumerOrderStatusDelivered;
+    case OrderStatus.cancelled:
+      return l10n.consumerOrderStatusCancelled;
+  }
+}
+
+String _orderNumber(String id) {
+  final end = id.length < 8 ? id.length : 8;
+  return id.substring(0, end);
+}
+
+String _formatCurrency(BuildContext context, num value) {
+  final locale = Localizations.localeOf(context).toString();
+  final formatted = NumberFormat.currency(
+    locale: locale,
+    symbol: '₹',
+    decimalDigits: 2,
+  ).format(value);
+  return formatted.replaceFirst(RegExp(r'\.00$'), '');
+}
+
+String _formatDateTime(BuildContext context, DateTime? value) {
+  if (value == null) {
+    return '—';
+  }
+  final locale = Localizations.localeOf(context).toString();
+  return DateFormat('d MMM yyyy, h:mm a', locale).format(value.toLocal());
+}

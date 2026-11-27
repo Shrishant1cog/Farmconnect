@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../data/models/misc.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 /// Logistics + profit calculator — parity with `/buy` and the
 /// `LogisticsProfitDrawer` component of the website.
@@ -41,32 +42,38 @@ class _LogisticsPageState extends ConsumerState<LogisticsPage> {
   }
 
   Future<void> _calculate() async {
+    final l10n = AppLocalizations.of(context);
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
-      final quote = await ref.read(catalogRepositoryProvider).fetchLogisticsQuote(
-            cropQuantityKg: double.tryParse(_quantityController.text.trim()) ?? 100,
-            farmerPricePerKg: double.tryParse(_priceController.text.trim()) ?? 20,
+      final quote = await ref
+          .read(catalogRepositoryProvider)
+          .fetchLogisticsQuote(
+            cropQuantityKg:
+                double.tryParse(_quantityController.text.trim()) ?? 100,
+            farmerPricePerKg:
+                double.tryParse(_priceController.text.trim()) ?? 20,
             originLat: _originLat,
             originLon: _originLon,
             destLat: _destLat,
             destLon: _destLon,
             containerType: _containerType,
-            apmcModalPricePerQuintal: double.tryParse(_apmcController.text.trim()) ?? 3200,
+            apmcModalPricePerQuintal:
+                double.tryParse(_apmcController.text.trim()) ?? 3200,
           );
       if (mounted) {
         setState(() => _quote = quote);
       }
     } on ApiException catch (error) {
       if (mounted) {
-        setState(() => _error = error.displayMessage);
+        setState(() => _error = l10n.commonRequestFailed(error.displayMessage));
       }
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
-        setState(() => _error = error.toString());
+        setState(() => _error = l10n.commonSomethingWrong);
       }
     } finally {
       if (mounted) {
@@ -77,18 +84,18 @@ class _LogisticsPageState extends ConsumerState<LogisticsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
       children: [
-        const Text(
-          'Geo-Logistics & Trade Profit Hub',
-          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+        Text(
+          l10n.logisticsTitle,
+          style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 6),
-        const Text(
-          'Costs are calculated by the shared FarmConnect backend so the website and the '
-          'Android app always quote the same logistics.',
-          style: TextStyle(color: AppTheme.stone500, height: 1.4),
+        Text(
+          l10n.logisticsDescription,
+          style: const TextStyle(color: AppTheme.stone500, height: 1.4),
         ),
         const SizedBox(height: 18),
         Card(
@@ -98,44 +105,79 @@ class _LogisticsPageState extends ConsumerState<LogisticsPage> {
               children: [
                 TextField(
                   controller: _quantityController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Crop quantity (KG)',
-                    prefixIcon: Icon(Icons.scale_outlined),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: l10n.logisticsCropQuantityKg,
+                    prefixIcon: const Icon(Icons.scale_outlined),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _priceController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Farmer price per KG',
-                    prefixIcon: Icon(Icons.currency_rupee_rounded),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: l10n.logisticsFarmerPricePerKg,
+                    prefixIcon: const Icon(Icons.currency_rupee_rounded),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _apmcController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'APMC modal price per quintal',
-                    prefixIcon: Icon(Icons.query_stats_rounded),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: l10n.logisticsApmcModalPrice,
+                    prefixIcon: const Icon(Icons.query_stats_rounded),
                   ),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: _containerType,
-                  decoration: const InputDecoration(labelText: 'Container type'),
-                  items: const [
-                    DropdownMenuItem(value: 'STANDARD_CRATE', child: Text('Standard crate')),
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: l10n.logisticsContainerType,
+                  ),
+                  items: [
+                    DropdownMenuItem(
+                      value: 'STANDARD_CRATE',
+                      child: Text(
+                        l10n.logisticsStandardCrate,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                     DropdownMenuItem(
                       value: 'COLD_CHAIN_REFRIGERATED',
-                      child: Text('Cold chain refrigerated'),
+                      child: Text(
+                        l10n.logisticsColdChain,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    DropdownMenuItem(value: 'MOISTURE_CONTROLLED', child: Text('Moisture controlled')),
-                    DropdownMenuItem(value: 'VENTILATED_JUTE', child: Text('Ventilated jute')),
+                    DropdownMenuItem(
+                      value: 'MOISTURE_CONTROLLED',
+                      child: Text(
+                        l10n.logisticsMoistureControlled,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 'VENTILATED_JUTE',
+                      child: Text(
+                        l10n.logisticsVentilatedJute,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ],
-                  onChanged: (value) => setState(() => _containerType = value ?? _containerType),
+                  onChanged: (value) =>
+                      setState(() => _containerType = value ?? _containerType),
                 ),
                 const SizedBox(height: 16),
                 FilledButton.icon(
@@ -144,10 +186,13 @@ class _LogisticsPageState extends ConsumerState<LogisticsPage> {
                       ? const SizedBox(
                           width: 18,
                           height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Icon(Icons.calculate_outlined),
-                  label: const Text('Calculate logistics & profit'),
+                  label: Text(l10n.logisticsCalculate),
                 ),
               ],
             ),
@@ -157,7 +202,10 @@ class _LogisticsPageState extends ConsumerState<LogisticsPage> {
           const SizedBox(height: 14),
           Text(
             _error!,
-            style: const TextStyle(color: Color(0xFFB91C1C), fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              color: Color(0xFFB91C1C),
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
         if (_quote != null) ...[
@@ -176,32 +224,57 @@ class _QuoteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context).toString();
+    final numberFormat = NumberFormat.decimalPattern(locale);
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Quotation',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            Text(
+              l10n.logisticsQuotation,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
-            _row('Distance', '${quote.distanceKm.toStringAsFixed(1)} km'),
-            _row('Transport cost', Formatters.currency(quote.transportCost)),
-            _row('Container cost', Formatters.currency(quote.containerCost)),
-            _row('Total logistics cost', Formatters.currency(quote.totalCost)),
-            _row('APMC value', Formatters.currency(quote.apmcValue)),
-            _row('Estimated transit', '${quote.estimatedDays} days'),
+            _row(
+              l10n.logisticsDistance,
+              '${numberFormat.format(double.parse(quote.distanceKm.toStringAsFixed(1)))} ${l10n.commonKm}',
+            ),
+            _row(
+              l10n.consumerTransportCost,
+              _formatCurrency(context, quote.transportCost),
+            ),
+            _row(
+              l10n.consumerContainerCost,
+              _formatCurrency(context, quote.containerCost),
+            ),
+            _row(
+              l10n.logisticsTotalCost,
+              _formatCurrency(context, quote.totalCost),
+            ),
+            _row(
+              l10n.logisticsApmcValue,
+              _formatCurrency(context, quote.apmcValue),
+            ),
+            _row(
+              l10n.logisticsEstimatedTransit,
+              l10n.logisticsTransitDays(
+                numberFormat.format(quote.estimatedDays),
+              ),
+            ),
             const Divider(height: 22),
             _row(
-              'Estimated profit',
-              Formatters.currency(quote.profit),
+              l10n.logisticsEstimatedProfit,
+              _formatCurrency(context, quote.profit),
               highlight: true,
             ),
             _row(
-              'Profit margin',
-              '${quote.profitMarginPercent.toStringAsFixed(1)}%',
+              l10n.logisticsProfitMargin,
+              NumberFormat.percentPattern(locale)
+                  .format(quote.profitMarginPercent / 100),
               highlight: true,
             ),
           ],
@@ -224,15 +297,31 @@ class _QuoteCard extends StatelessWidget {
               ),
             ),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: highlight ? FontWeight.w900 : FontWeight.w700,
-              color: highlight ? AppTheme.emeraldDark : AppTheme.stone900,
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontWeight: highlight ? FontWeight.w900 : FontWeight.w700,
+                color: highlight ? AppTheme.emeraldDark : AppTheme.stone900,
+              ),
             ),
           ),
         ],
       ),
     );
   }
+}
+
+String _formatCurrency(BuildContext context, num value) {
+  final locale = Localizations.localeOf(context).toString();
+  final formatted = NumberFormat.currency(
+    locale: locale,
+    symbol: '₹',
+    decimalDigits: 2,
+  ).format(value);
+  return formatted.replaceFirst(RegExp(r'\.00$'), '');
 }

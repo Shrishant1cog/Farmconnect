@@ -18,6 +18,7 @@ class CatalogRepository {
     String? search,
     String? category,
     String? district,
+    String? crop,
   }) async {
     final payload = await _api.get(
       ApiEndpoints.products,
@@ -25,12 +26,41 @@ class CatalogRepository {
         if (search != null && search.isNotEmpty) 'search': search,
         if (category != null && category.isNotEmpty) 'category': category,
         if (district != null && district.isNotEmpty) 'district': district,
+        if (crop != null && crop.isNotEmpty) 'crop': crop,
       },
     );
 
     return ApiClient.extractList(payload, keys: ['data', 'products'])
         .whereType<Map>()
         .map((item) => Product.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  }
+
+  /// Crop categories shared with the website (used by the crop filters).
+  Future<List<CropCategory>> fetchCropCategories() async {
+    final payload = await _api.get(ApiEndpoints.catalogCategories);
+    return ApiClient.extractList(payload, keys: ['data', 'categories'])
+        .whereType<Map>()
+        .map((item) => CropCategory.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  }
+
+  /// Searchable crop catalogue (English, Kannada and Hindi aliases).
+  Future<List<CropSuggestion>> fetchCropSuggestions({
+    String? search,
+    String? category,
+  }) async {
+    final payload = await _api.get(
+      ApiEndpoints.catalogCrops,
+      query: {
+        if (search != null && search.isNotEmpty) 'search': search,
+        if (category != null && category.isNotEmpty) 'category': category,
+      },
+    );
+
+    return ApiClient.extractList(payload, keys: ['data', 'crops'])
+        .whereType<Map>()
+        .map((item) => CropSuggestion.fromJson(Map<String, dynamic>.from(item)))
         .toList();
   }
 
@@ -66,6 +96,8 @@ class CatalogRepository {
     bool isOrganic = false,
     String? imageUrl,
     String? categoryId,
+    String? cropName,
+    String? variety,
   }) async {
     final payload = await _api.post(ApiEndpoints.products, body: {
       'title': title,
@@ -80,6 +112,8 @@ class CatalogRepository {
       'isOrganic': isOrganic,
       if (imageUrl != null && imageUrl.isNotEmpty) 'imageUrl': imageUrl,
       if (categoryId != null && categoryId.isNotEmpty) 'categoryId': categoryId,
+      if (cropName != null && cropName.isNotEmpty) 'cropName': cropName,
+      if (variety != null && variety.isNotEmpty) 'variety': variety,
     });
 
     final map = payload is Map ? Map<String, dynamic>.from(payload) : <String, dynamic>{};
@@ -104,6 +138,9 @@ class CatalogRepository {
     bool? isOrganic,
     bool? isAvailable,
     String? imageUrl,
+    String? categoryId,
+    String? cropName,
+    String? variety,
   }) async {
     final payload = await _api.patch(ApiEndpoints.product(id), body: {
       if (title != null) 'title': title,
@@ -118,6 +155,9 @@ class CatalogRepository {
       if (isOrganic != null) 'isOrganic': isOrganic,
       if (isAvailable != null) 'isAvailable': isAvailable,
       if (imageUrl != null) 'imageUrl': imageUrl,
+      if (categoryId != null && categoryId.isNotEmpty) 'categoryId': categoryId,
+      if (cropName != null) 'cropName': cropName,
+      if (variety != null) 'variety': variety,
     });
 
     final map = payload is Map ? Map<String, dynamic>.from(payload) : <String, dynamic>{};

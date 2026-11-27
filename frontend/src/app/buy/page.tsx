@@ -6,8 +6,10 @@ import MapSideChat from '../../components/MapSideChat';
 import LogisticsProfitDrawer from '../../components/LogisticsProfitDrawer';
 import { ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
+import { useI18n } from '../../hooks/useI18n';
 
 export default function BuyPortal() {
+  const { t } = useI18n();
   const [selectedLocation, setSelectedLocation] = useState<any>(null);
 
   return (
@@ -15,16 +17,18 @@ export default function BuyPortal() {
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-stone-900 tracking-tight">Geo-Logistics & Live Trade Hub</h1>
+          <h1 className="text-3xl font-black text-stone-900 tracking-tight">
+            {t('consumer.buy.heading')}
+          </h1>
           <p className="text-stone-600 text-sm mt-0.5">
-            Filter procurement pins across Karnataka and negotiate with farmers directly beside the map.
+            {t('consumer.buy.subtitle')}
           </p>
         </div>
         <Link 
           href="/checkout" 
           className="flex items-center gap-2 bg-emerald-800 hover:bg-emerald-900 text-white font-bold px-5 py-2.5 rounded-xl shadow-sm transition-colors text-sm w-fit"
         >
-          <ShoppingCart className="w-4 h-4" /> Go to Checkout
+          <ShoppingCart className="w-4 h-4" /> {t('consumer.buy.checkout')}
         </Link>
       </div>
 

@@ -21,6 +21,10 @@ class ApiEndpoints {
   static const String myProducts = '/products/my-products';
   static String product(String id) => '/products/$id';
 
+  // Shared catalogue metadata (crop categories + crop picker catalogue)
+  static const String catalogCategories = '/catalog/categories';
+  static const String catalogCrops = '/catalog/crops';
+
   // Orders
   static const String orders = '/orders';
   static const String myOrders = '/orders/my';

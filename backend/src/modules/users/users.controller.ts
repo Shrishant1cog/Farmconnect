@@ -2,11 +2,15 @@ import { Response } from 'express';
 import { z } from 'zod';
 import { db } from '../../config/db';
 import { AuthenticatedRequest } from '../../middleware/auth.middleware';
+import { getIO } from '../../socket';
+import { normalizeLanguage, SUPPORTED_LANGUAGES } from '../../utils/language';
 
 const updateProfileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').optional(),
   phone: z.string().min(10, 'Phone must be at least 10 digits').optional(),
   email: z.string().email('Invalid email address').optional(),
+  // Interface language shared between the website and the Android app.
+  preferredLanguage: z.enum(SUPPORTED_LANGUAGES as unknown as [string, ...string[]]).optional(),
   // Location & Regional fields
   state: z.string().optional(),
   district: z.string().optional(),
@@ -43,6 +47,7 @@ export const getCurrentProfile = async (req: AuthenticatedRequest, res: Response
         phone: true,
         role: true,
         isActive: true,
+        preferredLanguage: true,
         createdAt: true,
         farmerProfile: true,
         consumerProfile: true,
@@ -79,6 +84,9 @@ export const updateCurrentProfile = async (req: AuthenticatedRequest, res: Respo
 
     const body = updateProfileSchema.parse(req.body);
     const userRole = String(req.user?.role || '').toUpperCase();
+    const nextLanguage = body.preferredLanguage
+      ? normalizeLanguage(body.preferredLanguage)
+      : undefined;
 
     const updatedUser = await db.$transaction(async (tx) => {
       // Step A: Update primary user fields
@@ -86,6 +94,7 @@ export const updateCurrentProfile = async (req: AuthenticatedRequest, res: Respo
       if (body.name) userUpdateData.name = body.name.trim();
       if (body.phone) userUpdateData.phone = body.phone.replace(/\D/g, '').slice(-10);
       if (body.email) userUpdateData.email = body.email.trim().toLowerCase();
+      if (nextLanguage) userUpdateData.preferredLanguage = nextLanguage;
 
       if (Object.keys(userUpdateData).length > 0) {
         await tx.user.update({
@@ -148,6 +157,7 @@ export const updateCurrentProfile = async (req: AuthenticatedRequest, res: Respo
           phone: true,
           role: true,
           isActive: true,
+          preferredLanguage: true,
           createdAt: true,
           farmerProfile: true,
           consumerProfile: true,
@@ -155,11 +165,26 @@ export const updateCurrentProfile = async (req: AuthenticatedRequest, res: Respo
       });
     });
 
+    // 4. Tell the other client (website <-> Android) about the new language
+    //    straight away so both interfaces follow the account preference.
+    if (nextLanguage) {
+      try {
+        const io = getIO();
+        io?.to(`user_${userId}`).emit('language_preference_updated', {
+          userId,
+          preferredLanguage: nextLanguage,
+        });
+      } catch (socketError) {
+        console.warn('[Language Preference] Socket broadcast failed:', socketError);
+      }
+    }
+
     return res.json({
       success: true,
       message: 'Profile updated successfully',
       data: updatedUser,
       user: updatedUser,
+      preferredLanguage: updatedUser?.preferredLanguage ?? nextLanguage ?? 'en',
     });
   } catch (err: any) {
     return res.status(400).json({

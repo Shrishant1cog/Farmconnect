@@ -10,6 +10,9 @@ import {
 } from 'lucide-react';
 import { fetchApi } from '../../../lib/api';
 import { useAuth } from '../../../hooks/useAuth';
+import { useI18n } from '../../../hooks/useI18n';
+import AddCropModal from '../../../components/farmer/AddCropModal';
+import EditCropModal from '../../../components/farmer/EditCropModal';
 
 // ============================================================================
 // 1. DATA MODELS & SEED DATA
@@ -34,9 +37,73 @@ function resolveFallback(title?: string, categoryName?: string): string {
   return CATEGORY_FALLBACKS.DEFAULT;
 }
 
+interface CatalogCrop {
+  name: string;
+  category?: string;
+  aliases?: string[];
+}
+
+interface CatalogCategory {
+  id: string;
+  name: string;
+  slug?: string;
+}
+
+const CATEGORY_KEY_BY_SLUG: Record<string, string> = {
+  vegetables: 'farmer.category.vegetables',
+  fruits: 'farmer.category.fruits',
+  grains: 'farmer.category.grainsMillets',
+  'grains-millets': 'farmer.category.grainsMillets',
+  spices: 'farmer.category.spicesHerbs',
+  'spices-herbs': 'farmer.category.spicesHerbs',
+  pulses: 'farmer.category.pulsesLegumes',
+  'pulses-legumes': 'farmer.category.pulsesLegumes',
+  oilseeds: 'farmer.category.oilseeds',
+  'plantation-crops': 'farmer.category.plantationCrops',
+  'cash-crops': 'farmer.category.cashCrops',
+  'flowers-floriculture': 'farmer.category.flowersFloriculture',
+  'nuts-dry-produce': 'farmer.category.nutsDryProduce',
+};
+
+function categoryTranslationKey(category: CatalogCategory): string {
+  const slug = (category.slug || '').trim().toLowerCase();
+  if (CATEGORY_KEY_BY_SLUG[slug]) return CATEGORY_KEY_BY_SLUG[slug];
+
+  const name = (category.name || '').toLowerCase();
+  if (name.includes('grain') || name.includes('millet')) return 'farmer.category.grainsMillets';
+  if (name.includes('spice') && name.includes('cash')) return 'farmer.category.spicesCashCrops';
+  if (name.includes('spice') || name.includes('herb')) return 'farmer.category.spicesHerbs';
+  if (name.includes('pulse') || name.includes('legume')) return 'farmer.category.pulsesLegumes';
+  if (name.includes('oilseed')) return 'farmer.category.oilseeds';
+  if (name.includes('plantation')) return 'farmer.category.plantationCrops';
+  if (name.includes('cash')) return 'farmer.category.cashCrops';
+  if (name.includes('flower') || name.includes('floriculture')) return 'farmer.category.flowersFloriculture';
+  if (name.includes('nut') || name.includes('dry')) return 'farmer.category.nutsDryProduce';
+  if (name.includes('vegetable')) return 'farmer.category.vegetables';
+  if (name.includes('fruit')) return 'farmer.category.fruits';
+  return 'farmer.category.other';
+}
+
+function categoryMatchesCrop(category: CatalogCategory, cropCategory?: string): boolean {
+  const target = (cropCategory || '').toLowerCase();
+  const slug = (category.slug || '').toLowerCase();
+  const name = (category.name || '').toLowerCase();
+
+  if (!target) return false;
+  if (target === slug) return true;
+  if (target === 'grains-millets' && (slug === 'grains' || name.includes('grain'))) return true;
+  if (target === 'spices-herbs' && (slug === 'spices' || name.includes('spice'))) return true;
+  if (target === 'cash-crops' && name.includes('cash')) return true;
+  if (target === 'pulses-legumes' && (slug === 'pulses' || name.includes('pulse'))) return true;
+  return name.includes(target.replaceAll('-', ' '));
+}
+
 interface Product {
   id: string;
   title: string;
+  cropName?: string;
+  variety?: string;
+  categoryId?: string;
   description?: string;
   categoryName?: string;
   farmerPrice: number;
@@ -61,106 +128,6 @@ interface BuyerChatLead {
   quotedPrice?: number;
   unread: boolean;
 }
-
-const DEFAULT_PRODUCTS: Product[] = [
-  {
-    id: 'prod-1',
-    title: 'Tomato (Nati Desi Heirloom)',
-    description: 'Fresh early-morning picked harvest packed in 25kg ventilated plastic crates.',
-    categoryName: 'Vegetables',
-    farmerPrice: 20,
-    mandiBenchmark: 22,
-    priceUnit: 'kg',
-    quantityAvailable: 2400,
-    quantityUnit: 'kg',
-    minOrderKg: 50,
-    isAvailable: true,
-    grade: 'Grade-A Export',
-    location: 'Pandavapura, Mandya',
-    imageUrl: 'https://images.unsplash.com/photo-1597362925123-77861d3fbac7?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 'prod-2',
-    title: 'Mandya Brown Finger Millet (Ragi)',
-    description: 'MR-1 Desi Variety, machine cleaned, sun-dried, de-stoned, ready for bulk flour milling.',
-    categoryName: 'Grains & Millets',
-    farmerPrice: 42,
-    mandiBenchmark: 40,
-    priceUnit: 'kg',
-    quantityAvailable: 5800,
-    quantityUnit: 'kg',
-    minOrderKg: 100,
-    isAvailable: true,
-    grade: 'Residue Free',
-    location: 'Srirangapatna, Mandya',
-    imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 'prod-3',
-    title: 'Yelakki Banana (Elakki Bale)',
-    description: 'Naturally ripened local sweet bananas harvested in optimal maturity bunches.',
-    categoryName: 'Fruits',
-    farmerPrice: 65,
-    mandiBenchmark: 62,
-    priceUnit: 'kg',
-    quantityAvailable: 320,
-    quantityUnit: 'kg',
-    minOrderKg: 20,
-    isAvailable: true,
-    grade: 'Grade-A Export',
-    location: 'Nanjangud, Mysuru',
-    imageUrl: 'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 'prod-4',
-    title: 'Byadgi Stemless Red Chilli',
-    description: 'Deep red, high-capsanthin graded kaddi chilli bundles with zero stems.',
-    categoryName: 'Spices',
-    farmerPrice: 350,
-    mandiBenchmark: 365,
-    priceUnit: 'kg',
-    quantityAvailable: 850,
-    quantityUnit: 'kg',
-    minOrderKg: 10,
-    isAvailable: false,
-    grade: 'Grade-A Export',
-    location: 'Byadgi, Haveri',
-    imageUrl: 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=800&q=80',
-  },
-];
-
-const DEFAULT_LEADS: BuyerChatLead[] = [
-  {
-    id: 'lead-1',
-    buyerName: 'Priya Narayanan (Bengaluru Consumer)',
-    buyerPhone: '+91 98765 43211',
-    cropTopic: 'Tomato (Nati Desi)',
-    lastMessage: 'Can you dispatch 250 kg by 5 AM truck to Bengaluru depot?',
-    time: '10:22 AM',
-    quotedPrice: 20,
-    unread: true,
-  },
-  {
-    id: 'lead-2',
-    buyerName: 'Suresh Gowda (Retail Merchant)',
-    buyerPhone: '+91 98765 43222',
-    cropTopic: 'Mandya Brown Ragi',
-    lastMessage: 'Requested lab residue test documentation for 500kg procurement.',
-    time: 'Yesterday',
-    quotedPrice: 42,
-    unread: false,
-  },
-  {
-    id: 'lead-3',
-    buyerName: 'Hotel Nisarga Greens (Direct Procurement)',
-    buyerPhone: '+91 98765 43233',
-    cropTopic: 'Yelakki Banana',
-    lastMessage: 'Agreed on 50kg crate consignment delivery schedule.',
-    time: 'Sep 15',
-    quotedPrice: 65,
-    unread: false,
-  },
-];
 
 function SafeImage({ 
   src, 
@@ -198,11 +165,12 @@ function SafeImage({
 
 export default function FarmerDashboardPage() {
   const { user: authUser } = useAuth();
+  const { t, formatNumber } = useI18n();
 
   // State management
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [products, setProducts] = useState<Product[]>([]);
-  const [leads] = useState<BuyerChatLead[]>(DEFAULT_LEADS);
+  const [leads, setLeads] = useState<BuyerChatLead[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMode, setFilterMode] = useState<'ALL' | 'ACTIVE' | 'SOLD_OUT'>('ALL');
 
@@ -214,12 +182,64 @@ export default function FarmerDashboardPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [notification, setNotification] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
+  // Catalogue data for independent crop and variety selection
+  const [cropSearch, setCropSearch] = useState('');
+  const [catalogCrops, setCatalogCrops] = useState<CatalogCrop[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<CatalogCategory[]>([]);
+  const [categoryLoading, setCategoryLoading] = useState(false);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+
   // Auto-dismiss notification
   useEffect(() => {
     if (!notification) return;
     const timer = setTimeout(() => setNotification(null), 3000);
     return () => clearTimeout(timer);
   }, [notification]);
+
+  // Load catalogue categories and debounce crop searches
+  useEffect(() => {
+    let cancelled = false;
+    setCategoryLoading(true);
+    setCategoryError(null);
+    fetchApi('/catalog/categories')
+      .then((response) => {
+        const data = response?.data || response?.categories || (Array.isArray(response) ? response : []);
+        if (!cancelled && Array.isArray(data)) setCategories(data);
+      })
+      .catch(() => {
+        if (!cancelled) setCategoryError(t('farmer.cropPicker.categoriesError'));
+      })
+      .finally(() => {
+        if (!cancelled) setCategoryLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [t]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setCatalogLoading(true);
+      setCatalogError(null);
+      try {
+        const query = cropSearch.trim() ? `?search=${encodeURIComponent(cropSearch.trim())}` : '';
+        const response = await fetchApi(`/catalog/crops${query}`);
+        const results = response?.data || response?.crops || (Array.isArray(response) ? response : []);
+        if (!cancelled && Array.isArray(results)) setCatalogCrops(results);
+      } catch {
+        if (!cancelled) setCatalogError(t('farmer.cropPicker.error'));
+      } finally {
+        if (!cancelled) setCatalogLoading(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [cropSearch, t]);
 
   // Safe SSR hydration
   useEffect(() => {
@@ -229,20 +249,8 @@ export default function FarmerDashboardPage() {
         if (storedUser) {
           setCurrentUser(JSON.parse(storedUser));
         }
-
-        const storedProducts = localStorage.getItem('farmconnect_farmer_products');
-        if (storedProducts) {
-          const parsed = JSON.parse(storedProducts);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setProducts(parsed);
-          } else {
-            setProducts(DEFAULT_PRODUCTS);
-          }
-        } else {
-          setProducts(DEFAULT_PRODUCTS);
-        }
       } catch {
-        setProducts(DEFAULT_PRODUCTS);
+        // A malformed cache is ignored - the backend is the source of truth.
       }
     }
   }, []);
@@ -260,39 +268,78 @@ export default function FarmerDashboardPage() {
     try {
       const res = await fetchApi('/products/my-products');
       const data = res?.data || res?.products || (Array.isArray(res) ? res : []);
-      if (Array.isArray(data) && data.length > 0) {
-        const mapped: Product[] = data.map((p: any, idx: number) => ({
-          id: p.id || `prod-db-${idx}`,
-          title: p.title || 'Fresh Produce Lot',
-          description: p.description || '',
-          categoryName: p.categoryName || 'Vegetables',
-          farmerPrice: Number(p.farmerPrice) || 20,
-          mandiBenchmark: Number(p.mandiBenchmark) || Number(p.farmerPrice) * 1.05 || 22,
-          priceUnit: p.priceUnit ? p.priceUnit.replace(/^PER_/, '').toLowerCase() : 'kg',
-          quantityAvailable: Number(p.quantityAvailable) || 0,
-          quantityUnit: p.quantityUnit ? p.quantityUnit.toLowerCase() : 'kg',
-          minOrderKg: Number(p.minOrderKg) || 25,
-          isAvailable: p.isAvailable !== undefined ? Boolean(p.isAvailable) : true,
-          grade: p.grade || 'Grade-A Export',
-          location: p.location || 'Mandya, Karnataka',
-          imageUrl: p.imageUrl || '',
-        }));
-
-        setProducts(mapped);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('farmconnect_farmer_products', JSON.stringify(mapped));
-        }
+      if (!Array.isArray(data)) {
+        throw new Error('Invalid products response');
       }
+
+      // Only the real shared lots are shown - never a demo listing.
+      const mapped: Product[] = data.map((p: any, idx: number) => ({
+        id: p.id || `prod-db-${idx}`,
+        title: p.title || t('farmer.dashboard.defaultProductTitle'),
+        cropName: p.cropName || p.title || t('farmer.dashboard.defaultProductTitle'),
+        variety: p.variety || '',
+        categoryId: p.categoryId || p.category?.id || '',
+        description: p.description || '',
+        categoryName: p.category?.name || p.categoryName || t('farmer.category.vegetables'),
+        farmerPrice: Number(p.farmerPrice) || 0,
+        mandiBenchmark: Number(p.mandiBenchmark) || Number(p.farmerPrice) * 1.05 || 0,
+        priceUnit: p.priceUnit ? p.priceUnit.replace(/^PER_/, '').toLowerCase() : 'kg',
+        quantityAvailable: Number(p.quantityAvailable) || 0,
+        quantityUnit: p.quantityUnit ? p.quantityUnit.toLowerCase() : 'kg',
+        minOrderKg: Number(p.minOrderKg) || 0,
+        isAvailable: p.isAvailable !== undefined ? Boolean(p.isAvailable) : true,
+        grade: p.grade || t('farmer.common.gradeAExport'),
+        location: p.location || t('farmer.dashboard.defaultLocation'),
+        imageUrl: p.imageUrl || '',
+      }));
+
+      setProducts(mapped);
     } catch {
-      // Retain offline/localStorage produce gracefully without crash
+      setProducts([]);
     } finally {
       setIsRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchFarmerProducts();
   }, [fetchFarmerProducts]);
+
+  /**
+   * Loads the shared buyer enquiries (the real chat leads) from the backend.
+   */
+  const fetchBuyerLeads = useCallback(async () => {
+    try {
+      const res = await fetchApi('/enquiries/farmer');
+      const data = res?.data || res?.enquiries || (Array.isArray(res) ? res : []);
+      if (!Array.isArray(data)) {
+        throw new Error('Invalid enquiries response');
+      }
+
+      const mapped: BuyerChatLead[] = data.map((enquiry: any, idx: number) => {
+        const lastMessage = Array.isArray(enquiry?.messages) ? enquiry.messages[0] : null;
+        return {
+          id: String(enquiry?.id || `lead-${idx}`),
+          buyerName: String(enquiry?.consumer?.name || ''),
+          buyerPhone: String(enquiry?.consumer?.phone || ''),
+          cropTopic: String(enquiry?.product?.title || enquiry?.subject || ''),
+          lastMessage: String(lastMessage?.content || ''),
+          time: String(lastMessage?.createdAt || enquiry?.updatedAt || enquiry?.createdAt || ''),
+          quotedPrice: Number(enquiry?.product?.farmerPrice) || undefined,
+          unread: false,
+        };
+      });
+
+      setLeads(mapped);
+    } catch {
+      // No enquiries yet - show the real empty state, never demo leads.
+      setLeads([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBuyerLeads();
+  }, [fetchBuyerLeads]);
 
   // Persist local changes
   const syncProducts = (updated: Product[]) => {
@@ -321,11 +368,16 @@ export default function FarmerDashboardPage() {
         body: JSON.stringify({ isAvailable: nextState }),
       });
       setNotification({
-        text: `Batch marked as ${nextState ? 'Active' : 'Sold Out'}.`,
+        text: t('farmer.dashboard.availabilityUpdate', {
+          status: nextState ? t('farmer.common.active') : t('farmer.common.soldOut'),
+        }),
         type: 'success',
       });
     } catch {
-      // Local state is already updated
+      // The backend rejected the change - reload and report the real state
+      // instead of pretending the listing was toggled.
+      await fetchFarmerProducts();
+      setNotification({ text: t('farmer.common.error'), type: 'error' });
     }
   };
 
@@ -333,6 +385,8 @@ export default function FarmerDashboardPage() {
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
       const matchesSearch = 
+        (p.cropName || p.title).toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (p.variety || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.location.toLowerCase().includes(searchQuery.toLowerCase());
       if (!matchesSearch) return false;
@@ -356,108 +410,40 @@ export default function FarmerDashboardPage() {
       activeLots,
       totalLots,
       totalTonnes: (totalKg / 1000).toFixed(1),
-      grossValuation: Math.round(grossPotential).toLocaleString(),
+      grossValuation: formatNumber(Math.round(grossPotential)),
       unreadLeads: leads.filter((l) => l.unread).length,
     };
-  }, [products, leads]);
+  }, [products, leads, formatNumber]);
 
-  const farmerName = currentUser?.name || authUser?.name || 'Ramesh Kumar (Cultivator)';
+  const farmerName = currentUser?.name || authUser?.name || t('farmer.dashboard.defaultFarmerName', { name: 'Ramesh Kumar' });
   const farmerDistrict = currentUser?.district || authUser?.district || 'Mandya';
   const farmerTaluk = currentUser?.taluk || authUser?.taluk || 'Pandavapura';
 
-  // Handle Create Product
-  const handleCreateProduct = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    const form = e.currentTarget;
-
-    const title = (form.elements.namedItem('title') as HTMLInputElement).value.trim();
-    const description = (form.elements.namedItem('description') as HTMLTextAreaElement).value.trim();
-    const categoryName = (form.elements.namedItem('categoryName') as HTMLSelectElement).value;
-    const grade = (form.elements.namedItem('grade') as HTMLSelectElement).value as Product['grade'];
-    const farmerPrice = parseFloat((form.elements.namedItem('farmerPrice') as HTMLInputElement).value) || 20;
-    const quantityAvailable = parseFloat((form.elements.namedItem('quantityAvailable') as HTMLInputElement).value) || 100;
-    const minOrderKg = parseFloat((form.elements.namedItem('minOrderKg') as HTMLInputElement).value) || 25;
-
-    const newLot: Product = {
-      id: `prod-${Date.now()}`,
-      title,
-      description,
-      categoryName,
-      farmerPrice,
-      mandiBenchmark: Math.round(farmerPrice * 1.05),
-      priceUnit: 'kg',
-      quantityAvailable,
-      quantityUnit: 'kg',
-      minOrderKg,
-      isAvailable: true,
-      grade,
-      location: `${farmerTaluk}, ${farmerDistrict}`,
-      imageUrl: resolveFallback(title, categoryName),
-    };
-
-    // Optimistically prepend
-    syncProducts([newLot, ...products]);
-    setIsAddModalOpen(false);
-    setNotification({ text: 'Produce lot listed successfully!', type: 'success' });
-
-    // Sync with backend API
-    try {
-      const res = await fetchApi('/products', {
-        method: 'POST',
-        body: JSON.stringify({
-          title,
-          description,
-          categoryName,
-          farmerPrice,
-          priceUnit: 'PER_KG',
-          quantityAvailable,
-          quantityUnit: 'KG',
-          minOrderKg,
-          grade,
-          location: `${farmerTaluk}, ${farmerDistrict}`,
-          imageUrl: newLot.imageUrl,
-        }),
-      });
-
-      if (res?.data?.id || res?.id) {
-        const assignedId = res?.data?.id || res?.id;
-        const mapped = [newLot, ...products].map((p) => p.id === newLot.id ? { ...p, id: assignedId } : p);
-        syncProducts(mapped);
-      }
-    } catch {
-      // Local creation retained
-    } finally {
-      setIsSubmitting(false);
-    }
+  const getCategoryLabel = (categoryName?: string, categoryId?: string) => {
+    const matched = categories.find((category) => category.id === categoryId);
+    if (matched) return t(categoryTranslationKey(matched));
+    if (!categoryName) return t('farmer.category.other');
+    const key = categoryTranslationKey({ id: '', name: categoryName });
+    if (key !== 'farmer.category.other') return t(key);
+    return /^[A-Za-z& ]+$/.test(categoryName) ? t('farmer.category.other') : categoryName;
   };
 
-  // Handle Edit Product
-  const handleEditProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingProduct) return;
+  const getGradeLabel = (grade: Product['grade']) => {
+    if (grade === 'Standard Market') return t('farmer.common.standardMarket');
+    if (grade === 'Residue Free') return t('farmer.common.residueFree');
+    return t('farmer.common.gradeAExport');
+  };
 
-    setIsSubmitting(true);
-    const updated = products.map((p) => (p.id === editingProduct.id ? editingProduct : p));
-    syncProducts(updated);
-    const targetId = editingProduct.id;
+  /**
+   * Called by the shared Add / Edit crop modals once the backend accepted
+   * the change. The list is re-read from the backend so the dashboard always
+   * shows the real shared state.
+   */
+  const handleProductSaved = async () => {
+    setIsAddModalOpen(false);
     setEditingProduct(null);
-    setNotification({ text: 'Harvest details updated successfully!', type: 'success' });
-
-    try {
-      await fetchApi(`/products/${targetId}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          title: editingProduct.title,
-          farmerPrice: editingProduct.farmerPrice,
-          quantityAvailable: editingProduct.quantityAvailable,
-        }),
-      });
-    } catch {
-      // Local updates retained
-    } finally {
-      setIsSubmitting(false);
-    }
+    await fetchFarmerProducts();
+    setNotification({ text: t('farmer.dashboard.updatedSuccess'), type: 'success' });
   };
 
   // Handle Delete Product
@@ -466,17 +452,20 @@ export default function FarmerDashboardPage() {
 
     setIsSubmitting(true);
     const targetId = deletingProduct.id;
-    const updated = products.filter((p) => p.id !== targetId);
-    syncProducts(updated);
-    setDeletingProduct(null);
-    setNotification({ text: 'Produce listing removed.', type: 'success' });
 
     try {
       await fetchApi(`/products/${targetId}`, {
         method: 'DELETE',
       });
+      setDeletingProduct(null);
+      await fetchFarmerProducts();
+      setNotification({ text: t('farmer.dashboard.removedSuccess'), type: 'success' });
     } catch {
-      // Local deletion retained
+      // The delete was rejected by the backend - reload and report the error
+      // instead of pretending the listing is gone.
+      await fetchFarmerProducts();
+      setDeletingProduct(null);
+      setNotification({ text: t('farmer.common.error'), type: 'error' });
     } finally {
       setIsSubmitting(false);
     }
@@ -506,7 +495,7 @@ export default function FarmerDashboardPage() {
         <div>
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className="px-3 py-0.5 rounded-full bg-emerald-100 text-emerald-950 border border-emerald-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
-              <Sprout className="w-3.5 h-3.5 text-emerald-700" /> Cultivator Command Center
+              <Sprout className="w-3.5 h-3.5 text-emerald-700" /> {t('farmer.dashboard.commandCenter')}
             </span>
             <span className="px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-600 text-[10px] font-bold flex items-center gap-1">
               <MapPin className="w-3 h-3 text-emerald-700" /> {farmerTaluk}, {farmerDistrict}
@@ -514,10 +503,10 @@ export default function FarmerDashboardPage() {
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight">
-            Welcome, {farmerName}
+            {t('farmer.dashboard.welcome', { name: farmerName })}
           </h1>
           <p className="text-stone-500 text-xs sm:text-sm mt-1 max-w-xl leading-relaxed">
-            Direct farm-gate trade: manage in-stock crop lots, review incoming wholesale trade leads, and monitor your gate rates against APMC modal benchmarks.
+            {t('farmer.dashboard.intro')}
           </p>
         </div>
 
@@ -527,7 +516,7 @@ export default function FarmerDashboardPage() {
             onClick={fetchFarmerProducts}
             disabled={isRefreshing}
             className="p-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-2xl transition-all active:scale-95 flex items-center justify-center"
-            title="Refresh Inventory"
+            title={t('farmer.dashboard.refreshTitle')}
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-emerald-700' : ''}`} />
           </button>
@@ -537,7 +526,7 @@ export default function FarmerDashboardPage() {
             onClick={() => setIsAddModalOpen(true)}
             className="px-5 py-3 bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center gap-2 shadow-lg shadow-emerald-950/15 transition-all duration-200 active:scale-95"
           >
-            <Plus className="w-4 h-4 stroke-[3]" /> List New Harvest
+            <Plus className="w-4 h-4 stroke-[3]" /> {t('farmer.dashboard.listNewHarvest')}
           </button>
         </div>
       </div>
@@ -546,38 +535,38 @@ export default function FarmerDashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs transition-transform duration-200 hover:scale-[1.01]">
           <div className="flex items-center justify-between text-stone-400 mb-2">
-            <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Active Crop Lots</span>
+            <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">{t('farmer.dashboard.activeCropLots')}</span>
             <Package className="w-4 h-4 text-emerald-700" />
           </div>
           <p className="text-3xl font-black text-stone-900">{stats.activeLots} / {stats.totalLots}</p>
-          <span className="text-xs text-stone-500 mt-1 block">Lots open for direct buyer procurement</span>
+          <span className="text-xs text-stone-500 mt-1 block">{t('farmer.dashboard.lotsProcurement')}</span>
         </div>
 
         <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs transition-transform duration-200 hover:scale-[1.01]">
           <div className="flex items-center justify-between text-stone-400 mb-2">
-            <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Harvest Volume</span>
+            <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">{t('farmer.dashboard.harvestVolume')}</span>
             <Scale className="w-4 h-4 text-emerald-700" />
           </div>
           <p className="text-3xl font-black text-stone-900">{stats.totalTonnes} MT</p>
-          <span className="text-xs text-stone-500 mt-1 block">In-stock tonnage across farm plots</span>
+          <span className="text-xs text-stone-500 mt-1 block">{t('farmer.dashboard.inStockTonnage')}</span>
         </div>
 
         <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs transition-transform duration-200 hover:scale-[1.01]">
           <div className="flex items-center justify-between text-stone-400 mb-2">
-            <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Gross Gate Valuation</span>
+            <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">{t('farmer.dashboard.grossGateValuation')}</span>
             <IndianRupee className="w-4 h-4 text-emerald-700" />
           </div>
           <p className="text-3xl font-black text-emerald-800">₹{stats.grossValuation}</p>
-          <span className="text-xs text-stone-500 mt-1 block">Zero broker deduction yield value</span>
+          <span className="text-xs text-stone-500 mt-1 block">{t('farmer.dashboard.zeroBrokerValue')}</span>
         </div>
 
         <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs transition-transform duration-200 hover:scale-[1.01]">
           <div className="flex items-center justify-between text-stone-400 mb-2">
-            <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">Trade Inquiries</span>
+            <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">{t('farmer.dashboard.tradeInquiries')}</span>
             <MessageSquare className="w-4 h-4 text-emerald-700" />
           </div>
-          <p className="text-3xl font-black text-stone-900">{leads.length} Inquiries</p>
-          <span className="text-xs text-emerald-700 font-bold mt-1 block">{stats.unreadLeads} unread buyer negotiations</span>
+          <p className="text-3xl font-black text-stone-900">{t('farmer.dashboard.inquiryCount', { count: leads.length })}</p>
+          <span className="text-xs text-emerald-700 font-bold mt-1 block">{t('farmer.dashboard.unreadNegotiations', { count: stats.unreadLeads })}</span>
         </div>
       </div>
 
@@ -592,7 +581,7 @@ export default function FarmerDashboardPage() {
               <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search by crop name or plot location..."
+                placeholder={t('farmer.dashboard.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 bg-stone-50 rounded-xl text-xs font-semibold text-stone-900 border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-600 transition-all"
@@ -611,7 +600,11 @@ export default function FarmerDashboardPage() {
                       : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                   }`}
                 >
-                  {mode === 'ALL' ? 'All Crops' : mode.replace('_', ' ')}
+                  {mode === 'ALL'
+                    ? t('farmer.dashboard.filterAll')
+                    : mode === 'ACTIVE'
+                    ? t('farmer.dashboard.filterActive')
+                    : t('farmer.dashboard.filterSoldOut')}
                 </button>
               ))}
             </div>
@@ -620,8 +613,8 @@ export default function FarmerDashboardPage() {
           {filteredProducts.length === 0 ? (
             <div className="bg-white rounded-3xl border border-stone-200 p-12 text-center max-w-md mx-auto space-y-3">
               <Package className="w-10 h-10 text-stone-300 mx-auto" />
-              <h3 className="text-sm font-black text-stone-900">No Harvest Batches Found</h3>
-              <p className="text-xs text-stone-500">No crop matches current search or filter query.</p>
+              <h3 className="text-sm font-black text-stone-900">{t('farmer.dashboard.noBatchesTitle')}</h3>
+              <p className="text-xs text-stone-500">{t('farmer.dashboard.noBatchesBody')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -648,37 +641,42 @@ export default function FarmerDashboardPage() {
                         <span className={`absolute top-3 right-3 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full shadow-xs ${
                           prod.isAvailable ? 'bg-emerald-800 text-white' : 'bg-stone-900/80 text-white'
                         }`}>
-                          {prod.isAvailable ? 'Active Batch' : 'Sold Out'}
+                          {prod.isAvailable ? t('farmer.dashboard.statusActiveBatch') : t('farmer.dashboard.statusSoldOut')}
                         </span>
                       </div>
 
                       <div className="p-5 space-y-3">
                         <div>
                           <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 block">
-                            {prod.categoryName} • {prod.grade}
+                            {getCategoryLabel(prod.categoryName, prod.categoryId)} • {getGradeLabel(prod.grade)}
                           </span>
-                          <h3 className="font-bold text-stone-900 text-base line-clamp-1">{prod.title}</h3>
+                          <h3 className="font-bold text-stone-900 text-base line-clamp-1">{prod.cropName || prod.title}</h3>
+                          {prod.variety && (
+                            <p className="text-[11px] font-semibold text-stone-500 mt-0.5">
+                              {t('farmer.common.variety')}: {prod.variety}
+                            </p>
+                          )}
                         </div>
 
                         <p className="text-xs text-stone-500 line-clamp-2 leading-relaxed">{prod.description}</p>
 
                         <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200 grid grid-cols-2 gap-2 text-xs">
                           <div>
-                            <span className="text-[10px] font-bold text-stone-400 uppercase block">Your Gate Rate</span>
+                            <span className="text-[10px] font-bold text-stone-400 uppercase block">{t('farmer.dashboard.yourGateRate')}</span>
                             <span className="text-lg font-black text-emerald-800">₹{prod.farmerPrice}/{prod.priceUnit}</span>
-                            <span className="text-[10px] text-stone-500 block">Min order: {prod.minOrderKg} kg</span>
+                            <span className="text-[10px] text-stone-500 block">{t('farmer.dashboard.minOrder', { quantity: formatNumber(prod.minOrderKg) })}</span>
                           </div>
                           <div className="border-l border-stone-200 pl-2">
-                            <span className="text-[10px] font-bold text-stone-400 uppercase block">APMC Modal Rate</span>
+                            <span className="text-[10px] font-bold text-stone-400 uppercase block">{t('farmer.dashboard.apmcModalRate')}</span>
                             <span className="text-lg font-black text-stone-700">₹{prod.mandiBenchmark}/{prod.priceUnit}</span>
                             <span className={`text-[10px] font-bold block ${isUnderMandi ? 'text-emerald-700' : 'text-amber-700'}`}>
-                              {isUnderMandi ? 'Competitive vs Mandi' : 'Premium Grade'}
+                              {isUnderMandi ? t('farmer.dashboard.competitiveMandi') : t('farmer.dashboard.premiumGrade')}
                             </span>
                           </div>
                         </div>
 
                         <div className="flex justify-between items-center text-xs text-stone-600 pt-1">
-                          <span>Stock: <strong className="text-stone-900 font-bold">{prod.quantityAvailable} {prod.quantityUnit}</strong></span>
+                          <span>{t('farmer.dashboard.stock', { quantity: formatNumber(prod.quantityAvailable), unit: prod.quantityUnit })}</span>
                           <span className="flex items-center gap-1 text-[11px] text-stone-500">
                             <MapPin className="w-3 h-3 text-emerald-700" /> {prod.location}
                           </span>
@@ -696,7 +694,7 @@ export default function FarmerDashboardPage() {
                             : 'bg-emerald-800 border-emerald-800 text-white hover:bg-emerald-900'
                         }`}
                       >
-                        {prod.isAvailable ? 'Mark Sold Out' : 'Mark In Stock'}
+                        {prod.isAvailable ? t('farmer.dashboard.markSoldOut') : t('farmer.dashboard.markInStock')}
                       </button>
 
                       <div className="flex items-center gap-1">
@@ -704,7 +702,7 @@ export default function FarmerDashboardPage() {
                           type="button"
                           onClick={() => setEditingProduct(prod)}
                           className="p-2 text-stone-400 hover:text-emerald-800 hover:bg-emerald-50 rounded-xl transition-colors"
-                          title="Edit Harvest Details"
+                          title={t('farmer.dashboard.editTitle')}
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>
@@ -712,7 +710,7 @@ export default function FarmerDashboardPage() {
                           type="button"
                           onClick={() => setDeletingProduct(prod)}
                           className="p-2 text-stone-400 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors"
-                          title="Delete Listing"
+                          title={t('farmer.dashboard.deleteTitle')}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -773,7 +771,7 @@ export default function FarmerDashboardPage() {
                       href="/farmer/inquiries"
                       className="px-2.5 py-1 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-[10px] uppercase tracking-wider rounded-lg flex items-center gap-1 transition-all active:scale-95"
                     >
-                      Reply to Buyer <ArrowUpRight className="w-3 h-3" />
+                      {t('farmer.dashboard.replyBuyer')} <ArrowUpRight className="w-3 h-3" />
                     </Link>
                   </div>
                 </div>
@@ -784,211 +782,37 @@ export default function FarmerDashboardPage() {
               href="/farmer/inquiries"
               className="w-full py-3 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-1.5"
             >
-              Open Cultivator Chat Inbox <ArrowRight className="w-3.5 h-3.5" />
+              {t('farmer.dashboard.openInbox')} <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         </div>
 
       </div>
 
-      {/* Edit Crop Modal */}
-      {editingProduct && (
-        <div className="fixed inset-0 bg-stone-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-all duration-200 animate-in fade-in">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full border border-stone-200 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center pb-2 border-b border-stone-100">
-              <h3 className="text-base font-black text-stone-900">Modify Crop Lot</h3>
-              <button 
-                type="button" 
-                onClick={() => setEditingProduct(null)} 
-                className="p-1 text-stone-400 hover:text-stone-700 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {/* Shared crop modals - the same components the Lots page uses. */}
+      <AddCropModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={handleProductSaved}
+      />
 
-            <form onSubmit={handleEditProduct} className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-stone-700 uppercase mb-1">Crop Title</label>
-                <input
-                  type="text"
-                  required
-                  value={editingProduct.title}
-                  onChange={(e) => setEditingProduct({ ...editingProduct, title: e.target.value })}
-                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-emerald-600"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-stone-700 uppercase mb-1">Gate Rate (₹/kg)</label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    required
-                    value={editingProduct.farmerPrice}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, farmerPrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-emerald-600"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-stone-700 uppercase mb-1">Stock Amount (kg)</label>
-                  <input
-                    type="number"
-                    required
-                    value={editingProduct.quantityAvailable}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, quantityAvailable: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-emerald-600"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingProduct(null)}
-                  className="flex-1 py-2.5 bg-stone-100 text-stone-700 font-bold rounded-xl hover:bg-stone-200 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 py-2.5 bg-emerald-800 text-white font-black uppercase tracking-wider rounded-xl shadow-xs hover:bg-emerald-900 transition-all active:scale-95 flex items-center justify-center gap-1.5"
-                >
-                  {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save Modifications'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Add Crop Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 bg-stone-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-all duration-200 animate-in fade-in">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full border border-stone-200 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center pb-2 border-b border-stone-100">
-              <h3 className="text-base font-black text-stone-900">List Fresh Harvest Lot</h3>
-              <button 
-                type="button" 
-                onClick={() => setIsAddModalOpen(false)} 
-                className="p-1 text-stone-400 hover:text-stone-700 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateProduct} className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-stone-700 uppercase mb-1">Crop Title *</label>
-                <input
-                  name="title"
-                  type="text"
-                  required
-                  placeholder="e.g. Hassan Fresh Ginger, Mandya Cabbage"
-                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-emerald-600"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-stone-700 uppercase mb-1">Category</label>
-                  <select
-                    name="categoryName"
-                    className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-emerald-600"
-                  >
-                    <option value="Vegetables">Vegetables</option>
-                    <option value="Fruits">Fruits</option>
-                    <option value="Grains & Millets">Grains & Millets</option>
-                    <option value="Spices">Spices</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-bold text-stone-700 uppercase mb-1">Quality Grade</label>
-                  <select
-                    name="grade"
-                    className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-emerald-600"
-                  >
-                    <option value="Grade-A Export">Grade-A Export</option>
-                    <option value="Standard Market">Standard Market</option>
-                    <option value="Residue Free">Residue Free</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block font-bold text-stone-700 uppercase mb-1">Rate (₹/kg) *</label>
-                  <input
-                    name="farmerPrice"
-                    type="number"
-                    step="0.5"
-                    required
-                    placeholder="25"
-                    className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-emerald-600"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-stone-700 uppercase mb-1">Stock (kg) *</label>
-                  <input
-                    name="quantityAvailable"
-                    type="number"
-                    required
-                    placeholder="1000"
-                    className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-emerald-600"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-stone-700 uppercase mb-1">Min Order *</label>
-                  <input
-                    name="minOrderKg"
-                    type="number"
-                    required
-                    placeholder="50"
-                    className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-emerald-600"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-stone-700 uppercase mb-1">Consignment Description</label>
-                <textarea
-                  name="description"
-                  rows={2}
-                  placeholder="Packing details, crate type, sorting standards..."
-                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-emerald-600"
-                />
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="flex-1 py-2.5 bg-stone-100 text-stone-700 font-bold rounded-xl hover:bg-stone-200 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 py-2.5 bg-emerald-800 text-white font-black uppercase tracking-wider rounded-xl shadow-xs hover:bg-emerald-900 transition-all active:scale-95 flex items-center justify-center gap-1.5"
-                >
-                  {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Publish Harvest Lot'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <EditCropModal
+        crop={editingProduct}
+        isOpen={editingProduct !== null}
+        onClose={() => setEditingProduct(null)}
+        onSuccess={handleProductSaved}
+      />
 
       {/* Delete Confirmation Modal */}
       {deletingProduct && (
         <div className="fixed inset-0 bg-stone-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-all duration-200 animate-in fade-in">
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-sm w-full border border-stone-200 shadow-2xl text-center space-y-4">
             <div>
-              <h3 className="text-base font-black text-stone-900">Remove Harvest Lot?</h3>
+              <h3 className="text-base font-black text-stone-900">
+                {t('farmer.dashboard.removeModalTitle')}
+              </h3>
               <p className="text-xs text-stone-500 mt-1 leading-relaxed">
-                Are you sure you want to remove <strong>{deletingProduct.title}</strong>? Buyers will no longer be able to submit trade inquiries for this batch.
+                {t('farmer.dashboard.removeDescription', { title: deletingProduct.title })}
               </p>
             </div>
             <div className="flex gap-2 pt-2">
@@ -997,7 +821,7 @@ export default function FarmerDashboardPage() {
                 onClick={() => setDeletingProduct(null)}
                 className="flex-1 py-2.5 bg-stone-100 text-stone-700 font-bold rounded-xl text-xs hover:bg-stone-200 transition-colors"
               >
-                Keep Listing
+                {t('farmer.common.keepListing')}
               </button>
               <button
                 type="button"
@@ -1005,7 +829,11 @@ export default function FarmerDashboardPage() {
                 disabled={isSubmitting}
                 className="flex-1 py-2.5 bg-red-700 hover:bg-red-800 text-white font-black uppercase tracking-wider rounded-xl text-xs shadow-xs transition-all active:scale-95 flex items-center justify-center gap-1"
               >
-                {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Yes, Remove'}
+                {isSubmitting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  t('farmer.common.yesRemove')
+                )}
               </button>
             </div>
           </div>

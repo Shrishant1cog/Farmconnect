@@ -5,6 +5,8 @@ import 'leaflet/dist/leaflet.css';
 import Navbar from '../components/ui/Navbar';
 import Providers from '../components/Providers';
 import HarvestBackground from '../components/ui/HarvestBackground';
+import Footer from '../components/ui/Footer';
+import SkipLink from '../components/ui/SkipLink';
 import { ModalProvider } from '../context/ModalContext';
 
 const jakarta = Plus_Jakarta_Sans({
@@ -49,14 +51,6 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${jakarta.variable} scroll-smooth`} suppressHydrationWarning>
       <body className="min-h-screen flex flex-col font-sans bg-stone-950 text-stone-900 antialiased selection:bg-emerald-800 selection:text-white relative">
-        {/* Screen Reader Bypass */}
-        <a
-          href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-emerald-700 focus:text-white focus:rounded-xl focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-400"
-        >
-          Skip to main harvest content
-        </a>
-
         {/* Global Harvest Visualizer */}
         <div 
           aria-hidden="true" 
@@ -66,6 +60,10 @@ export default function RootLayout({
         </div>
 
         <Providers>
+          {/* Screen Reader Bypass — inside the providers because it is
+              translated and therefore needs the locale context. */}
+          <SkipLink />
+
           <ModalProvider>
             {/* Global Navigation */}
             <header className="relative z-30">
@@ -78,16 +76,7 @@ export default function RootLayout({
             </main>
 
             {/* Platform Footer */}
-            <footer className="bg-stone-950/95 backdrop-blur-md text-stone-400 text-xs py-8 border-t border-stone-800/80 text-center relative z-20 mt-auto">
-              <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <p className="tracking-tight">
-                  © 2026 <strong>FarmConnect Karnataka</strong>. Transparent farm-to-door direct marketplace.
-                </p>
-                <p className="text-stone-500 font-medium">
-                  Prices listed are direct <strong className="text-emerald-500">Farmer Listed Prices</strong> with zero broker deduction.
-                </p>
-              </div>
-            </footer>
+            <Footer />
           </ModalProvider>
         </Providers>
       </body>

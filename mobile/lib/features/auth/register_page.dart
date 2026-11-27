@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/user.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import 'auth_controller.dart';
 
 /// Registration screen for consumers and farmers.
@@ -46,6 +47,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   }
 
   Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context);
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
@@ -55,11 +57,15 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     });
 
     try {
-      await ref.read(authControllerProvider.notifier).register(
+      await ref
+          .read(authControllerProvider.notifier)
+          .register(
             name: _nameController.text.trim(),
             phone: _phoneController.text.trim(),
             password: _passwordController.text,
-            email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
+            email: _emailController.text.trim().isEmpty
+                ? null
+                : _emailController.text.trim(),
             role: _role,
             pincode: _pincodeController.text.trim(),
             state: _stateController.text.trim(),
@@ -68,9 +74,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             farmName: _farmNameController.text.trim(),
           );
     } on ApiException catch (error) {
-      setState(() => _errorMessage = error.displayMessage);
-    } catch (error) {
-      setState(() => _errorMessage = error.toString());
+      setState(
+        () => _errorMessage = l10n.commonRequestFailed(error.displayMessage),
+      );
+    } catch (_) {
+      setState(() => _errorMessage = l10n.commonSomethingWrong);
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -80,8 +88,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Create your account')),
+      appBar: AppBar(title: Text(l10n.authCreateAccountTitle)),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
@@ -91,20 +100,21 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SegmentedButton<UserRole>(
-                  segments: const [
+                  segments: [
                     ButtonSegment(
                       value: UserRole.consumer,
-                      label: Text('Buyer'),
-                      icon: Icon(Icons.shopping_bag_outlined),
+                      label: Text(l10n.commonBuyer),
+                      icon: const Icon(Icons.shopping_bag_outlined),
                     ),
                     ButtonSegment(
                       value: UserRole.farmer,
-                      label: Text('Cultivator'),
-                      icon: Icon(Icons.agriculture_outlined),
+                      label: Text(l10n.commonCultivator),
+                      icon: const Icon(Icons.agriculture_outlined),
                     ),
                   ],
                   selected: {_role},
-                  onSelectionChanged: (selection) => setState(() => _role = selection.first),
+                  onSelectionChanged: (selection) =>
+                      setState(() => _role = selection.first),
                 ),
                 const SizedBox(height: 20),
                 if (_errorMessage != null) ...[
@@ -124,55 +134,99 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   ),
                   const SizedBox(height: 16),
                 ],
-                _field(_nameController, 'Full name', Icons.person_outline_rounded,
-                    validator: (value) => (value == null || value.trim().length < 2)
-                        ? 'Enter your name'
-                        : null),
-                _field(_phoneController, 'Mobile number', Icons.phone_iphone_rounded,
-                    keyboardType: TextInputType.phone,
-                    validator: (value) {
-                      final digits = (value ?? '').replaceAll(RegExp(r'\D'), '');
-                      return digits.length < 10 ? 'Enter a valid 10-digit mobile number' : null;
-                    }),
-                _field(_emailController, 'Email (optional)', Icons.mail_outline_rounded,
-                    keyboardType: TextInputType.emailAddress),
+                _field(
+                  _nameController,
+                  l10n.authFullName,
+                  Icons.person_outline_rounded,
+                  validator: (value) =>
+                      (value == null || value.trim().length < 2)
+                      ? l10n.authNameRequired
+                      : null,
+                ),
+                _field(
+                  _phoneController,
+                  l10n.authMobileNumber,
+                  Icons.phone_iphone_rounded,
+                  keyboardType: TextInputType.phone,
+                  validator: (value) {
+                    final digits = (value ?? '').replaceAll(RegExp(r'\D'), '');
+                    return digits.length < 10 ? l10n.authValidMobile : null;
+                  },
+                ),
+                _field(
+                  _emailController,
+                  l10n.authEmailOptional,
+                  Icons.mail_outline_rounded,
+                  keyboardType: TextInputType.emailAddress,
+                ),
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
-                    labelText: 'Password',
+                    labelText: l10n.commonPassword,
                     prefixIcon: const Icon(Icons.lock_outline_rounded),
                     suffixIcon: IconButton(
-                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
                       icon: Icon(
-                        _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                        _obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
                       ),
+                      tooltip: _obscurePassword
+                          ? l10n.authShowPassword
+                          : l10n.authHidePassword,
                     ),
                   ),
-                  validator: (value) => (value == null || value.trim().length < 6)
-                      ? 'Password must be at least 6 characters'
+                  validator: (value) =>
+                      (value == null || value.trim().length < 6)
+                      ? l10n.authPasswordMinLength
                       : null,
                 ),
                 const SizedBox(height: 16),
                 if (_role == UserRole.farmer) ...[
-                  _field(_farmNameController, 'Farm name', Icons.home_work_outlined),
-                  _field(_addressController, 'Farm address', Icons.location_on_outlined),
+                  _field(
+                    _farmNameController,
+                    l10n.commonFarmName,
+                    Icons.home_work_outlined,
+                  ),
+                  _field(
+                    _addressController,
+                    l10n.authFarmAddress,
+                    Icons.location_on_outlined,
+                  ),
                 ] else ...[
-                  _field(_addressController, 'Delivery address', Icons.location_on_outlined),
+                  _field(
+                    _addressController,
+                    l10n.consumerDeliveryAddress,
+                    Icons.location_on_outlined,
+                  ),
                 ],
                 Row(
                   children: [
                     Expanded(
-                      child: _field(_stateController, 'State', Icons.map_outlined),
+                      child: _field(
+                        _stateController,
+                        l10n.commonState,
+                        Icons.map_outlined,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: _field(_districtController, 'District', Icons.location_city_outlined),
+                      child: _field(
+                        _districtController,
+                        l10n.commonDistrict,
+                        Icons.location_city_outlined,
+                      ),
                     ),
                   ],
                 ),
-                _field(_pincodeController, 'PIN code', Icons.pin_outlined,
-                    keyboardType: TextInputType.number),
+                _field(
+                  _pincodeController,
+                  l10n.authPinCode,
+                  Icons.pin_outlined,
+                  keyboardType: TextInputType.number,
+                ),
                 const SizedBox(height: 24),
                 FilledButton(
                   onPressed: _isSubmitting ? null : _submit,
@@ -180,15 +234,25 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                       ? const SizedBox(
                           width: 22,
                           height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.4,
+                            color: Colors.white,
+                          ),
                         )
-                      : Text(_role == UserRole.farmer ? 'Register as cultivator' : 'Register as buyer'),
+                      : Text(
+                          _role == UserRole.farmer
+                              ? l10n.authRegisterAsCultivator
+                              : l10n.authRegisterAsBuyer,
+                        ),
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'The same account works on the FarmConnect website and on this app.',
+                Text(
+                  l10n.authSameAccountNote,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppTheme.stone500, fontSize: 12.5),
+                  style: const TextStyle(
+                    color: AppTheme.stone500,
+                    fontSize: 12.5,
+                  ),
                 ),
               ],
             ),

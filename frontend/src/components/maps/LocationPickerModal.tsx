@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { MapPin, Navigation, X, Check, Loader2 } from 'lucide-react';
+import { useI18n } from '../../hooks/useI18n';
 
 interface LocationPickerModalProps {
   isOpen: boolean;
@@ -16,6 +17,8 @@ export default function LocationPickerModal({
   onSelectLocation,
   initialCoords = { lat: 12.9716, lng: 77.5946 }, // Default to Bengaluru
 }: LocationPickerModalProps) {
+  const { t, formatNumber } = useI18n();
+
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletInstance = useRef<any>(null);
   const markerRef = useRef<any>(null);
@@ -33,13 +36,17 @@ export default function LocationPickerModal({
         `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`
       );
       const data = await res.json();
+      const latText = formatNumber(lat, { minimumFractionDigits: 5, maximumFractionDigits: 5 });
+      const lngText = formatNumber(lng, { minimumFractionDigits: 5, maximumFractionDigits: 5 });
       if (data && data.display_name) {
         setAddressText(data.display_name);
       } else {
-        setAddressText(`Coordinates: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+        setAddressText(t('misc.locationPicker.coordinates', { lat: latText, lng: lngText }));
       }
     } catch {
-      setAddressText(`Pinned Location (${lat.toFixed(5)}, ${lng.toFixed(5)})`);
+      const latText = formatNumber(lat, { minimumFractionDigits: 5, maximumFractionDigits: 5 });
+      const lngText = formatNumber(lng, { minimumFractionDigits: 5, maximumFractionDigits: 5 });
+      setAddressText(t('misc.locationPicker.pinnedLocation', { lat: latText, lng: lngText }));
     } finally {
       setIsResolving(false);
     }
@@ -100,12 +107,12 @@ export default function LocationPickerModal({
         leafletInstance.current = null;
       }
     };
-  }, [isOpen]);
+  }, [isOpen, t, formatNumber]);
 
   // Handle GPS location trigger
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
+      alert(t('misc.locationPicker.geolocationUnsupported'));
       return;
     }
 
@@ -124,7 +131,7 @@ export default function LocationPickerModal({
         setIsLocating(false);
       },
       () => {
-        alert('Unable to fetch your GPS coordinates. Please allow location permissions.');
+        alert(t('misc.locationPicker.gpsFetchError'));
         setIsLocating(false);
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -145,7 +152,7 @@ export default function LocationPickerModal({
         <div className="p-4 sm:p-5 border-b border-stone-200 flex items-center justify-between">
           <div className="flex items-center gap-2 text-stone-900">
             <MapPin className="w-5 h-5 text-emerald-700" />
-            <h3 className="text-base font-bold">Pick Delivery Destination</h3>
+            <h3 className="text-base font-bold">{t('misc.locationPicker.title')}</h3>
           </div>
           <button
             onClick={onClose}
@@ -158,7 +165,7 @@ export default function LocationPickerModal({
         {/* Action / Current GPS button */}
         <div className="p-4 bg-stone-50 border-b border-stone-200 flex items-center justify-between gap-3">
           <p className="text-xs text-stone-600 font-medium">
-            Click anywhere on the map or drag the marker to your delivery address.
+            {t('misc.locationPicker.instruction')}
           </p>
           <button
             type="button"
@@ -171,7 +178,7 @@ export default function LocationPickerModal({
             ) : (
               <Navigation className="w-3.5 h-3.5 text-emerald-600" />
             )}
-            Use My Current Location
+            {t('misc.locationPicker.useCurrentLocation')}
           </button>
         </div>
 
@@ -182,13 +189,13 @@ export default function LocationPickerModal({
         <div className="p-4 sm:p-5 border-t border-stone-200 bg-white space-y-3">
           <div>
             <span className="text-[10px] font-black uppercase tracking-wider text-stone-400 block mb-1">
-              Selected Address
+              {t('misc.locationPicker.selectedAddress')}
             </span>
             <p className="text-xs text-stone-800 font-medium line-clamp-2 min-h-[32px]">
               {isResolving ? (
-                <span className="text-stone-400 italic">Resolving address...</span>
+                <span className="text-stone-400 italic">{t('misc.locationPicker.resolvingAddress')}</span>
               ) : (
-                addressText || 'Select a point on the map'
+                addressText || t('misc.locationPicker.selectPoint')
               )}
             </p>
           </div>
@@ -199,7 +206,7 @@ export default function LocationPickerModal({
               onClick={onClose}
               className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs rounded-xl transition-colors"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="button"
@@ -208,7 +215,7 @@ export default function LocationPickerModal({
               className="flex-1 py-2.5 bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-sm"
             >
               <Check className="w-4 h-4" />
-              Confirm Delivery Address
+              {t('misc.locationPicker.confirmAddress')}
             </button>
           </div>
         </div>

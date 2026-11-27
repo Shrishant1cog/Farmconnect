@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../data/models/enquiry.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/app_states.dart';
 import '../auth/auth_controller.dart';
 
@@ -48,7 +49,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     }
     final message = ChatMessage.fromJson(Map<String, dynamic>.from(payload));
     setState(() {
-      _messages = [..._messages.where((item) => item.id != message.id), message];
+      _messages = [
+        ..._messages.where((item) => item.id != message.id),
+        message,
+      ];
     });
     _scrollToBottom();
   }
@@ -64,13 +68,16 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   Future<void> _load() async {
+    final l10n = AppLocalizations.of(context);
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
-      final enquiry = await ref.read(enquiryRepositoryProvider).fetchThread(widget.enquiryId);
+      final enquiry = await ref
+          .read(enquiryRepositoryProvider)
+          .fetchThread(widget.enquiryId);
       if (!mounted) {
         return;
       }
@@ -81,11 +88,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       _scrollToBottom();
     } on ApiException catch (error) {
       if (mounted) {
-        setState(() => _error = error.displayMessage);
+        setState(() => _error = l10n.commonRequestFailed(error.displayMessage));
       }
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
-        setState(() => _error = error.toString());
+        setState(() => _error = l10n.commonSomethingWrong);
       }
     } finally {
       if (mounted) {
@@ -107,6 +114,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   Future<void> _send() async {
+    final l10n = AppLocalizations.of(context);
     final content = _messageController.text.trim();
     if (content.isEmpty) {
       return;
@@ -116,17 +124,26 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     _messageController.clear();
 
     try {
-      final message = await ref.read(enquiryRepositoryProvider).sendMessage(widget.enquiryId, content);
+      final message = await ref
+          .read(enquiryRepositoryProvider)
+          .sendMessage(widget.enquiryId, content);
       if (!mounted) {
         return;
       }
       setState(() {
-        _messages = [..._messages.where((item) => item.id != message.id), message];
+        _messages = [
+          ..._messages.where((item) => item.id != message.id),
+          message,
+        ];
       });
       _scrollToBottom();
     } on ApiException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.displayMessage)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.commonRequestFailed(error.displayMessage)),
+          ),
+        );
       }
     } finally {
       if (mounted) {
@@ -137,6 +154,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final user = ref.watch(currentUserProvider);
 
     return Scaffold(
@@ -145,11 +163,20 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_enquiry?.farmerName ?? 'Conversation'),
+            Text(
+              _farmerDisplayName(l10n, _enquiry),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
             if (_enquiry != null)
               Text(
                 _enquiry!.productTitle,
-                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
           ],
         ),
@@ -160,6 +187,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   Widget _buildBody(String? currentUserId) {
+    final l10n = AppLocalizations.of(context);
     if (_loading) {
       return const LoadingView();
     }
@@ -167,9 +195,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       return ErrorView(message: _error!, onRetry: _load);
     }
     if (_messages.isEmpty) {
-      return const EmptyState(
-        title: 'No messages yet',
-        message: 'Start the negotiation — messages are shared with the other party in real time.',
+      return EmptyState(
+        title: l10n.chatNoMessagesTitle,
+        message: l10n.chatNoMessagesMessage,
         icon: Icons.chat_bubble_outline_rounded,
       );
     }
@@ -210,7 +238,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  Formatters.time(message.createdAt),
+                  _formatTime(context, message.createdAt),
                   style: TextStyle(
                     fontSize: 10.5,
                     color: isMine ? Colors.white70 : AppTheme.stone500,
@@ -225,6 +253,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   Widget _buildComposer() {
+    final l10n = AppLocalizations.of(context);
     return SafeArea(
       child: Container(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
@@ -241,8 +270,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 maxLines: 4,
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => _send(),
-                decoration: const InputDecoration(
-                  hintText: 'Write a message…',
+                decoration: InputDecoration(
+                  hintText: l10n.chatWriteMessage,
                   isDense: true,
                 ),
               ),
@@ -250,11 +279,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             const SizedBox(width: 8),
             IconButton.filled(
               onPressed: _sending ? null : _send,
+              tooltip: l10n.chatSendMessage,
               icon: _sending
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Icon(Icons.send_rounded, size: 19),
               style: IconButton.styleFrom(
@@ -267,4 +300,28 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       ),
     );
   }
+}
+
+String _farmerDisplayName(AppLocalizations l10n, Enquiry? enquiry) {
+  if (enquiry == null) {
+    return l10n.chatConversationTitle;
+  }
+  final user = enquiry.farmer?['user'];
+  final name = user is Map ? user['name']?.toString().trim() : null;
+  if (name != null && name.isNotEmpty) {
+    return name;
+  }
+  final farmName = enquiry.farmer?['farmName']?.toString().trim();
+  if (farmName != null && farmName.isNotEmpty) {
+    return farmName;
+  }
+  return l10n.commonCultivator;
+}
+
+String _formatTime(BuildContext context, DateTime? value) {
+  if (value == null) {
+    return '—';
+  }
+  final locale = Localizations.localeOf(context).toString();
+  return DateFormat.jm(locale).format(value.toLocal());
 }

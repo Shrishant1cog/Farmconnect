@@ -9,6 +9,7 @@ import {
   ChevronRight, Sparkles, Sprout
 } from 'lucide-react';
 import { fetchApi } from '../../../lib/api';
+import { useI18n } from '../../../hooks/useI18n';
 
 export interface OrderItem {
   id: string;
@@ -39,91 +40,8 @@ export interface FarmerOrder {
   items: OrderItem[];
 }
 
-const FALLBACK_ORDERS: FarmerOrder[] = [
-  {
-    id: 'ord-fc-8831',
-    createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-    status: 'PENDING',
-    totalAmount: 5000,
-    transportCost: 450,
-    containerCost: 112.5,
-    deliveryAddress: 'Indiranagar, Bengaluru, Karnataka - 560038',
-    consumer: {
-      id: 'cons-101',
-      name: 'Priya Narayanan (Commercial Buyer)',
-      phone: '+91 98765 43211',
-      district: 'Bengaluru Urban',
-    },
-    items: [
-      {
-        id: 'item-1',
-        quantity: 250,
-        price: 20,
-        product: {
-          id: 'prod-1',
-          title: 'Tomato (Nati Desi Heirloom)',
-          priceUnit: 'kg',
-        },
-      },
-    ],
-  },
-  {
-    id: 'ord-fc-7742',
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    status: 'CONFIRMED',
-    totalAmount: 21000,
-    transportCost: 1200,
-    containerCost: 225,
-    deliveryAddress: 'APMC Yard Road, Yeshwanthpur, Bengaluru - 560022',
-    consumer: {
-      id: 'cons-102',
-      name: 'Suresh Gowda (Retail Wholesale Mart)',
-      phone: '+91 98765 43222',
-      district: 'Bengaluru Urban',
-    },
-    items: [
-      {
-        id: 'item-2',
-        quantity: 500,
-        price: 42,
-        product: {
-          id: 'prod-2',
-          title: 'Mandya Brown Finger Millet (Ragi)',
-          priceUnit: 'kg',
-        },
-      },
-    ],
-  },
-  {
-    id: 'ord-fc-6629',
-    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-    status: 'DELIVERED',
-    totalAmount: 6500,
-    transportCost: 350,
-    containerCost: 45,
-    deliveryAddress: 'Gokulam 3rd Stage, Mysuru, Karnataka - 570002',
-    consumer: {
-      id: 'cons-103',
-      name: 'Hotel Nisarga Greens (Procurement)',
-      phone: '+91 98765 43233',
-      district: 'Mysuru',
-    },
-    items: [
-      {
-        id: 'item-3',
-        quantity: 100,
-        price: 65,
-        product: {
-          id: 'prod-3',
-          title: 'Yelakki Banana (Elakki Bale)',
-          priceUnit: 'kg',
-        },
-      },
-    ],
-  },
-];
-
 export default function FarmerOrdersPage() {
+  const { t, formatNumber, formatDateTime } = useI18n();
   const [orders, setOrders] = useState<FarmerOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -149,7 +67,8 @@ export default function FarmerOrdersPage() {
 
     const token = getAuthToken();
     if (!token) {
-      setOrders(FALLBACK_ORDERS);
+      // Signed out: there is no shared order list to show.
+      setOrders([]);
       setLoading(false);
       return;
     }
@@ -168,20 +87,23 @@ export default function FarmerOrdersPage() {
         data = json?.data || json?.orders || json;
       }
 
-      if (Array.isArray(data) && data.length > 0) {
+      // Only the real shared orders are shown. An empty response renders the
+      // translated empty state instead of demo records.
+      if (Array.isArray(data)) {
         setOrders(data);
-      } else if (data?.orders && Array.isArray(data.orders) && data.orders.length > 0) {
+      } else if (data?.orders && Array.isArray(data.orders)) {
         setOrders(data.orders);
       } else {
-        setOrders(FALLBACK_ORDERS);
+        setOrders([]);
       }
     } catch (err: any) {
-      console.warn('Orders fetch notice (serving offline fallbacks):', err?.message);
-      setOrders(FALLBACK_ORDERS);
+      console.warn('Orders fetch failed:', err?.message);
+      setErrorMessage(t('farmer.orders.loadError'));
+      setOrders([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadOrders();
@@ -197,15 +119,18 @@ export default function FarmerOrdersPage() {
     );
 
     const statusLabels: Record<FarmerOrder['status'], string> = {
-      PENDING: 'marked as Pending',
-      CONFIRMED: 'accepted & in packing queue',
-      PACKED: 'packed into transport crates',
-      DISPATCHED: 'handed over to logistics truck',
-      DELIVERED: 'marked fulfilled and settled',
-      CANCELLED: 'cancelled',
+      PENDING: t('farmer.orders.markedPending'),
+      CONFIRMED: t('farmer.orders.markedConfirmed'),
+      PACKED: t('farmer.orders.markedPacked'),
+      DISPATCHED: t('farmer.orders.markedDispatched'),
+      DELIVERED: t('farmer.orders.markedDelivered'),
+      CANCELLED: t('farmer.orders.markedCancelled'),
     };
 
-    setToastMessage(`Order #${orderId.slice(-6).toUpperCase()} ${statusLabels[nextStatus]}.`);
+    setToastMessage(t('farmer.orders.statusUpdate', {
+      id: orderId.slice(-6).toUpperCase(),
+      status: statusLabels[nextStatus],
+    }));
 
     try {
       const payload = { status: nextStatus };
@@ -252,37 +177,37 @@ export default function FarmerOrdersPage() {
       case 'PENDING':
         return (
           <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-950 border border-amber-300 flex items-center gap-1 shadow-2xs">
-            <Clock className="w-3 h-3 text-amber-700" /> Pending Confirmation
+            <Clock className="w-3 h-3 text-amber-700" /> {t('farmer.orders.statusPending')}
           </span>
         );
       case 'CONFIRMED':
         return (
           <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-100 text-blue-950 border border-blue-300 flex items-center gap-1 shadow-2xs">
-            <CheckCircle2 className="w-3 h-3 text-blue-700" /> Confirmed / Packing
+            <CheckCircle2 className="w-3 h-3 text-blue-700" /> {t('farmer.orders.statusConfirmed')}
           </span>
         );
       case 'PACKED':
         return (
           <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-950 border border-indigo-300 flex items-center gap-1 shadow-2xs">
-            <Package className="w-3 h-3 text-indigo-700" /> Ready for Pickup
+            <Package className="w-3 h-3 text-indigo-700" /> {t('farmer.orders.statusPacked')}
           </span>
         );
       case 'DISPATCHED':
         return (
           <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-950 border border-purple-300 flex items-center gap-1 shadow-2xs">
-            <Truck className="w-3 h-3 text-purple-700" /> In Transit
+            <Truck className="w-3 h-3 text-purple-700" /> {t('farmer.orders.statusDispatched')}
           </span>
         );
       case 'DELIVERED':
         return (
           <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-950 border border-emerald-300 flex items-center gap-1 shadow-2xs">
-            <Check className="w-3 h-3 text-emerald-700" /> Fulfilled & Settled
+            <Check className="w-3 h-3 text-emerald-700" /> {t('farmer.orders.statusDelivered')}
           </span>
         );
       case 'CANCELLED':
         return (
           <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-100 text-red-950 border border-red-300">
-            Cancelled
+            {t('farmer.orders.statusCancelled')}
           </span>
         );
     }
@@ -304,17 +229,17 @@ export default function FarmerOrdersPage() {
         <div>
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className="px-3 py-0.5 rounded-full bg-emerald-100 text-emerald-950 border border-emerald-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
-              <ShoppingBag className="w-3.5 h-3.5 text-emerald-700" /> Farm Gate Orders
+              <ShoppingBag className="w-3.5 h-3.5 text-emerald-700" /> {t('farmer.orders.farmGateOrders')}
             </span>
             <span className="px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-600 text-[10px] font-bold">
-              Dispatch Dashboard
+              {t('farmer.orders.dispatchDashboard')}
             </span>
           </div>
           <h1 className="text-2xl sm:text-4xl font-black text-stone-900 tracking-tight">
-            Wholesale Customer Orders
+            {t('farmer.orders.pageTitle')}
           </h1>
           <p className="text-stone-500 text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed">
-            Track confirmed wholesale lots, update fulfillment checkpoints, coordinate farm-gate truck pickups, and view real-time settlement payouts.
+            {t('farmer.orders.intro')}
           </p>
         </div>
 
@@ -322,7 +247,7 @@ export default function FarmerOrdersPage() {
           onClick={loadOrders}
           disabled={loading}
           className="p-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-2xl transition-all duration-150 active:scale-95 self-start md:self-auto flex items-center justify-center shadow-2xs"
-          title="Refresh Orders"
+          title={t('farmer.orders.refreshTitle')}
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-700' : ''}`} />
         </button>
@@ -334,7 +259,7 @@ export default function FarmerOrdersPage() {
           <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search by Order ID, Buyer, or Crop..."
+            placeholder={t('farmer.orders.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-stone-50 rounded-2xl text-xs font-semibold text-stone-900 border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-600 transition-all"
@@ -353,7 +278,17 @@ export default function FarmerOrdersPage() {
                   : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
               }`}
             >
-              {st}
+              {st === 'ALL'
+                ? t('farmer.orders.filterAll')
+                : st === 'PENDING'
+                ? t('farmer.orders.filterPending')
+                : st === 'CONFIRMED'
+                ? t('farmer.orders.filterConfirmed')
+                : st === 'PACKED'
+                ? t('farmer.orders.filterPacked')
+                : st === 'DISPATCHED'
+                ? t('farmer.orders.filterDispatched')
+                : t('farmer.orders.filterDelivered')}
             </button>
           ))}
         </div>
@@ -372,7 +307,7 @@ export default function FarmerOrdersPage() {
         <div className="min-h-[40vh] flex flex-col items-center justify-center text-emerald-800 gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-emerald-700" />
           <span className="font-bold tracking-widest text-xs uppercase text-stone-400">
-            Fetching Incoming Orders...
+            {t('farmer.orders.fetching')}
           </span>
         </div>
       ) : filteredOrders.length === 0 ? (
@@ -381,11 +316,11 @@ export default function FarmerOrdersPage() {
             <ShoppingBag className="w-8 h-8" />
           </div>
           <div>
-            <h3 className="text-base font-black text-stone-900">No Orders Found</h3>
+            <h3 className="text-base font-black text-stone-900">{t('farmer.orders.noOrdersTitle')}</h3>
             <p className="text-xs text-stone-500 mt-1 leading-relaxed">
               {searchTerm || statusFilter !== 'ALL'
-                ? 'Try adjusting your search query or status filter.'
-                : 'Customer orders placed for your harvest lots will appear here automatically.'}
+                ? t('farmer.orders.adjustFilters')
+                : t('farmer.orders.ordersAppear')}
             </p>
           </div>
         </div>
@@ -404,26 +339,20 @@ export default function FarmerOrdersPage() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-black text-stone-900 tracking-tight">
-                        Order #{order.id.slice(-8).toUpperCase()}
+                        {t('farmer.orders.orderNumber', { id: order.id.slice(-8).toUpperCase() })}
                       </span>
                       {getStatusBadge(order.status)}
                     </div>
                     <p className="text-xs text-stone-400 font-medium flex items-center gap-1">
-                      <Calendar className="w-3.5 h-3.5 text-stone-400" /> Placed on{' '}
-                      {new Date(order.createdAt).toLocaleDateString([], {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      <Calendar className="w-3.5 h-3.5 text-stone-400" />{' '}
+                      {t('farmer.orders.placedOn', { date: formatDateTime(order.createdAt) })}
                     </p>
                   </div>
 
                   {/* Buyer Snapshot */}
                   <div className="text-left sm:text-right space-y-0.5">
                     <span className="text-xs font-bold text-stone-900 block">
-                      Buyer: {order.consumer?.name || 'Wholesale Buyer'}
+                      {t('farmer.orders.buyer', { name: order.consumer?.name || t('farmer.orders.wholesaleBuyer') })}
                     </span>
                     {order.consumer?.phone && (
                       <span className="text-xs text-stone-500 flex items-center sm:justify-end gap-1 font-mono">
@@ -448,15 +377,15 @@ export default function FarmerOrdersPage() {
                         </div>
                         <div>
                           <p className="font-bold text-stone-900">
-                            {item.product?.title || 'Harvest Produce'}
+                            {item.product?.title || t('farmer.orders.harvestProduce')}
                           </p>
                           <p className="text-stone-400 text-[11px]">
-                            {Number(item.quantity) || 0} kg @ ₹{Number(item.price) || 0}/kg
+                            {formatNumber(Number(item.quantity) || 0)} kg @ ₹{formatNumber(Number(item.price) || 0)}/kg
                           </p>
                         </div>
                       </div>
                       <span className="font-black text-stone-900 text-sm">
-                        ₹{(Number(item.quantity || 0) * Number(item.price || 0)).toLocaleString()}
+                        ₹{formatNumber(Number(item.quantity || 0) * Number(item.price || 0))}
                       </span>
                     </div>
                   ))}
@@ -467,22 +396,22 @@ export default function FarmerOrdersPage() {
                   <div className="p-3 bg-stone-50/80 rounded-2xl border border-stone-100 flex flex-wrap items-center justify-between gap-2 text-[11px] text-stone-500">
                     <div className="flex items-center gap-4">
                       {order.containerCost ? (
-                        <span>Packaging Crates: <strong className="text-stone-800">₹{order.containerCost}</strong></span>
+                        <span>{t('farmer.orders.packagingCrates')}: <strong className="text-stone-800">₹{formatNumber(order.containerCost)}</strong></span>
                       ) : null}
                       {order.transportCost ? (
-                        <span>Freight Transit: <strong className="text-stone-800">₹{order.transportCost}</strong></span>
+                        <span>{t('farmer.orders.freightTransit')}: <strong className="text-stone-800">₹{formatNumber(order.transportCost)}</strong></span>
                       ) : null}
                     </div>
-                    <span className="font-semibold text-emerald-800">Direct Farm Gate Settlement</span>
+                    <span className="font-semibold text-emerald-800">{t('farmer.orders.directSettlement')}</span>
                   </div>
                 )}
 
                 {/* Footer: Grand Total & Status Progression Actions */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-stone-100">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-stone-400">Total Lot Value:</span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-stone-400">{t('farmer.orders.totalLotValue')}:</span>
                     <span className="text-2xl font-black text-emerald-800">
-                      ₹{Number(order.totalAmount || 0).toLocaleString()}
+                      ₹{formatNumber(Number(order.totalAmount || 0))}
                     </span>
                   </div>
 
@@ -496,7 +425,7 @@ export default function FarmerOrdersPage() {
                         className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all duration-150 active:scale-95"
                       >
                         {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                        Accept & Confirm Lot
+                        {t('farmer.orders.acceptConfirm')}
                       </button>
                     )}
 
@@ -508,7 +437,7 @@ export default function FarmerOrdersPage() {
                         className="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 disabled:bg-stone-300 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all duration-150 active:scale-95"
                       >
                         {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Package className="w-3.5 h-3.5" />}
-                        Mark Packed in Crates
+                        {t('farmer.orders.markPacked')}
                       </button>
                     )}
 
@@ -520,7 +449,7 @@ export default function FarmerOrdersPage() {
                         className="px-4 py-2 bg-purple-700 hover:bg-purple-800 disabled:bg-stone-300 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all duration-150 active:scale-95"
                       >
                         {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Truck className="w-3.5 h-3.5" />}
-                        Handover to Transport Truck
+                        {t('farmer.orders.handoverTruck')}
                       </button>
                     )}
 
@@ -532,13 +461,13 @@ export default function FarmerOrdersPage() {
                         className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all duration-150 active:scale-95"
                       >
                         {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                        Confirm Gate Delivery
+                        {t('farmer.orders.confirmDelivery')}
                       </button>
                     )}
 
                     {order.status === 'DELIVERED' && (
                       <span className="text-xs font-bold text-emerald-800 flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-700" /> Settled to Account
+                        <CheckCircle2 className="w-4 h-4 text-emerald-700" /> {t('farmer.orders.settled')}
                       </span>
                     )}
                   </div>

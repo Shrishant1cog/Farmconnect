@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../data/models/misc.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/app_states.dart';
 
 /// APMC mandi rates — parity with `/mandi-rates`.
@@ -29,24 +30,27 @@ class _MarketRatesPageState extends ConsumerState<MarketRatesPage> {
   }
 
   Future<void> _load() async {
+    final l10n = AppLocalizations.of(context);
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
-      final rates = await ref.read(catalogRepositoryProvider).fetchMarketRates();
+      final rates = await ref
+          .read(catalogRepositoryProvider)
+          .fetchMarketRates();
       if (!mounted) {
         return;
       }
       setState(() => _rates = rates);
     } on ApiException catch (error) {
       if (mounted) {
-        setState(() => _error = error.displayMessage);
+        setState(() => _error = l10n.commonRequestFailed(error.displayMessage));
       }
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
-        setState(() => _error = error.toString());
+        setState(() => _error = l10n.commonSomethingWrong);
       }
     } finally {
       if (mounted) {
@@ -61,24 +65,28 @@ class _MarketRatesPageState extends ConsumerState<MarketRatesPage> {
     }
     final query = _search.toLowerCase();
     return _rates
-        .where((rate) =>
-            rate.commodity.toLowerCase().contains(query) ||
-            (rate.district ?? '').toLowerCase().contains(query) ||
-            (rate.marketCenter ?? '').toLowerCase().contains(query))
+        .where(
+          (rate) =>
+              rate.commodity.toLowerCase().contains(query) ||
+              (rate.district ?? '').toLowerCase().contains(query) ||
+              (rate.marketCenter ?? '').toLowerCase().contains(query),
+        )
         .toList();
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: TextField(
-            onChanged: (value) => setState(() => _search = value.trim().toLowerCase()),
-            decoration: const InputDecoration(
-              hintText: 'Search commodity, district or market centre',
-              prefixIcon: Icon(Icons.trending_up_rounded),
+            onChanged: (value) =>
+                setState(() => _search = value.trim().toLowerCase()),
+            decoration: InputDecoration(
+              hintText: l10n.marketRatesSearchHint,
+              prefixIcon: const Icon(Icons.trending_up_rounded),
             ),
           ),
         ),
@@ -94,18 +102,21 @@ class _MarketRatesPageState extends ConsumerState<MarketRatesPage> {
   }
 
   Widget _buildBody() {
+    final l10n = AppLocalizations.of(context);
     if (_loading) {
       return const LoadingView();
     }
     if (_error != null) {
-      return ListView(children: [ErrorView(message: _error!, onRetry: _load)]);
+      return ListView(
+        children: [ErrorView(message: _error!, onRetry: _load)],
+      );
     }
     if (_visibleRates.isEmpty) {
       return ListView(
-        children: const [
+        children: [
           EmptyState(
-            title: 'No market rates found',
-            message: 'APMC rates are refreshed from the shared backend database.',
+            title: l10n.marketRatesEmptyTitle,
+            message: l10n.marketRatesEmptyMessage,
             icon: Icons.query_stats_rounded,
           ),
         ],
@@ -129,12 +140,26 @@ class _MarketRatesPageState extends ConsumerState<MarketRatesPage> {
                     Expanded(
                       child: Text(
                         rate.commodity,
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15.5,
+                        ),
                       ),
                     ),
-                    Text(
-                      '${Formatters.currency(rate.modalPrice)} / quintal',
-                      style: const TextStyle(fontWeight: FontWeight.w900, color: AppTheme.emeraldDark),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        '${_formatCurrency(context, rate.modalPrice)} / ${l10n.farmerQuintal}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.emeraldDark,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -143,22 +168,28 @@ class _MarketRatesPageState extends ConsumerState<MarketRatesPage> {
                   [rate.marketCenter, rate.district, rate.state]
                       .where((part) => part != null && part.isNotEmpty)
                       .join(' · '),
-                  style: const TextStyle(color: AppTheme.stone500, fontSize: 12.5),
+                  style: const TextStyle(
+                    color: AppTheme.stone500,
+                    fontSize: 12.5,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    _priceTile('Minimum', rate.minPrice),
+                    _priceTile(context, l10n.marketRatesMinimum, rate.minPrice),
                     const SizedBox(width: 10),
-                    _priceTile('Modal', rate.modalPrice),
+                    _priceTile(context, l10n.marketRatesModal, rate.modalPrice),
                     const SizedBox(width: 10),
-                    _priceTile('Maximum', rate.maxPrice),
+                    _priceTile(context, l10n.marketRatesMaximum, rate.maxPrice),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Updated ${Formatters.relative(rate.updatedAt)}',
-                  style: const TextStyle(color: AppTheme.stone500, fontSize: 11.5),
+                  '${l10n.commonUpdated} ${_formatRelative(context, l10n, rate.updatedAt)}',
+                  style: const TextStyle(
+                    color: AppTheme.stone500,
+                    fontSize: 11.5,
+                  ),
                 ),
               ],
             ),
@@ -168,7 +199,7 @@ class _MarketRatesPageState extends ConsumerState<MarketRatesPage> {
     );
   }
 
-  Widget _priceTile(String label, double value) {
+  Widget _priceTile(BuildContext context, String label, double value) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -179,10 +210,19 @@ class _MarketRatesPageState extends ConsumerState<MarketRatesPage> {
         ),
         child: Column(
           children: [
-            Text(label, style: const TextStyle(color: AppTheme.stone500, fontSize: 11.5)),
+            Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppTheme.stone500, fontSize: 11.5),
+            ),
             const SizedBox(height: 4),
             Text(
-              Formatters.currency(value),
+              _formatCurrency(context, value),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
           ],
@@ -190,4 +230,40 @@ class _MarketRatesPageState extends ConsumerState<MarketRatesPage> {
       ),
     );
   }
+}
+
+String _formatCurrency(BuildContext context, num value) {
+  final locale = Localizations.localeOf(context).toString();
+  final formatted = NumberFormat.currency(
+    locale: locale,
+    symbol: '₹',
+    decimalDigits: 2,
+  ).format(value);
+  return formatted.replaceFirst(RegExp(r'\.00$'), '');
+}
+
+String _formatRelative(
+  BuildContext context,
+  AppLocalizations l10n,
+  DateTime? value,
+) {
+  if (value == null) {
+    return '—';
+  }
+  final locale = Localizations.localeOf(context).toString();
+  final numberFormat = NumberFormat.decimalPattern(locale);
+  final difference = DateTime.now().difference(value.toLocal());
+  if (difference.inMinutes < 1) {
+    return l10n.commonJustNow;
+  }
+  if (difference.inMinutes < 60) {
+    return l10n.commonMinutesAgo(numberFormat.format(difference.inMinutes));
+  }
+  if (difference.inHours < 24) {
+    return l10n.commonHoursAgo(numberFormat.format(difference.inHours));
+  }
+  if (difference.inDays < 7) {
+    return l10n.commonDaysAgo(numberFormat.format(difference.inDays));
+  }
+  return DateFormat.yMMMd(locale).format(value.toLocal());
 }

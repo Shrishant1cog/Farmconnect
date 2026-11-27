@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { db } from '../../config/db';
+import { normalizeLanguage } from '../../utils/language';
 import { firebaseAdmin } from '../../config/firebaseAdmin';
 
 const JWT_SECRETS = [
@@ -187,6 +188,7 @@ export const register = async (req: Request, res: Response) => {
       phone: createdUser.phone,
       email: createdUser.email,
       role: createdUser.role,
+      preferredLanguage: normalizeLanguage((createdUser as any).preferredLanguage),
       state: cleanState,
       district: cleanDistrict,
       taluk: cleanTaluk,
@@ -323,6 +325,7 @@ export const login = async (req: Request, res: Response) => {
       email: user.email,
       phone: user.phone,
       role: normalizedRole,
+      preferredLanguage: normalizeLanguage((user as any).preferredLanguage),
       district: user.farmerProfile?.district || user.consumerProfile?.district || 'Mandya',
       state: user.farmerProfile?.state || 'Karnataka',
       farmerProfile: user.farmerProfile,
@@ -453,6 +456,7 @@ export const loginPhone = async (req: Request, res: Response) => {
       phone: user.phone,
       email: user.email,
       role: tokenRole,
+      preferredLanguage: normalizeLanguage((user as any).preferredLanguage),
       farmerProfile: user.farmerProfile,
       consumerProfile: user.consumerProfile,
     };
@@ -668,6 +672,7 @@ export const getCurrentUser = async (req: Request, res: Response) => {
           email: true,
           phone: true,
           role: true,
+          preferredLanguage: true,
           createdAt: true,
           farmerProfile: true,
           consumerProfile: true,

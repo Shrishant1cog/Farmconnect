@@ -6,6 +6,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/product.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/app_states.dart';
 import '../../../shared/widgets/farmer_card.dart';
 import '../../../shared/widgets/product_card.dart';
@@ -31,13 +32,16 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   }
 
   Future<void> _load() async {
+    final l10n = AppLocalizations.of(context);
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
-      final favorites = await ref.read(engagementRepositoryProvider).fetchFavorites();
+      final favorites = await ref
+          .read(engagementRepositoryProvider)
+          .fetchFavorites();
       if (!mounted) {
         return;
       }
@@ -47,11 +51,11 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       });
     } on ApiException catch (error) {
       if (mounted) {
-        setState(() => _error = error.displayMessage);
+        setState(() => _error = l10n.commonRequestFailed(error.displayMessage));
       }
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
-        setState(() => _error = error.toString());
+        setState(() => _error = l10n.commonSomethingWrong);
       }
     } finally {
       if (mounted) {
@@ -70,18 +74,21 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   }
 
   Widget _buildBody() {
+    final l10n = AppLocalizations.of(context);
     if (_loading) {
       return const LoadingView();
     }
     if (_error != null) {
-      return ListView(children: [ErrorView(message: _error!, onRetry: _load)]);
+      return ListView(
+        children: [ErrorView(message: _error!, onRetry: _load)],
+      );
     }
     if (_products.isEmpty && _farmers.isEmpty) {
       return ListView(
-        children: const [
+        children: [
           EmptyState(
-            title: 'No favourites yet',
-            message: 'Tap the heart on a listing or a farm to keep it handy for later.',
+            title: l10n.emptyFavorites,
+            message: l10n.favoritesEmptyMessage,
             icon: Icons.favorite_border_rounded,
           ),
         ],
@@ -92,9 +99,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
       children: [
         if (_products.isNotEmpty) ...[
-          const Text(
-            'Favourite listings',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+          Text(
+            l10n.favoritesListingsTitle,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 12),
           ..._products.map(
@@ -109,9 +116,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
           const SizedBox(height: 10),
         ],
         if (_farmers.isNotEmpty) ...[
-          const Text(
-            'Favourite cultivators',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+          Text(
+            l10n.favoritesCultivatorsTitle,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 12),
           ..._farmers.map(

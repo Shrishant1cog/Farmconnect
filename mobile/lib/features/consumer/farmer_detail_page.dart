@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/product.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/app_states.dart';
 import '../../../shared/widgets/product_card.dart';
 
@@ -45,11 +47,13 @@ class _FarmerDetailPageState extends ConsumerState<FarmerDetailPage> {
       setState(() => _farmer = farmer);
     } on ApiException catch (error) {
       if (mounted) {
-        setState(() => _error = error.displayMessage);
+        final l10n = AppLocalizations.of(context);
+        setState(() => _error = l10n.consumerRequestFailed(error.message));
       }
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
-        setState(() => _error = error.toString());
+        final l10n = AppLocalizations.of(context);
+        setState(() => _error = l10n.commonSomethingWrong);
       }
     } finally {
       if (mounted) {
@@ -65,22 +69,42 @@ class _FarmerDetailPageState extends ConsumerState<FarmerDetailPage> {
       if (!mounted) {
         return;
       }
+      final l10n = AppLocalizations.of(context);
       setState(() => _isFavorite = isFavorite);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isFavorite ? 'Added to favourites' : 'Removed from favourites')),
+        SnackBar(
+          content: Text(
+            isFavorite ? l10n.consumerFavoriteAdded : l10n.consumerFavoriteRemoved,
+          ),
+        ),
       );
     } on ApiException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.displayMessage)));
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.consumerRequestFailed(error.message))),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.commonSomethingWrong)),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(_farmer?.farmName ?? 'Cultivator'),
+        title: Text(
+          _farmer?.farmName ?? l10n.commonFarmer,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
           IconButton(
             onPressed: _toggleFavorite,
@@ -88,6 +112,7 @@ class _FarmerDetailPageState extends ConsumerState<FarmerDetailPage> {
               _isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
               color: _isFavorite ? const Color(0xFFDC2626) : null,
             ),
+            tooltip: l10n.navFavorites,
           ),
         ],
       ),
@@ -96,6 +121,7 @@ class _FarmerDetailPageState extends ConsumerState<FarmerDetailPage> {
   }
 
   Widget _buildBody() {
+    final l10n = AppLocalizations.of(context);
     if (_loading) {
       return const LoadingView();
     }
@@ -104,6 +130,11 @@ class _FarmerDetailPageState extends ConsumerState<FarmerDetailPage> {
     }
 
     final farmer = _farmer!;
+    final locale = Localizations.localeOf(context).toString();
+    final numberFormat = NumberFormat.decimalPattern(locale);
+    final profileViews = numberFormat.format(farmer.profileViews);
+    final harvestLots = numberFormat.format(farmer.products.length);
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
@@ -135,6 +166,8 @@ class _FarmerDetailPageState extends ConsumerState<FarmerDetailPage> {
                               Flexible(
                                 child: Text(
                                   farmer.farmName,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
                                 ),
                               ),
@@ -151,6 +184,8 @@ class _FarmerDetailPageState extends ConsumerState<FarmerDetailPage> {
                               if (farmer.farmerName != null) farmer.farmerName!,
                               if (farmer.district != null) farmer.district!,
                             ].join(' · '),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(color: AppTheme.stone500),
                           ),
                         ],
@@ -167,9 +202,20 @@ class _FarmerDetailPageState extends ConsumerState<FarmerDetailPage> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _stat(Icons.place_outlined, farmer.district ?? 'Karnataka'),
-                    _stat(Icons.visibility_outlined, '${farmer.profileViews} views'),
-                    _stat(Icons.inventory_2_outlined, '${farmer.products.length} lots'),
+                    _stat(
+                      Icons.place_outlined,
+                      farmer.district?.trim().isNotEmpty == true
+                          ? farmer.district!.trim()
+                          : l10n.commonUnknown,
+                    ),
+                    _stat(
+                      Icons.visibility_outlined,
+                      l10n.consumerProfileViews(profileViews),
+                    ),
+                    _stat(
+                      Icons.inventory_2_outlined,
+                      l10n.consumerHarvestLotsCount(harvestLots),
+                    ),
                   ],
                 ),
               ],
@@ -177,19 +223,19 @@ class _FarmerDetailPageState extends ConsumerState<FarmerDetailPage> {
           ),
         ),
         const SizedBox(height: 22),
-        const Text(
-          'Active Harvest Lots',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+        Text(
+          l10n.consumerActiveHarvestLots,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 12),
         if (farmer.products.isEmpty)
-          const Card(
+          Card(
             child: Padding(
-              padding: EdgeInsets.all(22),
+              padding: const EdgeInsets.all(22),
               child: Text(
-                'No Active Harvest Lots Ready',
+                l10n.consumerNoActiveHarvestLots,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppTheme.stone500, fontWeight: FontWeight.w600),
+                style: const TextStyle(color: AppTheme.stone500, fontWeight: FontWeight.w600),
               ),
             ),
           )
@@ -215,13 +261,25 @@ class _FarmerDetailPageState extends ConsumerState<FarmerDetailPage> {
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: AppTheme.stone200),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: AppTheme.stone700),
-          const SizedBox(width: 6),
-          Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-        ],
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.65,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: AppTheme.stone700),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -70,6 +70,7 @@ import 'package:farmconnect_mobile/data/repositories/catalog_repository.dart';
 import 'package:farmconnect_mobile/data/repositories/engagement_repository.dart';
 import 'package:farmconnect_mobile/data/repositories/enquiry_repository.dart';
 import 'package:farmconnect_mobile/data/repositories/order_repository.dart';
+import 'package:farmconnect_mobile/data/repositories/user_repository.dart';
 
 /// The API under test. Override with `--dart-define=TEST_API_BASE_URL=...`.
 const String _apiBaseUrl = String.fromEnvironment(
@@ -120,6 +121,7 @@ class TestClient {
     orders = OrderRepository(api: api);
     enquiries = EnquiryRepository(api: api);
     engagement = EngagementRepository(api: api);
+    users = UserRepository(api: api);
   }
 
   final String label;
@@ -131,6 +133,7 @@ class TestClient {
   late final OrderRepository orders;
   late final EnquiryRepository enquiries;
   late final EngagementRepository engagement;
+  late final UserRepository users;
 }
 
 void main() {
@@ -233,6 +236,9 @@ void main() {
       required String title,
       required double price,
       required double quantity,
+      String? cropName,
+      String? variety,
+      String? categoryId,
     }) async {
       final product = await client.catalog.createProduct(
         title: title,
@@ -241,6 +247,9 @@ void main() {
         quantityAvailable: quantity,
         minOrderKg: 5,
         location: 'Mandya, Karnataka',
+        cropName: cropName,
+        variety: variety,
+        categoryId: categoryId,
       );
       qaProductIds.add(product.id);
       return product;
@@ -526,8 +535,7 @@ void main() {
 
     testWidgets(
         'the Socket.IO server broadcasts order events to the Android client',
-        (tester) async {
-      // The farmer signs in on the Android client first — the socket must be
+        (tester) async {      // The farmer signs in on the Android client first — the socket must be
       // authenticated with the farmer's JWT so the server can put it in the
       // private room `user_<User.id>`.
       final farmerSession = await registerFarmerAcrossBothClients(
@@ -580,6 +588,133 @@ void main() {
       expect(event['orderId'], isA<String>());
 
       socket.dispose();
+    });
+
+    testWidgets('a farmer can manage several independent crop listings',
+        (tester) async {
+      await registerFarmerAcrossBothClients(
+        tag: 'crops',
+        farmName: 'Crop QA Fields',
+      );
+      await registerConsumerAcrossBothClients(tag: 'crops');
+
+      // --- The crop catalogue is shared with the website --------------------
+      final categories = await androidFarmer.catalog.fetchCropCategories();
+      expect(categories, isNotEmpty,
+          reason: 'The shared crop categories must be available to both clients');
+      final vegetableCategory = categories.firstWhere(
+        (category) => category.slug == 'vegetables',
+        orElse: () => categories.first,
+      );
+
+      final suggestions = await androidFarmer.catalog.fetchCropSuggestions(search: 'Tomato');
+      expect(suggestions, isNotEmpty,
+          reason: 'The crop catalogue must be searchable by crop name');
+
+      // --- Two different crops, two independent listings --------------------
+      final tomatoLot = await createQaProduct(
+        client: androidFarmer,
+        title: 'QA Crop Tomato $_runId',
+        price: 22.5,
+        quantity: 180,
+        cropName: 'Tomato',
+        variety: 'Hybrid',
+        categoryId: vegetableCategory.id,
+      );
+
+      final ragiLot = await createQaProduct(
+        client: androidFarmer,
+        title: 'QA Crop Ragi $_runId',
+        price: 48.0,
+        quantity: 90,
+        cropName: 'Ragi',
+        variety: 'Local',
+        categoryId: vegetableCategory.id,
+      );
+
+      expect(tomatoLot.id, isNot(ragiLot.id));
+      expect(tomatoLot.cropName, 'Tomato');
+      expect(tomatoLot.variety, 'Hybrid');
+      expect(ragiLot.cropName, 'Ragi');
+      expect(ragiLot.variety, 'Local');
+
+      // --- Both lots are visible in the farmer inventory --------------------
+      final inventory = await androidFarmer.catalog.fetchMyProducts();
+      final inventoryTomato =
+          inventory.firstWhere((product) => product.id == tomatoLot.id);
+      final inventoryRagi = inventory.firstWhere((product) => product.id == ragiLot.id);
+      expect(inventoryTomato.farmerPrice, 22.5);
+      expect(inventoryRagi.farmerPrice, 48.0);
+      expect(inventoryTomato.quantityAvailable, 180);
+      expect(inventoryRagi.quantityAvailable, 90);
+
+      // --- Editing one crop never touches the other crop -------------------
+      final updated = await androidFarmer.catalog.updateProduct(
+        tomatoLot.id,
+        farmerPrice: 27.5,
+        quantityAvailable: 150,
+        isAvailable: false,
+      );
+      expect(updated.farmerPrice, 27.5);
+      expect(updated.quantityAvailable, 150);
+      expect(updated.isAvailable, isFalse);
+
+      final afterEdit = await androidFarmer.catalog.fetchMyProducts();
+      final untouched = afterEdit.firstWhere((product) => product.id == ragiLot.id);
+      expect(untouched.farmerPrice, 48.0,
+          reason: 'A second crop of the same farmer must not be overwritten');
+      expect(untouched.quantityAvailable, 90);
+      expect(untouched.isAvailable, isTrue);
+
+      // --- The website sees the same crops and the same edit ----------------
+      final websiteFeed = await website.catalog.fetchProducts(
+        search: 'QA Crop Tomato $_runId',
+      );
+      final websiteTomato = websiteFeed.firstWhere(
+        (product) => product.id == tomatoLot.id,
+      );
+      expect(websiteTomato.cropName, 'Tomato');
+      expect(websiteTomato.variety, 'Hybrid');
+      expect(websiteTomato.farmerPrice, 27.5);
+      expect(websiteTomato.quantityAvailable, 150);
+
+      // --- Crop type filtering works for the customer ----------------------
+      final tomatoOnly = await androidConsumer.catalog.fetchProducts(crop: 'Tomato');
+      expect(tomatoOnly.any((product) => product.id == tomatoLot.id), isTrue);
+      expect(tomatoOnly.any((product) => product.id == ragiLot.id), isFalse,
+          reason: 'Filtering by crop type must not return a different crop');
+
+      // --- The customer can filter by crop category ------------------------
+      final byCategory = await androidConsumer.catalog.fetchProducts(
+        category: vegetableCategory.slug,
+      );
+      expect(byCategory.any((product) => product.id == tomatoLot.id), isTrue);
+    });
+
+    testWidgets('the interface language preference is shared between the clients',
+        (tester) async {
+      await registerFarmerAcrossBothClients(
+        tag: 'language',
+        farmName: 'Language QA Fields',
+      );
+
+      // --- The website changes the language --------------------------------
+      await websiteFarmer.users.updatePreferredLanguage('kn');
+
+      final androidProfile = await androidFarmer.auth.fetchCurrentUser();
+      expect(androidProfile.preferredLanguage, 'kn',
+          reason: 'The Android app must adopt the language chosen on the website');
+
+      // --- The Android app changes the language ----------------------------
+      await androidFarmer.users.updatePreferredLanguage('hi');
+
+      final websiteProfile = await websiteFarmer.auth.fetchCurrentUser();
+      expect(websiteProfile.preferredLanguage, 'hi',
+          reason: 'The website must adopt the language chosen in the Android app');
+
+      // --- The profile endpoint agrees as well ------------------------------
+      final websiteUserProfile = await websiteFarmer.users.fetchProfile();
+      expect(websiteUserProfile.preferredLanguage, 'hi');
     });
   });
 }

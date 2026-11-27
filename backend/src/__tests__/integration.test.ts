@@ -17,6 +17,8 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
   let farmerProfileId: string;
   let testCategoryId: string;
   let createdProductId: string;
+  let secondProductId: string;
+  let thirdProductId: string;
   let testOrderId: string;
   let testEnquiryId: string;
 
@@ -122,6 +124,11 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
     if (createdProductId) {
       await prisma.priceHistory.deleteMany({ where: { productId: createdProductId } }).catch(() => {});
       await prisma.product.deleteMany({ where: { id: createdProductId } }).catch(() => {});
+    }
+    for (const productId of [secondProductId, thirdProductId]) {
+      if (!productId) continue;
+      await prisma.priceHistory.deleteMany({ where: { productId } }).catch(() => {});
+      await prisma.product.deleteMany({ where: { id: productId } }).catch(() => {});
     }
     await prisma.$disconnect();
   });
@@ -285,5 +292,189 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
 
     expect(confirmRes.status).toBe(200);
     expect(confirmRes.body.data.status).toBe('DELIVERED');
+  });
+
+  // ==========================================================================
+  // 6. MULTILINGUAL ACCOUNT PREFERENCE (Feature A)
+  // ==========================================================================
+
+  it('LANGUAGE: the account preference is stored and returned to both clients', async () => {
+    const updateRes = await agent
+      .patch('/api/users/me')
+      .set('Authorization', `Bearer ${farmerToken}`)
+      .send({ preferredLanguage: 'kn' });
+
+    expect(updateRes.status).toBe(200);
+    expect(updateRes.body.success).toBe(true);
+    expect(updateRes.body.data.preferredLanguage).toBe('kn');
+
+    // The profile endpoint returns the same value (the website reads it here).
+    const profileRes = await agent
+      .get('/api/users/me')
+      .set('Authorization', `Bearer ${farmerToken}`);
+
+    expect(profileRes.status).toBe(200);
+    expect(profileRes.body.data.preferredLanguage).toBe('kn');
+
+    // The database really holds the value.
+    const stored = await prisma.user.findUnique({
+      where: { id: farmerUserId },
+      select: { preferredLanguage: true },
+    });
+    expect(stored?.preferredLanguage).toBe('kn');
+
+    // Switch back to English so the suite leaves the account unchanged.
+    const resetRes = await agent
+      .patch('/api/users/me')
+      .set('Authorization', `Bearer ${farmerToken}`)
+      .send({ preferredLanguage: 'en' });
+    expect(resetRes.body.data.preferredLanguage).toBe('en');
+  });
+
+  it('LANGUAGE: an unsupported language code is rejected', async () => {
+    const res = await agent
+      .patch('/api/users/me')
+      .set('Authorization', `Bearer ${farmerToken}`)
+      .send({ preferredLanguage: 'ta' });
+
+    expect(res.status).toBeGreaterThanOrEqual(400);
+  });
+
+  it('LANGUAGE: the language preference is included in the login response', async () => {
+    await agent
+      .patch('/api/users/me')
+      .set('Authorization', `Bearer ${farmerToken}`)
+      .send({ preferredLanguage: 'hi' });
+
+    const loginRes = await agent
+      .post('/api/auth/login')
+      .send({ email: 'ramesh.mandya@farmconnect.org', password: 'Password@123' });
+
+    expect(loginRes.status).toBe(200);
+    expect(loginRes.body.data.user.preferredLanguage).toBe('hi');
+
+    await agent
+      .patch('/api/users/me')
+      .set('Authorization', `Bearer ${farmerToken}`)
+      .send({ preferredLanguage: 'en' });
+  });
+
+  // ==========================================================================
+  // 7. INDEPENDENT CROP LISTINGS (Feature B)
+  // ==========================================================================
+
+  it('CATALOGUE: the shared crop catalogue and categories are available', async () => {
+    const categoriesRes = await agent.get('/api/catalog/categories');
+    expect(categoriesRes.status).toBe(200);
+    expect(Array.isArray(categoriesRes.body.data)).toBe(true);
+    expect(categoriesRes.body.data.length).toBeGreaterThan(0);
+    expect(categoriesRes.body.data[0]).toHaveProperty('slug');
+
+    const cropsRes = await agent.get('/api/catalog/crops?search=Tomato');
+    expect(cropsRes.status).toBe(200);
+    expect(cropsRes.body.data.length).toBeGreaterThan(0);
+    expect(cropsRes.body.data.some((c: any) => c.name === 'Tomato')).toBe(true);
+
+    // The catalogue is searchable in Kannada and Hindi too.
+    const kannadaRes = await agent.get('/api/catalog/crops?search=ಟೊಮೇಟೊ');
+    expect(kannadaRes.body.data.some((c: any) => c.name === 'Tomato')).toBe(true);
+
+    const hindiRes = await agent.get('/api/catalog/crops?search=टमाटर');
+    expect(hindiRes.body.data.some((c: any) => c.name === 'Tomato')).toBe(true);
+  });
+
+  it('FARMER: publishes two independent crop lots for the same farmer', async () => {
+    const tomatoRes = await agent
+      .post('/api/products')
+      .set('Authorization', `Bearer ${farmerToken}`)
+      .send({
+        title: 'Integration Tomato Lot',
+        description: 'First independent crop lot.',
+        categoryId: testCategoryId,
+        cropName: 'Tomato',
+        variety: 'Hybrid',
+        farmerPrice: 22.5,
+        quantityAvailable: 180,
+        quantityUnit: 'KG',
+        priceUnit: 'PER_KG',
+        isOrganic: false,
+      });
+
+    expect(tomatoRes.status).toBe(201);
+    expect(tomatoRes.body.data.cropName).toBe('Tomato');
+    expect(tomatoRes.body.data.variety).toBe('Hybrid');
+    secondProductId = tomatoRes.body.data.id;
+
+    const ragiRes = await agent
+      .post('/api/products')
+      .set('Authorization', `Bearer ${farmerToken}`)
+      .send({
+        title: 'Integration Ragi Lot',
+        description: 'Second independent crop lot.',
+        categoryId: testCategoryId,
+        cropName: 'Ragi',
+        variety: 'Local',
+        farmerPrice: 48.0,
+        quantityAvailable: 90,
+        quantityUnit: 'KG',
+        priceUnit: 'PER_KG',
+        isOrganic: false,
+      });
+
+    expect(ragiRes.status).toBe(201);
+    expect(ragiRes.body.data.cropName).toBe('Ragi');
+    expect(ragiRes.body.data.variety).toBe('Local');
+    thirdProductId = ragiRes.body.data.id;
+
+    expect(secondProductId).not.toBe(thirdProductId);
+  });
+
+  it('FARMER: editing one crop lot never overwrites the other', async () => {
+    const updateRes = await agent
+      .patch(`/api/products/${secondProductId}`)
+      .set('Authorization', `Bearer ${farmerToken}`)
+      .send({ farmerPrice: 27.5, quantityAvailable: 150, isAvailable: false });
+
+    expect(updateRes.status).toBe(200);
+    expect(Number(updateRes.body.data.farmerPrice)).toBe(27.5);
+    expect(Number(updateRes.body.data.quantityAvailable)).toBe(150);
+    expect(updateRes.body.data.isAvailable).toBe(false);
+
+    const untouched = await prisma.product.findUnique({ where: { id: thirdProductId } });
+    expect(Number(untouched!.farmerPrice)).toBe(48.0);
+    expect(Number(untouched!.quantityAvailable)).toBe(90);
+    expect(untouched!.isAvailable).toBe(true);
+    expect(untouched!.cropName).toBe('Ragi');
+  });
+
+  it('CONSUMER: filters the shared catalogue by crop type', async () => {
+    const tomatoRes = await agent.get('/api/products?crop=Tomato');
+    expect(tomatoRes.status).toBe(200);
+    const tomatoIds = tomatoRes.body.data.map((p: any) => p.id);
+    expect(tomatoIds).toContain(secondProductId);
+    expect(tomatoIds).not.toContain(thirdProductId);
+
+    const ragiRes = await agent.get('/api/products?crop=Ragi');
+    const ragiIds = ragiRes.body.data.map((p: any) => p.id);
+    expect(ragiIds).toContain(thirdProductId);
+    expect(ragiIds).not.toContain(secondProductId);
+  });
+
+  it('FARMER: the inventory lists every crop lot separately', async () => {
+    const res = await agent
+      .get('/api/products/my-products')
+      .set('Authorization', `Bearer ${farmerToken}`);
+
+    expect(res.status).toBe(200);
+    const mine = res.body.data.filter(
+      (p: any) => p.id === secondProductId || p.id === thirdProductId
+    );
+    expect(mine.length).toBe(2);
+
+    const tomato = mine.find((p: any) => p.id === secondProductId);
+    const ragi = mine.find((p: any) => p.id === thirdProductId);
+    expect(tomato.cropName).toBe('Tomato');
+    expect(ragi.cropName).toBe('Ragi');
+    expect(Number(tomato.farmerPrice)).not.toBe(Number(ragi.farmerPrice));
   });
 });

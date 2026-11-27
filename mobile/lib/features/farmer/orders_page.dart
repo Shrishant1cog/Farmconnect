@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../data/models/order.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/app_states.dart';
 import '../../../shared/widgets/farmer_card.dart';
 import '../consumer/orders_page.dart';
@@ -45,11 +46,13 @@ class _FarmerOrdersPageState extends ConsumerState<FarmerOrdersPage> {
       setState(() => _orders = orders);
     } on ApiException catch (error) {
       if (mounted) {
-        setState(() => _error = error.displayMessage);
+        final l10n = AppLocalizations.of(context);
+        setState(() => _error = l10n.farmerRequestFailed(error.message));
       }
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
-        setState(() => _error = error.toString());
+        final l10n = AppLocalizations.of(context);
+        setState(() => _error = l10n.commonSomethingWrong);
       }
     } finally {
       if (mounted) {
@@ -64,13 +67,28 @@ class _FarmerOrdersPageState extends ConsumerState<FarmerOrdersPage> {
       await ref.read(orderRepositoryProvider).updateStatus(order.id, status);
       await _load();
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Order marked as ${status.label.toLowerCase()}')),
+          SnackBar(
+            content: Text(
+              l10n.farmerOrderStatusUpdated(_orderStatusLabel(l10n, status)),
+            ),
+          ),
         );
       }
     } on ApiException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.displayMessage)));
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.farmerRequestFailed(error.message))),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.commonSomethingWrong)),
+        );
       }
     } finally {
       if (mounted) {
@@ -80,6 +98,7 @@ class _FarmerOrdersPageState extends ConsumerState<FarmerOrdersPage> {
   }
 
   Future<void> _showStatusSheet(Order order) async {
+    final l10n = AppLocalizations.of(context);
     final options = <OrderStatus>[
       OrderStatus.confirmed,
       OrderStatus.dispatched,
@@ -93,11 +112,13 @@ class _FarmerOrdersPageState extends ConsumerState<FarmerOrdersPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 18, 20, 6),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
               child: Text(
-                'Update dispatch status',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                l10n.farmerOrderStatusSheetTitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
               ),
             ),
             for (final option in options)
@@ -110,7 +131,7 @@ class _FarmerOrdersPageState extends ConsumerState<FarmerOrdersPage> {
                       ? const Color(0xFFDC2626)
                       : AppTheme.emeraldDark,
                 ),
-                title: Text(option.label),
+                title: Text(_orderStatusLabel(l10n, option)),
                 onTap: () => Navigator.of(context).pop(option),
               ),
             const SizedBox(height: 10),
@@ -134,6 +155,7 @@ class _FarmerOrdersPageState extends ConsumerState<FarmerOrdersPage> {
   }
 
   Widget _buildBody() {
+    final l10n = AppLocalizations.of(context);
     if (_loading) {
       return const LoadingView();
     }
@@ -142,10 +164,10 @@ class _FarmerOrdersPageState extends ConsumerState<FarmerOrdersPage> {
     }
     if (_orders.isEmpty) {
       return ListView(
-        children: const [
+        children: [
           EmptyState(
-            title: 'No Orders Found',
-            message: 'Orders placed by buyers on the website or the app will appear here.',
+            title: l10n.farmerOrdersEmptyTitle,
+            message: l10n.farmerOrdersEmptyMessage,
             icon: Icons.receipt_long_outlined,
           ),
         ],
@@ -158,6 +180,8 @@ class _FarmerOrdersPageState extends ConsumerState<FarmerOrdersPage> {
       itemBuilder: (context, index) {
         final order = _orders[index];
         final isUpdating = _updating.contains(order.id);
+        final orderNumber = order.id.substring(0, order.id.length.clamp(0, 8));
+        final buyerName = order.consumer?['name']?.toString().trim();
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
@@ -174,19 +198,26 @@ class _FarmerOrdersPageState extends ConsumerState<FarmerOrdersPage> {
                       children: [
                         Expanded(
                           child: Text(
-                            'Order #${order.id.substring(0, order.id.length.clamp(0, 8))}',
+                            l10n.farmerOrderNumber(orderNumber),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ),
+                        const SizedBox(width: 8),
                         OrderStatusChip(
-                          label: order.status.label,
+                          label: _orderStatusLabel(l10n, order.status),
                           color: orderStatusColor(order.status),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Buyer: ${order.consumerName}',
+                      l10n.farmerOrderBuyerLabel(
+                        buyerName?.isNotEmpty == true ? buyerName! : l10n.commonUnknown,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(color: AppTheme.stone500),
                     ),
                     Text(
@@ -198,13 +229,17 @@ class _FarmerOrdersPageState extends ConsumerState<FarmerOrdersPage> {
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        Text(
-                          Formatters.currency(order.grandTotal),
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                        Expanded(
+                          child: Text(
+                            _formatCurrency(context, order.grandTotal),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                          ),
                         ),
-                        const Spacer(),
                         if (order.status != OrderStatus.delivered &&
-                            order.status != OrderStatus.cancelled)
+                            order.status != OrderStatus.cancelled) ...[
+                          const SizedBox(width: 8),
                           FilledButton.icon(
                             onPressed: isUpdating ? null : () => _showStatusSheet(order),
                             icon: isUpdating
@@ -217,12 +252,17 @@ class _FarmerOrdersPageState extends ConsumerState<FarmerOrdersPage> {
                                     ),
                                   )
                                 : const Icon(Icons.local_shipping_outlined, size: 17),
-                            label: const Text('Update status'),
+                            label: Text(
+                              l10n.farmerOrderUpdateStatus,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                             style: FilledButton.styleFrom(
                               minimumSize: const Size(0, 40),
                               padding: const EdgeInsets.symmetric(horizontal: 14),
                             ),
                           ),
+                        ],
                       ],
                     ),
                   ],
@@ -234,4 +274,29 @@ class _FarmerOrdersPageState extends ConsumerState<FarmerOrdersPage> {
       },
     );
   }
+}
+
+String _orderStatusLabel(AppLocalizations l10n, OrderStatus status) {
+  switch (status) {
+    case OrderStatus.pending:
+      return l10n.farmerOrderStatusPending;
+    case OrderStatus.confirmed:
+      return l10n.farmerOrderStatusConfirmed;
+    case OrderStatus.dispatched:
+      return l10n.farmerOrderStatusDispatched;
+    case OrderStatus.delivered:
+      return l10n.farmerOrderStatusDelivered;
+    case OrderStatus.cancelled:
+      return l10n.farmerOrderStatusCancelled;
+  }
+}
+
+String _formatCurrency(BuildContext context, num value) {
+  final locale = Localizations.localeOf(context).toString();
+  final formatted = NumberFormat.currency(
+    locale: locale,
+    symbol: '₹',
+    decimalDigits: 2,
+  ).format(value);
+  return formatted.replaceFirst(RegExp(r'\.00$'), '');
 }

@@ -3,8 +3,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Users, ShieldAlert, Activity, CheckCircle, Ban, Power, RefreshCw, AlertCircle } from 'lucide-react';
 import { fetchApi } from '../../../lib/api';
+import { useI18n } from '../../../hooks/useI18n';
 
 export default function AdminDashboard() {
+  const { t, formatNumber } = useI18n();
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'complaints'>('overview');
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
@@ -80,7 +82,7 @@ export default function AdminDashboard() {
       }
     } catch (err: any) {
       console.error('Failed to load admin data:', err);
-      setErrorMessage(err.message || 'Failed to load command center data.');
+      setErrorMessage(t('misc.admin.loadError'));
     } finally {
       setLoading(false);
     }
@@ -91,19 +93,19 @@ export default function AdminDashboard() {
   }, [fetchAdminData]);
 
   const toggleUserStatus = async (userId: string) => {
-    if (!confirm("Are you sure you want to change this user's access?")) return;
+    if (!confirm(t('misc.admin.confirmAccessChange'))) return;
     try {
       await executeApiCall(`/admin/users/${userId}/toggle-status`, {
         method: 'PATCH',
       });
       fetchAdminData();
     } catch (e) {
-      alert('Failed to update user access status.');
+      alert(t('misc.admin.accessUpdateError'));
     }
   };
 
   const resolveComplaint = async (complaintId: string) => {
-    const notes = prompt('Enter resolution notes:');
+    const notes = prompt(t('misc.admin.resolutionNotesPrompt'));
     if (notes === null) return;
     try {
       await executeApiCall(`/admin/complaints/${complaintId}/resolve`, {
@@ -112,7 +114,7 @@ export default function AdminDashboard() {
       });
       fetchAdminData();
     } catch (e) {
-      alert('Failed to resolve complaint.');
+      alert(t('misc.admin.complaintResolveError'));
     }
   };
 
@@ -120,7 +122,7 @@ export default function AdminDashboard() {
     return (
       <div className="p-16 text-center">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-stone-300 border-t-stone-900 mb-4" />
-        <p className="font-bold text-stone-600 text-sm">Loading Command Center...</p>
+        <p className="font-bold text-stone-600 text-sm">{t('misc.admin.loading')}</p>
       </div>
     );
   }
@@ -130,15 +132,15 @@ export default function AdminDashboard() {
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-stone-900 tracking-tight flex items-center gap-3">
-            <ShieldAlert className="w-8 h-8 text-rose-700" /> Admin Command Center
+            <ShieldAlert className="w-8 h-8 text-rose-700" /> {t('misc.admin.title')}
           </h1>
-          <p className="text-stone-600 text-sm mt-1">Platform moderation, user management, and conflict resolution.</p>
+          <p className="text-stone-600 text-sm mt-1">{t('misc.admin.subtitle')}</p>
         </div>
         <button
           onClick={() => fetchAdminData()}
           className="inline-flex items-center gap-2 self-start px-3.5 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold transition-colors"
         >
-          <RefreshCw className="w-3.5 h-3.5" /> Refresh Data
+          <RefreshCw className="w-3.5 h-3.5" /> {t('misc.admin.refresh')}
         </button>
       </div>
 
@@ -159,7 +161,11 @@ export default function AdminDashboard() {
               activeTab === tab ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
             }`}
           >
-            {tab}
+            {tab === 'overview'
+              ? t('misc.admin.tabOverview')
+              : tab === 'users'
+                ? t('misc.admin.tabUsers')
+                : t('misc.admin.tabComplaints')}
           </button>
         ))}
       </div>
@@ -169,33 +175,33 @@ export default function AdminDashboard() {
         stats ? (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm">
-              <p className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Total Users</p>
-              <p className="text-4xl font-black text-stone-900">{stats.totalUsers ?? 0}</p>
+              <p className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">{t('misc.admin.totalUsers')}</p>
+              <p className="text-4xl font-black text-stone-900">{formatNumber(stats.totalUsers ?? 0)}</p>
               <div className="flex gap-4 mt-2 text-xs font-medium text-stone-500">
-                <span>{stats.totalFarmers ?? 0} Farmers</span>
-                <span>{stats.totalConsumers ?? 0} Consumers</span>
+                <span>{formatNumber(stats.totalFarmers ?? 0)} {t('misc.admin.farmers')}</span>
+                <span>{formatNumber(stats.totalConsumers ?? 0)} {t('misc.admin.consumers')}</span>
               </div>
             </div>
             <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm">
-              <p className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Active Crops</p>
+              <p className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">{t('misc.admin.activeCrops')}</p>
               <p className="text-4xl font-black text-emerald-700">
-                {stats.activeProducts ?? stats.totalProducts ?? 0}
+                {formatNumber(stats.activeProducts ?? stats.totalProducts ?? 0)}
               </p>
             </div>
             <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm">
-              <p className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Total Enquiries</p>
-              <p className="text-4xl font-black text-blue-700">{stats.totalEnquiries ?? 0}</p>
+              <p className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">{t('misc.admin.totalEnquiries')}</p>
+              <p className="text-4xl font-black text-blue-700">{formatNumber(stats.totalEnquiries ?? 0)}</p>
             </div>
             <div className="bg-rose-50 p-6 rounded-2xl border border-rose-200 shadow-sm">
               <p className="text-xs font-bold text-rose-700 uppercase tracking-wider mb-2 flex items-center gap-1">
-                <Activity className="w-4 h-4" /> Pending Reports
+                <Activity className="w-4 h-4" /> {t('misc.admin.pendingReports')}
               </p>
-              <p className="text-4xl font-black text-rose-900">{stats.pendingComplaints ?? 0}</p>
+              <p className="text-4xl font-black text-rose-900">{formatNumber(stats.pendingComplaints ?? 0)}</p>
             </div>
           </div>
         ) : (
           <div className="p-8 text-center bg-stone-50 rounded-2xl border border-stone-200 text-stone-500 text-sm font-semibold">
-            No statistics metrics available currently.
+            {t('misc.admin.noStats')}
           </div>
         )
       )}
@@ -206,17 +212,17 @@ export default function AdminDashboard() {
           <table className="w-full text-left text-sm">
             <thead className="bg-stone-100 text-stone-600 font-bold uppercase text-xs tracking-wider">
               <tr>
-                <th className="px-6 py-4">User</th>
-                <th className="px-6 py-4">Role</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Action</th>
+                <th className="px-6 py-4">{t('misc.admin.user')}</th>
+                <th className="px-6 py-4">{t('misc.admin.role')}</th>
+                <th className="px-6 py-4">{t('misc.admin.status')}</th>
+                <th className="px-6 py-4 text-right">{t('misc.admin.action')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-200">
               {users.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="p-8 text-center text-stone-500 font-semibold">
-                    No users registered yet.
+                    {t('misc.admin.noUsers')}
                   </td>
                 </tr>
               ) : (
@@ -236,17 +242,21 @@ export default function AdminDashboard() {
                             : 'bg-blue-100 text-blue-800'
                         }`}
                       >
-                        {user.role}
+                        {user.role === 'FARMER'
+                          ? t('misc.role.farmer')
+                          : user.role === 'ADMIN'
+                            ? t('misc.role.admin')
+                            : t('misc.role.consumer')}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       {user.isActive ? (
                         <span className="flex items-center gap-1 text-xs font-bold text-emerald-700">
-                          <CheckCircle className="w-3 h-3" /> Active
+                          <CheckCircle className="w-3 h-3" /> {t('misc.status.active')}
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 text-xs font-bold text-rose-700">
-                          <Ban className="w-3 h-3" /> Suspended
+                          <Ban className="w-3 h-3" /> {t('misc.status.suspended')}
                         </span>
                       )}
                     </td>
@@ -259,7 +269,7 @@ export default function AdminDashboard() {
                             : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
                         }`}
                       >
-                        <Power className="w-3 h-3" /> {user.isActive ? 'Suspend' : 'Reactivate'}
+                        <Power className="w-3 h-3" /> {user.isActive ? t('misc.admin.suspend') : t('misc.admin.reactivate')}
                       </button>
                     </td>
                   </tr>
@@ -274,7 +284,7 @@ export default function AdminDashboard() {
       {activeTab === 'complaints' && (
         <div className="space-y-4">
           {complaints.length === 0 ? (
-            <p className="text-stone-500 font-bold p-8 text-center bg-stone-50 rounded-2xl">No complaints filed.</p>
+            <p className="text-stone-500 font-bold p-8 text-center bg-stone-50 rounded-2xl">{t('misc.admin.noComplaints')}</p>
           ) : (
             complaints.map((complaint) => (
               <div
@@ -290,17 +300,19 @@ export default function AdminDashboard() {
                         complaint.status === 'PENDING' ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
                       }`}
                     >
-                      {complaint.status}
+                      {complaint.status === 'PENDING'
+                        ? t('misc.status.pending')
+                        : t('misc.status.resolved')}
                     </span>
                     <span className="text-xs font-bold text-stone-500">
-                      Reported by: {complaint.reporter?.name || 'Anonymous User'}
+                      {t('misc.admin.reportedBy')} {complaint.reporter?.name || t('misc.admin.anonymousUser')}
                     </span>
                   </div>
                   <h3 className="font-bold text-stone-900">{complaint.subject}</h3>
                   <p className="text-sm text-stone-600 mt-1">{complaint.reason}</p>
                   {complaint.adminNotes && (
                     <p className="text-xs font-medium text-emerald-700 mt-3 bg-emerald-50 p-2 rounded-lg border border-emerald-100">
-                      <strong>Resolution Note:</strong> {complaint.adminNotes}
+                      <strong>{t('misc.admin.resolutionNote')}</strong> {complaint.adminNotes}
                     </p>
                   )}
                 </div>
@@ -310,7 +322,7 @@ export default function AdminDashboard() {
                       onClick={() => resolveComplaint(complaint.id)}
                       className="px-4 py-2 bg-stone-900 text-white text-xs font-bold rounded-xl hover:bg-stone-800 transition-colors"
                     >
-                      Mark Resolved
+                      {t('misc.admin.markResolved')}
                     </button>
                   </div>
                 )}

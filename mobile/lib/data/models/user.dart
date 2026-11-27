@@ -150,6 +150,7 @@ class AppUser {
     required this.role,
     this.district,
     this.state,
+    this.preferredLanguage = 'en',
     this.farmerProfile,
     this.consumerProfile,
   });
@@ -161,6 +162,9 @@ class AppUser {
   final UserRole role;
   final String? district;
   final String? state;
+
+  /// Interface language stored on the shared account (en | kn | hi).
+  final String preferredLanguage;
   final FarmerProfile? farmerProfile;
   final ConsumerProfile? consumerProfile;
 
@@ -179,6 +183,7 @@ class AppUser {
       role: UserRole.fromString(json['role']?.toString()),
       district: json['district']?.toString(),
       state: json['state']?.toString(),
+      preferredLanguage: json['preferredLanguage']?.toString() ?? 'en',
       farmerProfile: json['farmerProfile'] is Map
           ? FarmerProfile.fromJson(Map<String, dynamic>.from(json['farmerProfile']))
           : null,
@@ -196,6 +201,7 @@ class AppUser {
         'role': role.wireValue,
         'district': district,
         'state': state,
+        'preferredLanguage': preferredLanguage,
         'farmerProfile': farmerProfile?.toJson(),
         'consumerProfile': consumerProfile?.toJson(),
       };

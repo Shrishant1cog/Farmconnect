@@ -19,6 +19,7 @@ import { computeLogisticsAndProfit } from './services/logisticsService';
 // Modular Domain Routers
 import authRoutes from './modules/auth/auth.routes';
 import productRoutes from './modules/products/products.routes';
+import catalogRoutes from './modules/catalog/catalog.routes';
 import orderRoutes from './modules/orders/orders.routes';
 import enquiryRoutes from './modules/enquiries/enquiries.routes';
 import adminRoutes from './modules/admin/admin.routes';
@@ -173,6 +174,7 @@ const mountRouter = (basePath: string, routerModule: any, moduleName: string) =>
 
 mountRouter('/api/auth', authRoutes, 'authRoutes');
 mountRouter('/api/products', productRoutes, 'productRoutes');
+mountRouter('/api/catalog', catalogRoutes, 'catalogRoutes');
 mountRouter('/api/orders', orderRoutes, 'orderRoutes');
 mountRouter('/api/enquiries', enquiryRoutes, 'enquiryRoutes');
 mountRouter('/api/admin', adminRoutes, 'adminRoutes');

@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "i18n:check": "node scripts/verify-i18n.mjs",
+    "smoke:routes": "node scripts/smoke-routes.mjs"
   },
   "dependencies": {
     "firebase": "^12.19.0",

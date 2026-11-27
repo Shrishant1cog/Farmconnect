@@ -2,12 +2,15 @@
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { io, Socket } from 'socket.io-client';
 import { 
   MessageSquare, Send, CheckCircle2, Phone, MapPin, 
   Search, ShieldCheck, ArrowRight, ArrowLeft, 
-  CheckCheck, Sparkles, AlertCircle
+  CheckCheck, Sparkles, AlertCircle, Loader2, RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
+import { useI18n } from '../../../hooks/useI18n';
+import { fetchApi } from '../../../lib/api';
 
 interface Message {
   id: string;
@@ -32,134 +35,91 @@ interface FarmerThread {
   messages: Message[];
 }
 
-const STORAGE_KEY = 'farmconnect_consumer_chats';
+/** Maps one shared enquiry (from `/api/enquiries/my`) onto a chat thread. */
+function mapEnquiryToThread(enquiry: any): FarmerThread {
+  const farmerName: string = enquiry?.farmer?.user?.name || enquiry?.farmer?.farmName || '';
+  const farmName: string = enquiry?.farmer?.farmName || '';
+  const cropName: string = enquiry?.product?.title || enquiry?.subject || '';
+  const lastMessage = Array.isArray(enquiry?.messages) ? enquiry.messages[0] : null;
 
-const SEED_THREADS: FarmerThread[] = [
-  {
-    id: 'th-1',
-    farmerName: 'Ramesh Patil',
-    farmName: 'Kaveri Natural Farm',
-    location: 'Pandavapura, Mandya',
-    phone: '+91 98765 43210',
-    cropName: 'Tomato (Nati Desi)',
-    grade: 'Grade-A Export',
-    avatarText: 'RP',
-    isOnline: true,
-    unreadCount: 1,
-    messages: [
-      {
-        id: 'm1',
-        sender: 'FARMER',
-        text: 'Namaskara! We just harvested 2,400 kg of fresh Desi Nati Tomatoes this morning from our Mandya plot.',
-        timestamp: '10:15 AM',
-        lotSummary: '2,400 kg @ ₹20/kg',
-      },
-      {
-        id: 'm2',
-        sender: 'CONSUMER',
-        text: 'Hello Ramesh! What is the crate packing standard, and can you dispatch 250 kg to Bengaluru tomorrow morning?',
-        timestamp: '10:22 AM',
-      },
-      {
-        id: 'm3',
-        sender: 'FARMER',
-        text: 'Yes, we use 25kg aerated plastic crates to preserve firmness. I can dispatch by 5 AM pickup truck. Price is ₹20/kg farm-gate direct.',
-        timestamp: '10:28 AM',
-        priceOffer: 20,
-      },
-    ],
-  },
-  {
-    id: 'th-2',
-    farmerName: 'Suresh Gowda',
-    farmName: 'Desi Siri Organics',
-    location: 'Srirangapatna, Mandya',
-    phone: '+91 98765 43211',
-    cropName: 'Mandya Finger Millet (Ragi)',
-    grade: 'Organic Certified',
-    avatarText: 'SG',
+  return {
+    id: String(enquiry?.id || ''),
+    farmerName,
+    farmName,
+    location: String(enquiry?.farmer?.district || enquiry?.product?.location || ''),
+    phone: String(enquiry?.farmer?.user?.phone || ''),
+    cropName,
+    grade: String(enquiry?.product?.grade || ''),
+    avatarText: farmerName
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() || '')
+      .join('') || '?',
     isOnline: false,
     unreadCount: 0,
-    messages: [
-      {
-        id: 'm4',
-        sender: 'FARMER',
-        text: 'Our MR-1 Brown Ragi is sun-dried and de-stoned. Bagged in 50kg jute bags ready for direct flour milling.',
-        timestamp: 'Yesterday',
-        priceOffer: 42,
-      },
-      {
-        id: 'm5',
-        sender: 'CONSUMER',
-        text: 'Do you have lab residue-free certification documents?',
-        timestamp: 'Yesterday',
-      },
-      {
-        id: 'm6',
-        sender: 'FARMER',
-        text: 'Yes, Jaivik Bharat organic certificate is attached to the lot manifest. Minimum wholesale lot is 100 kg.',
-        timestamp: 'Yesterday',
-      },
-    ],
-  },
-  {
-    id: 'th-3',
-    farmerName: 'Basavaraj Haveri',
-    farmName: 'Kaddi Chilli Cultivators',
-    location: 'Byadgi, Haveri',
-    phone: '+91 98765 43212',
-    cropName: 'Byadgi Stemless Chilli',
-    grade: 'Grade-A Deep Red',
-    avatarText: 'BH',
-    isOnline: true,
-    unreadCount: 0,
-    messages: [
-      {
-        id: 'm7',
-        sender: 'FARMER',
-        text: 'Stemless Byadgi chillies are sorted and packaged in moisture-proof 25kg bundles. Modal auction benchmark is ₹365, offering direct at ₹350/kg.',
-        timestamp: 'Sep 15',
-        priceOffer: 350,
-      },
-    ],
-  },
-];
+    messages: lastMessage
+      ? [
+          {
+            id: String(lastMessage.id || ''),
+            sender: (lastMessage.sender?.role || 'FARMER').toUpperCase() === 'CONSUMER' ? 'CONSUMER' : 'FARMER',
+            text: String(lastMessage.content || ''),
+            timestamp: String(lastMessage.createdAt || ''),
+          },
+        ]
+      : [],
+  };
+}
 
 export default function ConsumerChatsPage() {
   const { user } = useAuth();
+  const { t, intlTag } = useI18n();
 
-  const [threads, setThreads] = useState<FarmerThread[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) return JSON.parse(saved);
-      } catch {
-        // fallback to seed
-      }
-    }
-    return SEED_THREADS;
-  });
-
-  const [activeThreadId, setActiveThreadId] = useState<string>('th-1');
+  const [threads, setThreads] = useState<FarmerThread[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [activeThreadId, setActiveThreadId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [newMessageText, setNewMessageText] = useState('');
   const [showMobileChat, setShowMobileChat] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Sync state changes with localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(threads));
-    } catch {
-      // storage full / disabled
-    }
-  }, [threads]);
+  const socketRef = useRef<Socket | null>(null);
 
   const activeThread = useMemo(() => {
     return threads.find((t) => t.id === activeThreadId) || threads[0];
   }, [threads, activeThreadId]);
+
+  const formatChatTimestamp = useCallback(
+    (timestamp: string) => {
+      if (!timestamp) return '';
+      if (timestamp.toLowerCase() === 'yesterday') return t('consumer.chat.yesterday');
+
+      const timeMatch = timestamp.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+      const parsed = timeMatch
+        ? (() => {
+            const date = new Date();
+            let hours = Number(timeMatch[1]) % 12;
+            if (timeMatch[3].toUpperCase() === 'PM') hours += 12;
+            date.setHours(hours, Number(timeMatch[2]), 0, 0);
+            return date;
+          })()
+        : new Date(timestamp);
+      if (!Number.isNaN(parsed.getTime())) {
+        const isTimeOnly = Boolean(timeMatch);
+        return new Intl.DateTimeFormat(
+          intlTag,
+          isTimeOnly
+            ? { hour: '2-digit', minute: '2-digit' }
+            : { day: 'numeric', month: 'short' }
+        ).format(parsed);
+      }
+
+      return timestamp;
+    },
+    [intlTag, t]
+  );
 
   const filteredThreads = useMemo(() => {
     if (!searchTerm.trim()) return threads;
@@ -177,60 +137,174 @@ export default function ConsumerChatsPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
   }, [activeThreadId, activeThread?.messages.length]);
 
+  /**
+   * Loads the shared enquiry threads from the backend and the full message
+   * history of the selected thread. The list is the single source of truth —
+   * there is no local cache and no demo conversation.
+   */
+  const loadThreads = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+
+    try {
+      const res = await fetchApi('/enquiries/my');
+      const list = res?.data || res?.enquiries || (Array.isArray(res) ? res : []);
+      const mapped: FarmerThread[] = (Array.isArray(list) ? list : []).map(mapEnquiryToThread);
+      setThreads(mapped);
+
+      // Open the first real thread and load its history.
+      if (mapped.length > 0) {
+        setActiveThreadId((prev) => prev || mapped[0].id);
+        await loadMessages(mapped[0].id);
+      } else {
+        setActiveThreadId('');
+      }
+    } catch (err: any) {
+      console.warn('Failed to load shared enquiry threads:', err?.message);
+      setLoadError(t('consumer.chat.loadError'));
+      setThreads([]);
+    } finally {
+      setIsLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t]);
+
+  /** Loads the complete message history of one shared thread. */
+  const loadMessages = useCallback(async (threadId: string) => {
+    if (!threadId) return;
+    try {
+      const res = await fetchApi(`/enquiries/${threadId}/messages`);
+      const list = res?.data?.messages || res?.messages || res?.data || [];
+      const history: Message[] = (Array.isArray(list) ? list : []).map((message: any) => ({
+        id: String(message.id || ''),
+        sender: (message.sender?.role || '').toUpperCase() === 'CONSUMER' ? 'CONSUMER' : 'FARMER',
+        text: String(message.content || ''),
+        timestamp: String(message.createdAt || ''),
+        priceOffer: Number(message.priceOffer) || undefined,
+      }));
+
+      setThreads((prev) =>
+        prev.map((thread) => (thread.id === threadId ? { ...thread, messages: history } : thread))
+      );
+    } catch (err: any) {
+      console.warn('Failed to load thread messages:', err?.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadThreads();
+  }, [loadThreads]);
+
+  // Live updates: the farmer reply arrives over the shared Socket.IO channel.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const token = localStorage.getItem('farmconnect_token') || localStorage.getItem('fc_token');
+    if (!token) return;
+
+    const socketUrl = (process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000')
+      .replace(/\/+$/, '')
+      .replace(/\/api$/, '');
+
+    const socket = io(socketUrl, {
+      auth: { token },
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 5,
+    });
+    socketRef.current = socket;
+
+    socket.on('new_chat_message', (message: any) => {
+      const threadId = String(message?.enquiryId || '');
+      if (!threadId) return;
+
+      const incoming: Message = {
+        id: String(message?.id || `live-${Date.now()}`),
+        sender: (message?.sender?.role || '').toUpperCase() === 'CONSUMER' ? 'CONSUMER' : 'FARMER',
+        text: String(message?.content || ''),
+        timestamp: String(message?.createdAt || new Date().toISOString()),
+        priceOffer: Number(message?.priceOffer) || undefined,
+      };
+
+      setThreads((prev) =>
+        prev.map((thread) => {
+          if (thread.id !== threadId) return thread;
+          if (thread.messages.some((m) => m.id === incoming.id)) return thread;
+          return { ...thread, messages: [...thread.messages, incoming], unreadCount: 0 };
+        })
+      );
+    });
+
+    return () => {
+      socket.removeAllListeners();
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, []);
+
+  // The live messages of a thread are delivered through the enquiry room, so
+  // the open conversation has to join it. The same room is used by the
+  // farmer's client, which is what makes the chat shared across platforms.
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket || !activeThreadId) return;
+
+    socket.emit('join_enquiry_room', activeThreadId);
+    return () => {
+      socket.emit('leave_enquiry_room', activeThreadId);
+    };
+  }, [activeThreadId]);
+
   const handleSelectThread = useCallback((id: string) => {
     setActiveThreadId(id);
     setShowMobileChat(true);
     setThreads((prev) =>
       prev.map((t) => (t.id === id ? { ...t, unreadCount: 0 } : t))
     );
-  }, []);
+    loadMessages(id);
+  }, [loadMessages]);
 
-  const handleSendMessage = useCallback((e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const [isSending, setIsSending] = useState(false);
+
+  const handleSendMessage = useCallback(async (e?: React.FormEvent) => {
+    e?.preventDefault();
     const textToSend = newMessageText.trim();
-    if (!textToSend) return;
+    if (!textToSend || !activeThread?.id || isSending) return;
 
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    const newMsg: Message = {
-      id: `msg-${Date.now()}`,
-      sender: 'CONSUMER',
-      text: textToSend,
-      timestamp: timeStr,
-    };
-
-    setThreads((prev) =>
-      prev.map((t) => (t.id === activeThread.id ? { ...t, messages: [...t.messages, newMsg] } : t))
-    );
-
+    setIsSending(true);
     setNewMessageText('');
-    inputRef.current?.focus();
 
-    // Simulated farmer response
-    setTimeout(() => {
-      let reply = 'Thank you! I will arrange the harvest lot and update the transport pickup details.';
-      const lower = textToSend.toLowerCase();
+    try {
+      // The message is stored on the shared backend and delivered to the
+      // farmer on every client. There is no simulated reply.
+      const res = await fetchApi(`/enquiries/${activeThread.id}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content: textToSend }),
+      });
 
-      if (lower.includes('price') || lower.includes('discount') || lower.includes('negotiat') || lower.includes('rate')) {
-        reply = 'For wholesale consignments over 500kg, I can offer an additional ₹1.5/kg concession directly at the farm gate.';
-      } else if (lower.includes('dispatch') || lower.includes('tomorrow') || lower.includes('delivery')) {
-        reply = 'Understood. Loading starts at 5:00 AM. You will receive crate batch photos once packed.';
-      } else if (lower.includes('quality') || lower.includes('sample') || lower.includes('grade')) {
-        reply = 'Our produce is hand-graded on harvest day. Only Grade-A lots without skin blemishes are packed.';
-      }
-
-      const farmerMsg: Message = {
-        id: `msg-${Date.now() + 1}`,
-        sender: 'FARMER',
-        text: reply,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      const saved = res?.data || res?.message || res;
+      const incoming: Message = {
+        id: String(saved?.id || `sent-${Date.now()}`),
+        sender: 'CONSUMER',
+        text: String(saved?.content || textToSend),
+        timestamp: String(saved?.createdAt || new Date().toISOString()),
       };
 
       setThreads((prev) =>
-        prev.map((t) => (t.id === activeThread.id ? { ...t, messages: [...t.messages, farmerMsg] } : t))
+        prev.map((thread) => {
+          if (thread.id !== activeThread.id) return thread;
+          if (thread.messages.some((m) => m.id === incoming.id)) return thread;
+          return { ...thread, messages: [...thread.messages, incoming] };
+        })
       );
-    }, 1200);
-  }, [newMessageText, activeThread.id]);
+    } catch (err: any) {
+      console.warn('Failed to send message:', err?.message);
+      // The message was not stored — put the text back so nothing is lost.
+      setNewMessageText(textToSend);
+      setLoadError(t('consumer.chat.sendFailed'));
+    } finally {
+      setIsSending(false);
+      inputRef.current?.focus();
+    }
+  }, [activeThread?.id, isSending, newMessageText, t]);
 
   const sendQuickChip = useCallback((chipText: string) => {
     setNewMessageText(chipText);
@@ -245,17 +319,17 @@ export default function ConsumerChatsPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-950 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
-              <MessageSquare className="w-3 h-3 text-emerald-700" /> Direct Farmer Chats
+              <MessageSquare className="w-3 h-3 text-emerald-700" /> {t('consumer.chat.directChats')}
             </span>
             <span className="px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 text-[10px] font-bold">
-              Buyer Portal
+              {t('consumer.chat.buyerPortal')}
             </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
-            Direct Trade Messages & Quotes
+            {t('consumer.chat.title')}
           </h1>
           <p className="text-xs text-stone-500 mt-0.5">
-            Coordinate lot dispatches, packaging specs, and wholesale price quotes directly with verified growers.
+            {t('consumer.chat.subtitle')}
           </p>
         </div>
 
@@ -263,7 +337,7 @@ export default function ConsumerChatsPage() {
           href="/consumer/explore"
           className="px-3.5 py-2 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs flex items-center gap-1.5 self-start sm:self-auto"
         >
-          Marketplace <ArrowRight className="w-3.5 h-3.5" />
+          {t('consumer.chat.marketplace')} <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>
 
@@ -280,7 +354,7 @@ export default function ConsumerChatsPage() {
               <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search grower, crop, or mandi..."
+                placeholder={t('consumer.chat.searchMandi')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 bg-stone-50 rounded-xl text-xs font-semibold text-stone-900 border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-600 transition-all"
@@ -289,14 +363,32 @@ export default function ConsumerChatsPage() {
           </div>
 
           <div className="flex-1 overflow-y-auto divide-y divide-stone-100">
-            {filteredThreads.length === 0 ? (
+            {isLoading ? (
+              <div className="p-8 text-center space-y-2 text-stone-400">
+                <Loader2 className="w-6 h-6 mx-auto animate-spin" />
+                <p className="text-xs font-semibold">{t('consumer.chat.loadingThreads')}</p>
+              </div>
+            ) : loadError ? (
+              <div className="p-8 text-center space-y-2 text-stone-400">
+                <AlertCircle className="w-6 h-6 mx-auto stroke-1 text-red-300" />
+                <p className="text-xs font-semibold text-stone-500">{loadError}</p>
+                <button
+                  type="button"
+                  onClick={() => loadThreads()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-[10px] font-black uppercase tracking-wider transition-colors"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  {t('common.retry')}
+                </button>
+              </div>
+            ) : filteredThreads.length === 0 ? (
               <div className="p-8 text-center space-y-1 text-stone-400">
                 <AlertCircle className="w-6 h-6 mx-auto stroke-1" />
-                <p className="text-xs font-semibold">No chats matching your search</p>
+                <p className="text-xs font-semibold">{t('consumer.chat.noChats')}</p>
               </div>
             ) : (
               filteredThreads.map((thread) => {
-                const isSelected = thread.id === activeThread.id;
+                const isSelected = thread.id === activeThread?.id;
                 const lastMsg = thread.messages[thread.messages.length - 1];
 
                 return (
@@ -323,7 +415,7 @@ export default function ConsumerChatsPage() {
                           {thread.farmerName}
                         </h4>
                         <span className="text-[10px] text-stone-400 shrink-0">
-                          {lastMsg?.timestamp || ''}
+                          {formatChatTimestamp(lastMsg?.timestamp || '')}
                         </span>
                       </div>
 
@@ -332,8 +424,8 @@ export default function ConsumerChatsPage() {
                       </p>
 
                       <p className="text-xs text-stone-500 truncate leading-tight">
-                        {lastMsg?.sender === 'CONSUMER' ? 'You: ' : ''}
-                        {lastMsg?.text || 'No messages yet'}
+                        {lastMsg?.sender === 'CONSUMER' ? t('consumer.chat.youPrefix') : ''}
+                        {lastMsg?.text || t('consumer.chat.noMessages')}
                       </p>
                     </div>
 
@@ -353,6 +445,13 @@ export default function ConsumerChatsPage() {
         <div className={`lg:col-span-8 bg-white rounded-2xl sm:rounded-3xl border border-stone-200 shadow-xs flex flex-col overflow-hidden ${
           !showMobileChat ? 'hidden lg:flex' : 'flex'
         }`}>
+          {!activeThread ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-2 p-8 text-center text-stone-400">
+              <MessageSquare className="w-8 h-8 stroke-1" />
+              <p className="text-xs font-semibold">{t('consumer.chat.noMessages')}</p>
+            </div>
+          ) : (
+            <>
           
           {/* Header */}
           <div className="p-3 sm:px-5 border-b border-stone-100 flex items-center justify-between gap-3 bg-stone-50/50">
@@ -361,7 +460,7 @@ export default function ConsumerChatsPage() {
                 type="button"
                 onClick={() => setShowMobileChat(false)}
                 className="lg:hidden p-1.5 -ml-1 text-stone-600 hover:bg-stone-200 rounded-lg transition-colors"
-                title="Back to contacts"
+                title={t('consumer.chat.backContacts')}
               >
                 <ArrowLeft className="w-4 h-4" />
               </button>
@@ -376,7 +475,7 @@ export default function ConsumerChatsPage() {
                     {activeThread.farmerName}
                   </h3>
                   <span className="inline-flex items-center gap-1 px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-900 text-[9px] font-black uppercase tracking-wider">
-                    <ShieldCheck className="w-2.5 h-2.5 text-emerald-700" /> Verified
+                    <ShieldCheck className="w-2.5 h-2.5 text-emerald-700" /> {t('consumer.chat.verified')}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px] text-stone-500 truncate mt-0.5">
@@ -391,13 +490,15 @@ export default function ConsumerChatsPage() {
 
             <div className="flex items-center gap-2 shrink-0">
               <div className="hidden sm:block text-right">
-                <span className="text-[9px] font-bold text-stone-400 uppercase block">Lot</span>
+                <span className="text-[9px] font-bold text-stone-400 uppercase block">
+                  {t('consumer.chat.lot')}
+                </span>
                 <span className="text-xs font-black text-emerald-800 block truncate max-w-[130px]">{activeThread.cropName}</span>
               </div>
               <a
                 href={`tel:${activeThread.phone}`}
                 className="p-2 rounded-xl bg-white border border-stone-200 text-emerald-800 hover:bg-emerald-50 transition-colors shadow-2xs"
-                title="Call Grower"
+                title={t('consumer.chat.callGrower')}
               >
                 <Phone className="w-4 h-4" />
               </a>
@@ -410,10 +511,10 @@ export default function ConsumerChatsPage() {
             {/* Escrow Disclaimer */}
             <div className="max-w-sm mx-auto p-2 rounded-xl bg-emerald-50/90 border border-emerald-200 text-center">
               <span className="text-[10px] font-black text-emerald-900 block">
-                🔒 Escrow Protected Negotiations
+                🔒 {t('consumer.chat.escrowTitle')}
               </span>
               <p className="text-[10px] text-emerald-800 leading-tight mt-0.5">
-                Funds are held securely by FarmConnect and released only after verified produce delivery.
+                {t('consumer.chat.escrowBody')}
               </p>
             </div>
 
@@ -445,14 +546,16 @@ export default function ConsumerChatsPage() {
                           isFarmer ? 'bg-emerald-50 border-emerald-200 text-emerald-950' : 'bg-emerald-900/60 border-emerald-700 text-white'
                         }`}>
                           <div>
-                            <span className="text-[9px] uppercase font-black tracking-wider block opacity-75">Farm-Gate Quote</span>
+                            <span className="text-[9px] uppercase font-black tracking-wider block opacity-75">
+                              {t('consumer.chat.farmGateQuote')}
+                            </span>
                             <span className="text-xs sm:text-sm font-black">₹{msg.priceOffer} / kg</span>
                           </div>
                           <Link
                             href="/checkout"
                             className="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-[10px] font-black uppercase transition-colors shadow-2xs"
                           >
-                            Order Lot
+                            {t('consumer.chat.orderLot')}
                           </Link>
                         </div>
                       )}
@@ -462,7 +565,7 @@ export default function ConsumerChatsPage() {
                       <div className={`flex items-center justify-end gap-1 text-[9px] ${
                         isFarmer ? 'text-stone-400' : 'text-emerald-200'
                       }`}>
-                        <span>{msg.timestamp}</span>
+                        <span>{formatChatTimestamp(msg.timestamp)}</span>
                         {!isFarmer && <CheckCheck className="w-3 h-3 text-emerald-300" />}
                       </div>
                     </div>
@@ -476,13 +579,13 @@ export default function ConsumerChatsPage() {
           {/* Quick Reply Bar */}
           <div className="px-3 py-1.5 bg-white border-t border-stone-100 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
             <span className="text-[9px] font-bold text-stone-400 uppercase tracking-wider shrink-0 flex items-center gap-0.5">
-              <Sparkles className="w-2.5 h-2.5 text-emerald-700" /> Quick Replies:
+              <Sparkles className="w-2.5 h-2.5 text-emerald-700" /> {t('consumer.chat.quickReplies')}
             </span>
             {[
-              'Can you dispatch by tomorrow morning?',
-              'Can we negotiate on 500kg wholesale?',
-              'Please confirm crate packaging standard.',
-              'Are sorting/grading photos available?',
+              t('consumer.chat.chipDispatch'),
+              t('consumer.chat.chipWholesale'),
+              t('consumer.chat.chipPackaging'),
+              t('consumer.chat.chipGrading'),
             ].map((chip) => (
               <button
                 key={chip}
@@ -500,7 +603,7 @@ export default function ConsumerChatsPage() {
             <input
               ref={inputRef}
               type="text"
-              placeholder={`Message ${activeThread.farmerName}...`}
+              placeholder={t('consumer.chat.messagePlaceholder', { name: activeThread.farmerName })}
               value={newMessageText}
               onChange={(e) => setNewMessageText(e.target.value)}
               className="flex-1 px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-900 outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition-all"
@@ -508,13 +611,15 @@ export default function ConsumerChatsPage() {
 
             <button
               type="submit"
-              disabled={!newMessageText.trim()}
+              disabled={!newMessageText.trim() || isSending}
               className="px-4 py-2.5 bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-200 disabled:text-stone-400 text-white font-black text-xs uppercase tracking-wider rounded-xl flex items-center gap-1 shadow-xs transition-all active:scale-95 shrink-0"
             >
-              <span>Send</span>
-              <Send className="w-3 h-3" />
+              <span>{t('consumer.chat.send')}</span>
+              {isSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
             </button>
           </form>
+            </>
+          )}
 
         </div>
 

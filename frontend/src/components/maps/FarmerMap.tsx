@@ -6,6 +6,7 @@ import {
   MapPin, Plus, Minus, Check, CheckCircle2,
   Sprout, Building2, Warehouse, Store
 } from 'lucide-react';
+import { useI18n } from '../../hooks/useI18n';
 
 interface FilterState {
   apmc: boolean;
@@ -133,6 +134,8 @@ export default function FarmerMap({
   selectedFarmId,
   selectedFarm,
 }: FarmerMapProps) {
+  const { t, formatCurrency, formatNumber } = useI18n();
+
   const [filters, setFilters] = useState<FilterState>({
     apmc: true,
     vendors: true,
@@ -180,14 +183,14 @@ export default function FarmerMap({
         if (!isNaN(rawLat) && !isNaN(rawLon) && rawLat !== 0 && rawLon !== 0) {
           combined.push({
             id: String(f.id || `farmer-${idx}`),
-            name: f.farmName || f.farmerName || f.name || 'Cultivator Node',
+            name: f.farmName || f.farmerName || f.name || t('misc.farmerMap.cultivatorNode'),
             type: 'farmers',
             lat: rawLat,
             lon: rawLon,
-            produce: f.availableProducts?.[0]?.title || f.produce || 'Fresh Harvest Produce',
+            produce: f.availableProducts?.[0]?.title || f.produce || t('misc.farmerMap.freshHarvestProduce'),
             price: f.availableProducts?.[0]?.farmerPrice || f.price,
             priceUnit: f.availableProducts?.[0]?.priceUnit || 'PER_KG',
-            dist: f.district ? `${f.district}, Karnataka` : 'Direct Farm Node',
+            dist: f.district ? `${f.district}, Karnataka` : t('misc.farmerMap.directFarmNode'),
             isVerified: Boolean(f.isVerified ?? true),
             raw: f,
           });
@@ -206,7 +209,7 @@ export default function FarmerMap({
     });
 
     return combined;
-  }, [farmers]);
+  }, [farmers, t]);
 
   // 3. Filter nodes based on active category checkboxes and search query
   const filteredNodes = useMemo(() => {
@@ -359,7 +362,7 @@ export default function FarmerMap({
             <span style="background: ${theme.bg}15; color: ${theme.bg}; font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 2px 7px; border-radius: 6px;">
               ${node.type.toUpperCase()}
             </span>
-            ${node.isVerified ? '<span style="color: #15803d; font-size: 11px; font-weight: 700;">✓ Verified</span>' : ''}
+            ${node.isVerified ? `<span style="color: #15803d; font-size: 11px; font-weight: 700;">✓ ${t('misc.farmerMap.verified')}</span>` : ''}
           </div>
           <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: #1c1917; line-height: 1.3;">
             ${node.name}
@@ -370,20 +373,20 @@ export default function FarmerMap({
           ${
             node.produce
               ? `<div style="background: #f5f5f4; padding: 6px 9px; border-radius: 8px; margin-bottom: 8px; font-size: 11px; color: #292524;">
-                  <strong>Harvest:</strong> ${node.produce}${node.price ? `<div style="color: #15803d; font-weight: 800; margin-top: 2px;">₹${node.price} / ${node.priceUnit === 'PER_KG' ? 'kg' : 'unit'}</div>` : ''}
+                  <strong>${t('misc.farmerMap.harvest')}</strong> ${node.produce}${node.price ? `<div style="color: #15803d; font-weight: 800; margin-top: 2px;">${formatCurrency(Number(node.price) || 0)} / ${node.priceUnit === 'PER_KG' ? t('misc.unit.kg') : t('misc.farmerMap.priceUnit')}</div>` : ''}
                 </div>`
               : node.modalRate
               ? `<div style="background: #eff6ff; padding: 6px 9px; border-radius: 8px; margin-bottom: 8px; font-size: 11px; color: #1e40af;">
-                  <strong>APMC Rate:</strong> ${node.modalRate}
+                  <strong>${t('misc.farmerMap.apmcRate')}</strong> ${node.modalRate}
                 </div>`
               : node.capacity
               ? `<div style="background: #fef3c7; padding: 6px 9px; border-radius: 8px; margin-bottom: 8px; font-size: 11px; color: #92400e;">
-                  <strong>Capacity:</strong> ${node.capacity}
+                  <strong>${t('misc.farmerMap.capacity')}</strong> ${node.capacity}
                 </div>`
               : ''
           }
           <button id="select-btn-${node.id}" style="width: 100%; background: #047857; hover:background: #065f46; color: white; border: none; padding: 8px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">
-            Select Location & View Produce
+            ${t('misc.farmerMap.selectLocation')}
           </button>
         `;
 
@@ -405,7 +408,7 @@ export default function FarmerMap({
         markersMapRef.current.set(node.id, marker);
       });
     });
-  }, [mapReady, filteredNodes, onSelectHarvestLocation]);
+  }, [mapReady, filteredNodes, onSelectHarvestLocation, t, formatCurrency]);
 
   // 7. Auto-pan to Farm selected from sidebar list
   useEffect(() => {
@@ -434,7 +437,7 @@ export default function FarmerMap({
   // 9. Geolocation ("Locate Me" Google Maps Control)
   const handleLocateUser = () => {
     if (!navigator.geolocation || !leafletMapRef.current) {
-      alert('Location services are not available in your browser.');
+      alert(t('misc.farmerMap.locationUnavailable'));
       return;
     }
 
@@ -468,7 +471,7 @@ export default function FarmerMap({
 
           const userMarker = L.marker([lat, lng], { icon: userIcon })
             .addTo(map)
-            .bindPopup('<strong>Your Location</strong><br/>Scanning regional harvest nodes.')
+            .bindPopup(`<strong>${t('misc.farmerMap.yourLocation')}</strong><br/>${t('misc.farmerMap.scanningNodes')}`)
             .openPopup();
 
           userLocationMarkerRef.current = userMarker;
@@ -477,7 +480,7 @@ export default function FarmerMap({
       },
       () => {
         setIsLocating(false);
-        alert('Could not retrieve your location. Please check browser permissions.');
+        alert(t('misc.farmerMap.locationPermissionError'));
       },
       { timeout: 10000, enableHighAccuracy: true }
     );
@@ -508,10 +511,10 @@ export default function FarmerMap({
         <div>
           <h2 className="text-lg font-black text-stone-900 tracking-tight flex items-center gap-2">
             <MapPin className="w-5 h-5 text-emerald-700" />
-            Agricultural Network & Geo-Exchange
+            {t('misc.farmerMap.title')}
           </h2>
           <p className="text-xs text-stone-500 font-medium">
-            Explore verified cultivators, wholesale APMC yards, and cold storage hubs.
+            {t('misc.farmerMap.subtitle')}
           </p>
         </div>
 
@@ -526,7 +529,7 @@ export default function FarmerMap({
                 : 'text-stone-500 hover:text-stone-900'
             }`}
           >
-            Google Map
+            {t('misc.farmerMap.googleMap')}
           </button>
           <button
             type="button"
@@ -537,7 +540,7 @@ export default function FarmerMap({
                 : 'text-stone-500 hover:text-stone-900'
             }`}
           >
-            Satellite Hybrid
+            {t('misc.farmerMap.satelliteHybrid')}
           </button>
         </div>
       </div>
@@ -550,7 +553,7 @@ export default function FarmerMap({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search farm, crop (e.g. Rice), or district..."
+            placeholder={t('misc.farmerMap.searchPlaceholder')}
             className="w-full pl-10 pr-4 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-900 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600 transition-all"
           />
         </div>
@@ -565,7 +568,7 @@ export default function FarmerMap({
                 : 'bg-white border-stone-200 text-stone-400'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-600" /> Farmers
+            <span className="w-2 h-2 rounded-full bg-emerald-600" /> {t('misc.map.farmers')}
           </button>
 
           <button
@@ -577,7 +580,7 @@ export default function FarmerMap({
                 : 'bg-white border-stone-200 text-stone-400'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-blue-600" /> APMC Mandis
+            <span className="w-2 h-2 rounded-full bg-blue-600" /> {t('misc.map.apmcMandis')}
           </button>
 
           <button
@@ -589,7 +592,7 @@ export default function FarmerMap({
                 : 'bg-white border-stone-200 text-stone-400'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-amber-500" /> Trading Hubs
+            <span className="w-2 h-2 rounded-full bg-amber-500" /> {t('misc.map.tradingHubs')}
           </button>
 
           <button
@@ -601,7 +604,7 @@ export default function FarmerMap({
                 : 'bg-white border-stone-200 text-stone-400'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-rose-600" /> Retail Vendors
+            <span className="w-2 h-2 rounded-full bg-rose-600" /> {t('misc.map.retailVendors')}
           </button>
 
           <button
@@ -613,7 +616,7 @@ export default function FarmerMap({
                 : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
             }`}
           >
-            {filters.all ? 'All Active' : 'Show All'}
+            {filters.all ? t('misc.farmerMap.allActive') : t('misc.farmerMap.showAll')}
           </button>
         </div>
       </div>
@@ -627,7 +630,7 @@ export default function FarmerMap({
           <div className="absolute inset-0 z-10 bg-stone-100/90 flex flex-col items-center justify-center p-4">
             <div className="w-8 h-8 border-4 border-emerald-700 border-t-transparent rounded-full animate-spin mb-3" />
             <p className="text-xs font-black uppercase text-stone-600 tracking-wider">
-              Rendering Google Map Engine...
+              {t('misc.farmerMap.rendering')}
             </p>
           </div>
         )}
@@ -639,7 +642,7 @@ export default function FarmerMap({
             <button
               type="button"
               onClick={handleZoomIn}
-              title="Zoom in"
+              title={t('misc.farmerMap.zoomIn')}
               className="w-9 h-9 flex items-center justify-center text-stone-700 hover:bg-stone-100 border-b border-stone-200 transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -647,7 +650,7 @@ export default function FarmerMap({
             <button
               type="button"
               onClick={handleZoomOut}
-              title="Zoom out"
+              title={t('misc.farmerMap.zoomOut')}
               className="w-9 h-9 flex items-center justify-center text-stone-700 hover:bg-stone-100 transition-colors"
             >
               <Minus className="w-4 h-4" />
@@ -659,7 +662,7 @@ export default function FarmerMap({
             type="button"
             onClick={handleLocateUser}
             disabled={isLocating}
-            title="Show your location"
+            title={t('misc.farmerMap.showLocation')}
             className="w-9 h-9 bg-white hover:bg-stone-50 text-stone-800 rounded-lg shadow-md border border-stone-200 flex items-center justify-center transition-transform active:scale-95"
           >
             <Navigation className={`w-4 h-4 text-blue-600 ${isLocating ? 'animate-spin' : ''}`} />
@@ -669,7 +672,7 @@ export default function FarmerMap({
           <button
             type="button"
             onClick={handleResetView}
-            title="Reset regional view"
+            title={t('misc.farmerMap.resetView')}
             className="w-9 h-9 bg-white hover:bg-stone-50 text-stone-800 rounded-lg shadow-md border border-stone-200 flex items-center justify-center transition-transform active:scale-95"
           >
             <RotateCcw className="w-4 h-4 text-stone-600" />
@@ -679,7 +682,7 @@ export default function FarmerMap({
         {/* Marker Counter Badge */}
         <div className="absolute left-3 bottom-3 z-20 px-3 py-1.5 bg-white/95 backdrop-blur-sm rounded-lg border border-stone-200 shadow-md text-[11px] font-bold text-stone-700 flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-          <span>{filteredNodes.length} Verified Nodes Visible</span>
+          <span>{t('misc.farmerMap.verifiedNodesVisible', { count: formatNumber(filteredNodes.length) })}</span>
         </div>
       </div>
     </div>

@@ -8,8 +8,10 @@ import {
   Check, Loader2, AlertCircle 
 } from 'lucide-react';
 import { fetchApi } from '../../lib/api';
+import { useI18n } from '../../hooks/useI18n';
 
 export default function SellerPortal() {
+  const { t } = useI18n();
   const [isVerified, setIsVerified] = useState<boolean>(false);
   const [maskedId, setMaskedId] = useState<string>('');
   const [farmName, setFarmName] = useState<string>('');
@@ -27,7 +29,7 @@ export default function SellerPortal() {
           const isAadhaarDone = Boolean(res.data.stats !== undefined);
           if (isAadhaarDone) {
             setIsVerified(true);
-            setFarmName(res.data.farmerName || 'Cultivator Farm Lot');
+            setFarmName(res.data.farmerName || t('misc.seller.defaultCultivatorFarmLot'));
           }
         }
       } catch {
@@ -67,10 +69,10 @@ export default function SellerPortal() {
           setFarmName(res.farmer.farmName);
         }
       } else {
-        alert(res.message || 'Verification could not be processed.');
+        alert(res.message || t('misc.seller.verificationProcessError'));
       }
     } catch (err: any) {
-      alert(err.message || 'Verification network error.');
+      alert(err.message || t('misc.seller.verificationNetworkError'));
     } finally {
       setLoading(false);
     }
@@ -81,7 +83,7 @@ export default function SellerPortal() {
       <div className="min-h-[75vh] flex flex-col items-center justify-center text-emerald-800 gap-3">
         <Loader2 className="w-8 h-8 animate-spin" />
         <span className="text-xs font-bold uppercase tracking-widest text-stone-500">
-          Checking Cultivator Status...
+          {t('misc.seller.checkingStatus')}
         </span>
       </div>
     );
@@ -101,11 +103,11 @@ export default function SellerPortal() {
             </div>
             
             <h1 className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight">
-              Cultivator Verification
+              {t('misc.seller.verificationTitle')}
             </h1>
             
             <p className="text-stone-500 text-xs sm:text-sm leading-relaxed max-w-sm mx-auto">
-              Verify your agricultural cultivator credentials to broadcast fresh harvests and unlock direct consumer wholesale payouts.
+              {t('misc.seller.verificationBody')}
             </p>
           </div>
 
@@ -113,20 +115,20 @@ export default function SellerPortal() {
           <div className="grid grid-cols-2 gap-3 py-2">
             <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200/70 text-left">
               <Sparkles className="w-4 h-4 text-emerald-700 mb-1" />
-              <p className="text-xs font-black text-stone-900">Zero Middleman Margin</p>
-              <p className="text-[10px] text-stone-500">Sell at true farmer-listed rates</p>
+              <p className="text-xs font-black text-stone-900">{t('misc.seller.zeroMiddlemanMargin')}</p>
+              <p className="text-[10px] text-stone-500">{t('misc.seller.sellAtListedRates')}</p>
             </div>
             <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200/70 text-left">
               <Building2 className="w-4 h-4 text-emerald-700 mb-1" />
-              <p className="text-xs font-black text-stone-900">APMC Mandi Clearance</p>
-              <p className="text-[10px] text-stone-500">Direct mandi price parity</p>
+              <p className="text-xs font-black text-stone-900">{t('misc.seller.apmcClearance')}</p>
+              <p className="text-[10px] text-stone-500">{t('misc.seller.directMandiParity')}</p>
             </div>
           </div>
 
           <form onSubmit={handleVerificationSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                Government Identity Card Number
+                {t('misc.seller.governmentId')}
               </label>
               
               <div className="relative">
@@ -136,13 +138,13 @@ export default function SellerPortal() {
                   required 
                   value={formattedDisplay} 
                   onChange={handleInputChange} 
-                  placeholder="Enter 12-digit number"
+                  placeholder={t('misc.seller.idPlaceholder')}
                   className="w-full px-4 py-3.5 rounded-2xl border border-stone-300 text-base font-mono tracking-widest outline-none focus:ring-2 focus:ring-emerald-700 transition-all bg-stone-50/50 focus:bg-white text-stone-900" 
                 />
                 <Lock className="w-4 h-4 text-stone-400 absolute right-4 top-1/2 -translate-y-1/2" />
               </div>
               <p className="text-[10px] text-stone-400 mt-1">
-                A 12-digit numeric identity number is required for digital e-KYC.
+                {t('misc.seller.idHint')}
               </p>
             </div>
 
@@ -152,16 +154,16 @@ export default function SellerPortal() {
               className="w-full py-4 bg-gradient-to-r from-emerald-800 to-emerald-700 hover:from-emerald-900 hover:to-emerald-800 disabled:from-stone-300 disabled:to-stone-300 disabled:cursor-not-allowed text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/10 transition-all active:scale-95"
             >
               {loading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Verifying e-KYC...</>
+                <><Loader2 className="w-4 h-4 animate-spin" /> {t('misc.seller.verifying')}</>
               ) : (
-                <>Authorize & Open Seller Hub <ArrowRight className="w-4 h-4" /></>
+                <>{t('misc.seller.authorizeOpen')} <ArrowRight className="w-4 h-4" /></>
               )}
             </button>
           </form>
 
           <div className="pt-2 text-center">
             <span className="text-[11px] text-stone-400 font-medium">
-              Land ownership records have been bypassed for smallholder farmers.
+              {t('misc.seller.landRecordsNote')}
             </span>
           </div>
         </div>
@@ -184,14 +186,14 @@ export default function SellerPortal() {
           <div>
             <div className="flex items-center justify-center sm:justify-start gap-2">
               <h2 className="text-xl font-black text-emerald-950 tracking-tight">
-                Verified Direct Cultivator
+                {t('misc.seller.verifiedCultivator')}
               </h2>
               <span className="px-2.5 py-0.5 rounded-full bg-emerald-200 text-emerald-900 text-[10px] font-black uppercase">
-                Active
+                {t('misc.status.active')}
               </span>
             </div>
             <p className="text-emerald-800 text-xs mt-0.5">
-              Identity verified. Authorized to list fresh harvest lots and accept consumer orders.
+              {t('misc.seller.verifiedBody')}
             </p>
           </div>
         </div>
@@ -200,7 +202,7 @@ export default function SellerPortal() {
           href="/farmer/dashboard"
           className="px-6 py-3.5 bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center gap-2 shadow-md transition-all active:scale-95 shrink-0"
         >
-          Open Harvest Hub <ArrowRight className="w-4 h-4" />
+          {t('misc.seller.openHarvestHub')} <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
 
@@ -211,10 +213,10 @@ export default function SellerPortal() {
         <div className="flex justify-between items-start">
           <div>
             <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block">
-              FarmConnect Agricultural Network
+              {t('misc.seller.network')}
             </span>
             <h3 className="text-xl font-black tracking-tight text-stone-100 mt-0.5">
-              Direct Cultivator Certification Pass
+              {t('misc.seller.certificationPass')}
             </h3>
           </div>
           <div className="p-2.5 rounded-2xl bg-white/10 backdrop-blur-md">
@@ -224,41 +226,41 @@ export default function SellerPortal() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-white/10">
           <div>
-            <span className="text-[10px] uppercase font-bold text-stone-400 block">Registered Farm</span>
-            <span className="text-sm font-black text-white">{farmName || 'Verified Family Farm'}</span>
+            <span className="text-[10px] uppercase font-bold text-stone-400 block">{t('misc.seller.registeredFarm')}</span>
+            <span className="text-sm font-black text-white">{farmName || t('misc.seller.defaultFarmName')}</span>
           </div>
 
           <div>
-            <span className="text-[10px] uppercase font-bold text-stone-400 block">Verified ID Ref</span>
+            <span className="text-[10px] uppercase font-bold text-stone-400 block">{t('misc.seller.verifiedIdRef')}</span>
             <span className="text-sm font-mono font-bold text-stone-300">
-              {maskedId || 'XXXX-XXXX-VERIFIED'}
+              {maskedId || t('misc.seller.defaultVerifiedRef')}
             </span>
           </div>
 
           <div>
-            <span className="text-[10px] uppercase font-bold text-stone-400 block">Mandi Trading Clearance</span>
+            <span className="text-[10px] uppercase font-bold text-stone-400 block">{t('misc.seller.mandiTradingClearance')}</span>
             <span className="text-sm font-bold text-emerald-400 flex items-center gap-1">
-              <CheckCircle2 className="w-4 h-4" /> Unrestricted
+              <CheckCircle2 className="w-4 h-4" /> {t('misc.seller.unrestricted')}
             </span>
           </div>
         </div>
 
         <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-stone-400">
-            Enables instant WhatsApp price negotiations, logistics bookings, and verified catalog listing.
+            {t('misc.seller.certificationBody')}
           </p>
           <div className="flex gap-2 w-full sm:w-auto">
             <Link
               href="/farmer/products"
               className="flex-1 sm:flex-initial px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl text-center transition-colors"
             >
-              Manage Produce
+              {t('misc.seller.manageProduce')}
             </Link>
             <Link
               href="/farmer/orders"
               className="flex-1 sm:flex-initial px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl text-center transition-colors"
             >
-              View Orders
+              {t('misc.seller.viewOrders')}
             </Link>
           </div>
         </div>

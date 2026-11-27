@@ -43,7 +43,7 @@ if errorlevel 1 (
 )
 
 echo Launching Backend Engine...
-start "FarmConnect Backend (Port 5000)" cmd /k "cd /d ""%~dp0backend"" ^&^& npm run dev"
+start "FarmConnect Backend (Port 5000)" /D "%~dp0backend" cmd /k "npm run dev"
 
 :: ---------------------------------------------------------
 :: 2. Frontend Setup ^& Run
@@ -58,7 +58,7 @@ if not exist node_modules (
 )
 
 echo Launching Frontend Server...
-start "FarmConnect Frontend (Port 3000)" cmd /k "cd /d ""%~dp0frontend"" ^&^& npm run dev"
+start "FarmConnect Frontend (Port 3000)" /D "%~dp0frontend" cmd /k "npm run dev"
 
 :: ---------------------------------------------------------
 :: 3. Launch in Browser

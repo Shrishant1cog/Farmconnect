@@ -11,7 +11,7 @@ import React, {
 } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { dictionaries } from '../i18n';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth, AUTH_SYNC_EVENT } from '../hooks/useAuth';
 import { fetchApi } from '../lib/api';
 import {
   DEFAULT_LOCALE,
@@ -62,6 +62,35 @@ function readToken(): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Writes the active language into the cached account object.
+ *
+ * The account is cached in `localStorage` and hydrated again on every page
+ * load. Without this the **stale** `preferredLanguage` of that cache would be
+ * applied on the next mount, so the interface would briefly fall back to the
+ * previous language before the account request came back — the account is the
+ * source of truth, the cache must not contradict it.
+ */
+function persistLanguageInCachedUser(locale: Locale) {
+  if (typeof window === 'undefined') return;
+
+  for (const key of ['farmconnect_user', 'fc_user']) {
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') continue;
+      parsed.preferredLanguage = locale;
+      window.localStorage.setItem(key, JSON.stringify(parsed));
+    } catch {
+      /* a corrupted cache must never break the language switch */
+    }
+  }
+
+  // Let the auth hook pick the new value up in this tab as well.
+  window.dispatchEvent(new Event(AUTH_SYNC_EVENT));
 }
 
 export function LocaleProvider({ children }: { children: React.ReactNode }) {
@@ -161,6 +190,10 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
       } catch {
         /* ignore */
       }
+      // The other client changed the account preference — the cached account
+      // object has to follow it as well, otherwise the next page load would
+      // restore the old language from the cache.
+      persistLanguageInCachedUser(next);
     });
 
     return () => {
@@ -191,6 +224,11 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
       const shouldSync = options?.sync !== false;
       const token = readToken();
       if (shouldSync && token) {
+        // The account is the source of truth, so the cached account object is
+        // updated with it — otherwise the next page load would restore the
+        // previous language from the cache and fall back for a moment.
+        persistLanguageInCachedUser(normalized);
+
         fetchApi('/users/me', {
           method: 'PATCH',
           headers: {

@@ -256,18 +256,18 @@ was actually executed against the deployed backend from the stated direction.
 
 | # | Workflow | Website direction | Android direction | Status | Evidence |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Register a farmer | PASS | PASS | PASS | Website direction: `live-verify.mjs` → `register farmer -> HTTP 201`, the response carries the account id and the token. Android direction: integration test 1 registers the farmer **through the website client** and signs the same account in on Android; both resolve to the same shared user id |
-| 2 | Register a consumer | PASS | PASS | PASS | Website direction: `live-verify.mjs` → `register consumer -> HTTP 201`. Android direction: integration test 1 registers the consumer through the website client and signs it in on Android |
-| 3 | Sign in with an account created on the other client | PASS | PASS | PASS | Integration test 1: the Android client signs in with the website-registered account and `expect(androidFarmerSession.user.id, farmerSession.user.id)` passes. `live-verify.mjs`: `login response carries preferredLanguage=kn` — the same account returns the same id, role and language on both clients |
-| 4 | Create a crop listing | PASS | PASS | PASS | Website direction: `live-verify.mjs` → `create crop lot A (Tomato) -> HTTP 201` and `create crop lot B (Ragi) -> HTTP 201`. Android direction: integration test 2 creates the listing through the Android repository, integration test 7 creates two different crops |
+| 1 | Register a farmer | PASS | PASS | PASS | Website direction: `scripts/live-verify.mjs` → `register farmer -> HTTP 201`, the response carries the account id and the token. Android direction: integration test 1 registers the farmer **through the website client** and signs the same account in on Android; both resolve to the same shared user id |
+| 2 | Register a consumer | PASS | PASS | PASS | Website direction: `scripts/live-verify.mjs` → `register consumer -> HTTP 201`. Android direction: integration test 1 registers the consumer through the website client and signs it in on Android |
+| 3 | Sign in with an account created on the other client | PASS | PASS | PASS | Integration test 1: the Android client signs in with the website-registered account and `expect(androidFarmerSession.user.id, farmerSession.user.id)` passes. `scripts/live-verify.mjs`: `login response carries preferredLanguage=kn` — the same account returns the same id, role and language on both clients |
+| 4 | Create a crop listing | PASS | PASS | PASS | Website direction: `scripts/live-verify.mjs` → `create crop lot A (Tomato) -> HTTP 201` and `create crop lot B (Ragi) -> HTTP 201`. Android direction: integration test 2 creates the listing through the Android repository, integration test 7 creates two different crops |
 | 5 | A listing created on one client is visible on the other | PASS | PASS | PASS | Integration test 2: a listing created on the website appears in the Android catalogue **and** in the farmer's Android inventory. Integration test 1: a listing created on Android appears in the website feed |
-| 6 | Edit price / quantity / availability — the edit is visible on the other client and never touches a second crop | PASS | PASS | PASS | `live-verify.mjs`: `edit lot A price and quantity` → 200, `lot A keeps the new price -> 27.5`, `lot B price is untouched -> 48`, `lot B quantity is untouched -> 90`. Integration test 7: `untouched.farmerPrice, 48.0` and `untouched.quantityAvailable, 90` after the tomato lot was edited, and the website then reads the edited values (`websiteTomato.farmerPrice, 27.5`) |
-| 7 | Several independent crop lots per farmer (own crop name, variety, quantity, unit, price, availability, description, image) | PASS | PASS | PASS | `live-verify.mjs`: two lots with their own crop, variety, price, quantity and availability, and the crop filters keep them apart (`crop=Tomato excludes the ragi lot`, `crop=Ragi excludes the tomato lot`). Integration test 7: the same on Android, including the live category filter for both crops |
+| 6 | Edit price / quantity / availability — the edit is visible on the other client and never touches a second crop | PASS | PASS | PASS | `scripts/live-verify.mjs`: `edit lot A price and quantity` → 200, `lot A keeps the new price -> 27.5`, `lot B price is untouched -> 48`, `lot B quantity is untouched -> 90`. Integration test 7: `untouched.farmerPrice, 48.0` and `untouched.quantityAvailable, 90` after the tomato lot was edited, and the website then reads the edited values (`websiteTomato.farmerPrice, 27.5`) |
+| 7 | Several independent crop lots per farmer (own crop name, variety, quantity, unit, price, availability, description, image) | PASS | PASS | PASS | `scripts/live-verify.mjs`: two lots with their own crop, variety, price, quantity and availability, and the crop filters keep them apart (`crop=Tomato excludes the ragi lot`, `crop=Ragi excludes the tomato lot`). Integration test 7: the same on Android, including the live category filter for both crops |
 | 8 | Favourites are shared | PASS | PASS | PASS | Integration test 4: the Android client favourites the listing and the **website** client reads the same favourite from the shared consumer profile; toggling again removes it |
-| 9 | Enquiries and chat messages are shared | PASS | PASS | PASS | Integration test 3: the website raises the enquiry, the farmer sees it on Android and replies, and the website reads the reply (`thread.messages.any(... contains('18.50'))`). `live-verify.mjs`: `create an enquiry -> HTTP 201`, `reply to an enquiry -> HTTP 201` |
+| 9 | Enquiries and chat messages are shared | PASS | PASS | PASS | Integration test 3: the website raises the enquiry, the farmer sees it on Android and replies, and the website reads the reply (`thread.messages.any(... contains('18.50'))`). `scripts/live-verify.mjs`: `create an enquiry -> HTTP 201`, `reply to an enquiry -> HTTP 201` |
 | 10 | Orders and order status are shared | PASS | PASS | PASS | Integration test 1: the website places the order, the farmer sees it on Android, the farmer changes the status on Android and the website then reads `OrderStatus.confirmed` |
-| 11 | Notifications arrive over Socket.IO on both clients | PASS | PASS | PASS | Integration test 6: the Socket.IO server delivers `new_order_received` to the authenticated Android socket (`expect(event['orderId'], isA<String>())`). `live-verify.mjs`: the durable inbox really contains the entries (`GET /notifications -> HTTP 200` with `NEW_ORDER` / `ORDER_STATUS`) |
-| 12 | Language change propagates in both directions | PASS | PASS | PASS | Integration test 8: the website sets `kn` and the Android profile reads `kn`; the Android app sets `hi` and the website profile reads `hi`. `live-verify.mjs`: `PATCH preferredLanguage=hi -> hi`, `GET /users/me returns preferredLanguage=kn -> kn`, `login response carries preferredLanguage=kn -> kn` |
+| 11 | Notifications arrive over Socket.IO on both clients | PASS | PASS | PASS | Integration test 6: the Socket.IO server delivers `new_order_received` to the authenticated Android socket (`expect(event['orderId'], isA<String>())`). `scripts/live-verify.mjs`: the durable inbox really contains the entries (`GET /notifications -> HTTP 200` with `NEW_ORDER` / `ORDER_STATUS`) |
+| 12 | Language change propagates in both directions | PASS | PASS | PASS | Integration test 8: the website sets `kn` and the Android profile reads `kn`; the Android app sets `hi` and the website profile reads `hi`. `scripts/live-verify.mjs`: `PATCH preferredLanguage=hi -> hi`, `GET /users/me returns preferredLanguage=kn -> kn`, `login response carries preferredLanguage=kn -> kn` |
 | 13 | Logout clears the session; the other client's session is isolated | PASS | PASS | PASS | Integration test 5: `logout` wipes the stored session (`restoreSession()` is `null`), the same account signs in again on the other client with the same id, and a second account never sees the first account's orders |
 
 ### 2.1 Automated evidence for the cross-platform workflows
@@ -283,8 +283,12 @@ flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 \
   --dart-define=TEST_SOCKET_URL=https://farmconnect-api-sn98.onrender.com
 ```
 
-**Result (2026-11-28): 8 / 8 tests passed** on `emulator-5554`
-(Pixel_10a, Android 17 / API 37).
+**Result (2026-11-28, final run against the deployed head commit `8195523`):
+8 / 8 tests passed** on `emulator-5554` (Pixel_10a, Android 17 / API 37) —
+`00:47 +8: All tests passed!`, exit code 0. The only log lines are the two
+expected `409` answers for deleting a listing that already carries an order
+("This listing already has orders and can no longer be deleted. Mark it as
+unavailable instead.").
 
 | # | Test case | Covers workflow | Status | Evidence |
 | --- | --- | --- | --- | --- |
@@ -311,11 +315,14 @@ flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 \
 | Hardcoded-English scan of the website JSX | `node C:\Users\user\AppData\Local\Temp\opencode\find-hardcoded-jsx.mjs` | PASS | 3 hits — all false positives (`Promise` type annotations in `CartContext.tsx` / `ModalContext.tsx`) |
 | Website route smoke (deployed) | `node scripts/smoke-routes.mjs` | PASS | 22 / 22 website routes + 24 / 24 API routes answered as expected |
 | API endpoint smoke (deployed) | `node scripts/smoke-api-endpoints.mjs` | PASS | 50 probes, 0 unexpected statuses |
-| Live feature verification (deployed) | `node live-verify.mjs` | PASS | 46 / 46 checks green |
-| Android route coverage (emulator, deployed API) | `cd mobile && flutter test integration_test/route_coverage_test.dart -d emulator-5554 …` | PASS | 21 / 21 routes opened, no widget exception — `00:15 +1: All tests passed!` |
-| Cross-platform workflow suite (emulator, deployed API) | `cd mobile && flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 …` | PASS | 8 / 8 tests green |
+| Live feature verification (deployed) | `node scripts/live-verify.mjs` | PASS | 46 / 46 checks green |
+| Android route coverage (emulator, deployed API) | `cd mobile && flutter test integration_test/route_coverage_test.dart -d emulator-5554 …` | PASS | 21 / 21 routes opened, no widget exception — `01:21 +1: All tests passed!`, exit code 0. The only log line is the expected `[ApiClient] /admin/metrics -> 403` (the deployed database has no administrator account) |
+| Cross-platform workflow suite (emulator, deployed API) | `cd mobile && flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 …` | PASS | 8 / 8 tests green — `00:47 +8: All tests passed!`, exit code 0 |
 | Backend database integration suite | `cd backend && npm run test:integration` | BLOCKED | no PostgreSQL/Docker in the local environment — the suite (language storage, catalogue endpoints, independent crop lots, edit isolation, crop filtering, listing authorisation, notification inbox) runs in pull-request CI with PostgreSQL 16 and is green there |
-| Pull-request CI | `gh run list --branch fix/local-updates` | PASS | `FarmConnect Verification` — the push and the pull-request runs are green, including the PostgreSQL 16 integration suite |
+| Pull-request CI | `gh run list --branch fix/local-updates` | PASS | `FarmConnect Verification` — the push and the pull-request runs are green, including the PostgreSQL 16 integration suite. **Final runs for the head commit `8195523`:** push run [`46076942706`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46076942706) (success, 1m31s) and pull-request run [`46076948674`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46076948674) (success, 1m29s). Both ran the localisation check, the frontend type check and production build, the backend type check, the migrations, the PostgreSQL 16 integration suite, the `start.bat` validation and the source packaging |
+| Release artefact build | `cd mobile && powershell -ExecutionPolicy Bypass -File .\tool\build_production.ps1 -Target all` | PASS | exit code 0 — `app-release.apk` 57.6 MB (60,387,890 bytes) and `app-release.aab` 56.0 MB (58,706,569 bytes), both against the live Render host |
+| Release artefact on a device | `adb -s emulator-5554 install -r mobile\build\app\outputs\flutter-apk\app-release.apk` | PASS | `Success`. `aapt2 dump badging` → package `in.farmconnect.farmconnect_mobile`, versionName `1.0.0`, label `FarmConnect`; `aapt2 dump permissions` → `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_COARSE_LOCATION`, `ACCESS_FINE_LOCATION`, `CAMERA`. `apksigner verify --print-certs` → `CN=Android Debug` — the artefact is **debug-signed**, so it is **not** Play Store ready (see [`docs/MULTILINGUAL_AND_CROPS.md`](MULTILINGUAL_AND_CROPS.md), limitation 3) |
+| Release artefact points at production | `unzip -p app-release.apk lib/arm64-v8a/libapp.so \| grep -c 'http://10.0.2.2:5000'` | PASS | The local development URL occurs **0** times in all three ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`), while `https://farmconnect-api-sn98.onrender.com/api` occurs once per ABI — the compile-time `--dart-define` resolved to the live host |
 
 ---
 
@@ -332,7 +339,14 @@ cd backend && npm run test:unit
 npm run smoke:routes
 node scripts/smoke-api-endpoints.mjs
 
-# 4. Live cross-platform workflow suites (need an emulator)
+# 4. The multilingual catalogue and the multilingual crop filter
+node scripts/verify-localised-catalogue.mjs
+
+# 5. The live feature verification (registers its own QA account and removes
+#    the listings it created — the account itself stays behind)
+node scripts/live-verify.mjs
+
+# 6. Live cross-platform workflow suites (need an emulator)
 cd mobile
 flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 \
   --dart-define=TEST_API_BASE_URL=https://farmconnect-api-sn98.onrender.com/api \
@@ -340,7 +354,25 @@ flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 \
 flutter test integration_test/route_coverage_test.dart -d emulator-5554 \
   --dart-define=TEST_API_BASE_URL=https://farmconnect-api-sn98.onrender.com/api \
   --dart-define=TEST_SOCKET_URL=https://farmconnect-api-sn98.onrender.com
+
+# 7. The release artefacts against the live host
+cd mobile
+powershell -ExecutionPolicy Bypass -File .\tool\build_production.ps1 -Target all
 ```
 
 The HTTP evidence of step 3 is stored verbatim in
 `docs/route-smoke-report.json` and `docs/api-endpoint-smoke-report.json`.
+
+### 3.1 Browser walk-through of the deployed website
+
+The website was driven in a real browser against the deployed services. The
+recorded observations:
+
+| Page | Locale | Observation |
+| --- | --- | --- |
+| `/` | `hi` | `document.documentElement.lang` = `hi`; the ticker reads "अभी तक कोई APMC बेंचमार्क प्रकाशित नहीं है।"; the hero metric reads `0 APMC`; the savings calculator shows `—` for the benchmark and the saving, and "किसान को सीधे ₹22.63/किलो" from the live listings |
+| `/mandi-rates` | `hi` | the honest empty state "अभी तक कोई APMC बेंचमार्क प्रकाशित नहीं हुआ"; the **Export CSV** button is disabled; all four KPIs read `0` / `—`; no table row exists |
+| `/consumer/explore` | `hi` | the category chips show the native names — नकदी फसलें, अनाज और मिलेट, सब्ज़ियाँ, … |
+| `/consumer/explore` | `hi` | `?search=ಟೊಮೇಟೊ` → **16** tomato lots, each labelled "फसल: Tomato · किस्म: Hybrid" |
+| `/farmer/dashboard` | `hi` | the **नई कटाई सूचीबद्ध करें** dialog: searching `टमाटर` offers the suggestion `टमाटर Tomato`, and selecting it writes **Tomato** (the canonical English name) into the crop-name field |
+| — | — | **no console error** was raised on any of the pages above |

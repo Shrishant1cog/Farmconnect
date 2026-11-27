@@ -393,7 +393,7 @@ estimated. The live route and cross-platform matrices are kept separately in
 | Hardcoded-English scan of the website JSX | `node C:\Users\user\AppData\Local\Temp\opencode\find-hardcoded-jsx.mjs` | PASS | 3 hits — all false positives (`Promise` type annotations) |
 | Website + API route smoke (deployed) | `node scripts/smoke-routes.mjs` | PASS | 22 / 22 website routes + 24 / 24 API routes answered with the expected status (200, or the expected auth redirect) |
 | API endpoint smoke (deployed) | `node scripts/smoke-api-endpoints.mjs` | PASS | 50 probes, 0 unexpected statuses — every endpoint of the shared backend was exercised with a real request |
-| Live feature verification (deployed) | `node live-verify.mjs` | PASS | 46 / 46 checks green against the deployed API |
+| Live feature verification (deployed) | `node scripts/live-verify.mjs` | PASS | 46 / 46 checks green against the deployed API |
 | Multilingual catalogue verification (deployed) | `node scripts/verify-localised-catalogue.mjs` | PASS | 12 / 12 checks green — every category and crop carries its Kannada and Hindi name, the catalogue and the product filter find a crop in English, Kannada and Hindi, and the APMC endpoint answers with the real rows |
 | Android route coverage (emulator, deployed API) | `cd mobile && flutter test integration_test/route_coverage_test.dart -d emulator-5554 …` | PASS | 21 / 21 routes opened, no widget exception — `00:15 +1: All tests passed!` |
 | Cross-platform workflow suite (emulator, deployed API) | `cd mobile && flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 …` | PASS | 8 / 8 tests green |
@@ -513,7 +513,7 @@ them are fixed:
 | Missing `Scaffold` on the market-rates and logistics screens | `No Material widget found.` — both screens could not be opened at all | both screens bring their own `Scaffold` + `AppBar` |
 | Hardcoded English in the farmer dashboard JSX | "Buyer Inquiries & Chats", "{count} Active", "Target Rate: ₹…/kg" stayed English in a translated screen | the existing dictionary keys are now wired up |
 
-The website had two smaller gaps of the same kind, both fixed:
+The website had three smaller gaps of the same kind, all fixed:
 
 * `document.documentElement.lang` was only updated by the language switcher —
   a **restored** preference left `lang="en"` on the page. A `useEffect` now
@@ -528,3 +528,12 @@ The website had two smaller gaps of the same kind, both fixed:
   removed and the two fields it used to cover (the farmer's farm name and
   the crop category) were added to the **backend** search, so the API stays
   the single source of truth for search — exactly like the Android app.
+* The **cached account object** in `localStorage` kept the *old*
+  `preferredLanguage` after a language switch. The auth hook hydrates the
+  account from that cache on every page load, so the stale value was applied
+  again on the next mount and the interface briefly fell back to the previous
+  language before the account request came back. The language switcher (and
+  the Socket.IO `language_preference_updated` handler) now write the new
+  language into the cached account object as well, so the cache can never
+  contradict the account — `frontend/src/context/LocaleContext.tsx`,
+  `frontend/src/hooks/useAuth.ts`.

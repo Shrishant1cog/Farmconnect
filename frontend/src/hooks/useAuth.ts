@@ -43,7 +43,8 @@ export interface UseAuthReturn {
   refreshUser: () => void;
 }
 
-const AUTH_SYNC_EVENT = 'farmconnect_auth_sync';
+/** Dispatched on `window` whenever the cached session changes in this tab. */
+export const AUTH_SYNC_EVENT = 'farmconnect_auth_sync';
 
 export function useAuth(): UseAuthReturn {
   const [user, setUser] = useState<AuthUser | null>(null);

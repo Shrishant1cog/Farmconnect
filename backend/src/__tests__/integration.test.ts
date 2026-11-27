@@ -448,6 +448,16 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
   });
 
   it('CONSUMER: filters the shared catalogue by crop type', async () => {
+    // The public catalogue only lists available lots, and the previous test
+    // deliberately took the tomato lot off the market to prove that an edit
+    // never touches the second lot. It is put back on the market here so the
+    // crop filter can be exercised on both lots.
+    const reactivate = await agent
+      .patch(`/api/products/${secondProductId}`)
+      .set('Authorization', `Bearer ${farmerToken}`)
+      .send({ isAvailable: true });
+    expect(reactivate.status).toBe(200);
+
     const tomatoRes = await agent.get('/api/products?crop=Tomato');
     expect(tomatoRes.status).toBe(200);
     const tomatoIds = tomatoRes.body.data.map((p: any) => p.id);
@@ -458,6 +468,18 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
     const ragiIds = ragiRes.body.data.map((p: any) => p.id);
     expect(ragiIds).toContain(thirdProductId);
     expect(ragiIds).not.toContain(secondProductId);
+
+    // A sold-out lot must not appear in the public catalogue any more.
+    const soldOut = await agent
+      .patch(`/api/products/${secondProductId}`)
+      .set('Authorization', `Bearer ${farmerToken}`)
+      .send({ isAvailable: false });
+    expect(soldOut.status).toBe(200);
+
+    const afterSoldOut = await agent.get('/api/products?crop=Tomato');
+    const afterSoldOutIds = afterSoldOut.body.data.map((p: any) => p.id);
+    expect(afterSoldOutIds).not.toContain(secondProductId);
+    expect(afterSoldOutIds).not.toContain(thirdProductId);
   });
 
   it('FARMER: the inventory lists every crop lot separately', async () => {

@@ -13,6 +13,7 @@ FarmConnect is a full-stack agriculture marketplace and logistics platform. It c
 - Logistics and delivery workflow support
 - Prisma database access with PostgreSQL
 - Admin endpoints and dashboard
+- Native **Flutter Android app** (`mobile/`) that is a second client of the very same API and database
 
 ## Project Structure
 
@@ -20,10 +21,28 @@ FarmConnect is a full-stack agriculture marketplace and logistics platform. It c
 farmconnect/
 ├── backend/     Express, Prisma, Socket.IO, and Firebase Admin API
 ├── frontend/    Next.js application for farmers, consumers, and admins
+├── mobile/      Flutter Android application (same backend, same database)
+├── docs/        Audit, database migration, API and deployment documentation
 ├── docker-compose.yml
 ├── .env.example
 └── start.bat
 ```
+
+## Architecture
+
+The website and the Android app are **two clients of one backend and one
+PostgreSQL database** — there is no second API and no second database.
+
+```text
+Next.js website ──NEXT_PUBLIC_API_URL──┐
+                                        ├──▶ Express API + Socket.IO ──▶ PostgreSQL
+Flutter Android ───API_BASE_URL─────────┘
+```
+
+| Client | Configuration |
+| --- | --- |
+| Website | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SOCKET_URL` |
+| Android | `API_BASE_URL`, `SOCKET_URL` (supplied at build time via `--dart-define`) |
 
 ## Prerequisites
 
@@ -61,10 +80,12 @@ See [REQUIREMENTS.md](REQUIREMENTS.md) for the complete dependency and environme
 
 	```powershell
 	cd backend
-	npm run db:generate
-	npm run db:push
-	npm run db:seed
+	npm run db:setup
 	```
+
+	`db:setup` applies the Prisma migrations, seeds the demo data and syncs the
+	agricultural category list. Use `npm run db:migrate` on its own for a
+	production-safe migration (it never drops data).
 
 ## Running Locally
 
@@ -87,6 +108,39 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000) in a browser. The API is available at `http://localhost:5000/api`, and the Socket.IO server is available at `http://localhost:5000`.
 
 On Windows, `start.bat` can be used as a convenience launcher after the environment and database have been configured.
+
+### Android app
+
+```powershell
+cd mobile
+flutter pub get
+
+# Android emulator — 10.0.2.2 is the host machine
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000/api `
+            --dart-define=SOCKET_URL=http://10.0.2.2:5000
+
+# Physical device — use the LAN IP of the development machine
+flutter run --dart-define=API_BASE_URL=http://192.168.x.x:5000/api `
+            --dart-define=SOCKET_URL=http://192.168.x.x:5000
+```
+
+Release builds must point at the production API — never at `localhost`:
+
+```powershell
+flutter build apk --release `
+  --dart-define=API_BASE_URL=https://<your-api-host>/api `
+  --dart-define=SOCKET_URL=https://<your-api-host>
+```
+
+## Documentation
+
+| Document | Purpose |
+| --- | --- |
+| [docs/ANDROID_PARITY_AUDIT.md](docs/ANDROID_PARITY_AUDIT.md) | Feature, API and database parity audit for the Android app |
+| [docs/DATABASE_MIGRATION.md](docs/DATABASE_MIGRATION.md) | SQLite → PostgreSQL migration guide and production migration steps |
+| [docs/API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md) | Full REST and Socket.IO reference shared by both clients |
+| [docs/PRODUCTION_DEPLOYMENT.md](docs/PRODUCTION_DEPLOYMENT.md) | Render environment variables, build/start commands and the Android release checklist |
+| [docs/ANDROID_IMPLEMENTATION_REPORT.md](docs/ANDROID_IMPLEMENTATION_REPORT.md) | What was built, what was verified, and the known limitations |
 
 ## Useful Commands
 
@@ -134,6 +188,19 @@ Backend tests can be run with:
 ```powershell
 cd backend
 npm test
+```
+
+Flutter tests:
+
+```powershell
+cd mobile
+flutter analyze
+flutter test
+
+# On-device shared-data workflow test (requires the API to be running)
+flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 `
+  --dart-define=TEST_API_BASE_URL=http://10.0.2.2:5000/api `
+  --dart-define=TEST_SOCKET_URL=http://10.0.2.2:5000
 ```
 
 The root-level `full-system-test.js` and `audit.js` scripts are available for broader local checks after the backend and required services are running.

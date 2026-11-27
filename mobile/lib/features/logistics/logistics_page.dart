@@ -192,7 +192,11 @@ class _LogisticsPageState extends ConsumerState<LogisticsPage> {
                           ),
                         )
                       : const Icon(Icons.calculate_outlined),
-                  label: Text(l10n.logisticsCalculate),
+                  label: Text(
+                    l10n.logisticsCalculate,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),

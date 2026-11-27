@@ -172,12 +172,17 @@ class _Pill extends StatelessWidget {
         children: [
           Icon(icon, size: 13, color: AppTheme.stone700),
           const SizedBox(width: 5),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.stone700,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 180),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.stone700,
+              ),
             ),
           ),
         ],

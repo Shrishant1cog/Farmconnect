@@ -241,6 +241,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       ),
       const SizedBox(height: 16),
       SegmentedButton<UserRole>(
+        showSelectedIcon: false,
+        style: const ButtonStyle(
+          visualDensity: VisualDensity.compact,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
         segments: [
           ButtonSegment(
             value: UserRole.consumer,

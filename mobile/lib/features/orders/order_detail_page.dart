@@ -140,7 +140,11 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                                 ),
                               )
                             : const Icon(Icons.task_alt_rounded),
-                        label: Text(l10n.ordersConfirmDeliveryReceipt),
+                        label: Text(
+                          l10n.ordersConfirmDeliveryReceipt,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ),
                   )

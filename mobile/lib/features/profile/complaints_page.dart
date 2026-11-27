@@ -75,23 +75,40 @@ class _ComplaintsPageState extends ConsumerState<ComplaintsPage> {
             children: [
               DropdownButtonFormField<String>(
                 initialValue: 'ORDER',
+                isExpanded: true,
                 decoration: InputDecoration(labelText: l10n.complaintsAgainst),
                 items: [
                   DropdownMenuItem(
                     value: 'ORDER',
-                    child: Text(l10n.complaintsEntityOrder),
+                    child: Text(
+                      l10n.complaintsEntityOrder,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                   DropdownMenuItem(
                     value: 'PRODUCT',
-                    child: Text(l10n.complaintsEntityProduct),
+                    child: Text(
+                      l10n.complaintsEntityProduct,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                   DropdownMenuItem(
                     value: 'FARMER',
-                    child: Text(l10n.complaintsEntityCultivator),
+                    child: Text(
+                      l10n.complaintsEntityCultivator,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                   DropdownMenuItem(
                     value: 'ENQUIRY',
-                    child: Text(l10n.complaintsEntityConversation),
+                    child: Text(
+                      l10n.complaintsEntityConversation,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
                 onChanged: (value) =>

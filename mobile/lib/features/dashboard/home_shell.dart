@@ -153,7 +153,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(tab.title),
+        title: Text(tab.title, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
           // The language selector lives in the app bar so it is reachable
           // from every screen of the app, not only from the profile.

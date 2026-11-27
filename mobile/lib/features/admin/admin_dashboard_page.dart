@@ -140,21 +140,26 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: SegmentedButton<int>(
+            showSelectedIcon: false,
+            style: const ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
             segments: [
               ButtonSegment(
                 value: 0,
                 label: Text(l10n.adminOverview),
-                icon: const Icon(Icons.insights_outlined),
+                icon: const Icon(Icons.insights_outlined, size: 16),
               ),
               ButtonSegment(
                 value: 1,
                 label: Text(l10n.adminUsers),
-                icon: const Icon(Icons.people_outline),
+                icon: const Icon(Icons.people_outline, size: 16),
               ),
               ButtonSegment(
                 value: 2,
                 label: Text(l10n.adminComplaints),
-                icon: const Icon(Icons.report_gmailerrorred_outlined),
+                icon: const Icon(Icons.report_gmailerrorred_outlined, size: 16),
               ),
             ],
             selected: {_tab},

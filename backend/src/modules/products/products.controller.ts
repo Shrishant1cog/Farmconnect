@@ -4,16 +4,13 @@ import { db } from '../../config/db';
 import { buildProductWhereClause, normalizeCropFields } from '../../utils/productQuery';
 import { resolveCategory } from '../../utils/categoryResolver';
 import { parseCoordinateOrNull } from '../../utils/coordinate';
+import { JWT_SECRETS } from '../../config/jwt';
 import {
   describeApmcBenchmark,
   loadApmcBenchmarkIndex,
 } from '../../utils/apmcBenchmark';
 
-const JWT_SECRETS = [
-  process.env.JWT_SECRET,
-  'farmconnect-secret-key',
-  'farmconnect-secret-key-development',
-].filter(Boolean) as string[];
+
 
 /**
  * Helper: Safely extracts userId from request object or Authorization header

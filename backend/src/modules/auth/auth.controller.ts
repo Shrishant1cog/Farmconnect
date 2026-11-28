@@ -3,15 +3,8 @@ import jwt from 'jsonwebtoken';
 import { db } from '../../config/db';
 import { normalizeLanguage, resolveSupportedLanguage } from '../../utils/language';
 import { parseCoordinateOrNull } from '../../utils/coordinate';
+import { JWT_SECRET, JWT_SECRETS } from '../../config/jwt';
 import { firebaseAdmin } from '../../config/firebaseAdmin';
-
-const JWT_SECRETS = [
-  process.env.JWT_SECRET,
-  'farmconnect-secret-key',
-  'farmconnect-secret-key-development',
-].filter(Boolean) as string[];
-
-const JWT_SECRET = JWT_SECRETS[0];
 
 // Resilient loader for bcrypt / bcryptjs
 let bcrypt: any;
@@ -721,7 +714,14 @@ export const getCurrentUser = async (req: Request, res: Response) => {
     }
 
     if (!userProfile) {
-      userProfile = (req as any).user || { id: sessionUserId, role: 'CONSUMER' };
+      // The account is gone. The session is over — the endpoint must not
+      // answer with the decoded token payload, because that would present
+      // a session for an account that does not exist in the shared
+      // database.
+      return res.status(401).json({
+        success: false,
+        message: 'Your session is no longer valid. Please sign in again.',
+      });
     }
 
     const enrichedProfile = {

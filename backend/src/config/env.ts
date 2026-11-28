@@ -43,6 +43,21 @@ export type Env = z.infer<typeof envSchema>;
 
 const parsed = envSchema.safeParse(process.env);
 
+// A production service must never run with a secret that is published in
+// this repository. `render.yaml` always provides a generated `JWT_SECRET`,
+// so a missing one is a misconfiguration — and running with the shared
+// development value would let anyone sign an administrator token.
+if (
+  rawEnv.NODE_ENV === 'production' &&
+  (!rawEnv.JWT_SECRET || rawEnv.JWT_SECRET.length < 16)
+) {
+  console.error(
+    '❌ JWT_SECRET must be configured with at least 16 characters in production. ' +
+      'The service refuses to start with a published secret.'
+  );
+  process.exit(1);
+}
+
 if (!parsed.success) {
   console.error('❌ Invalid or missing environment configuration:');
   console.error(

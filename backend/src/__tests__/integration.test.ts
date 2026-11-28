@@ -2,6 +2,7 @@
 // PostgreSQL instance exactly like the Prisma CLI does.
 import 'dotenv/config';
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import app from '../app';
@@ -932,7 +933,10 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
         phone: `7${String(Date.now()).slice(-9)}`,
         name: 'Audit Account Without A Farm Profile',
         passwordHash,
-        role: 'CONSUMER',
+        // The account is a farmer **from the start**: the role is written
+        // into the token when the session is issued, so promoting it later
+        // would not change what the role guard sees.
+        role: 'FARMER',
       },
     });
 
@@ -940,10 +944,11 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
       .post('/api/auth/login')
       .send({ email: throwaway.email, password: 'Password@123' });
     const throwawayToken = tokenRes.body.data.token;
+    expect(tokenRes.body.data.user.role).toBe('FARMER');
 
-    // Promote the account to a farmer and remove its profile, so the listing
-    // has to create the profile itself.
-    await prisma.user.update({ where: { id: throwaway.id }, data: { role: 'FARMER' } });
+    // The account has no farm profile at all, so the listing has to create
+    // the profile itself.
+    await prisma.farmerProfile.deleteMany({ where: { userId: throwaway.id } });
     await prisma.consumerProfile.deleteMany({ where: { userId: throwaway.id } });
 
     const createRes = await agent
@@ -976,5 +981,143 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
     await prisma.product.deleteMany({ where: { id: createRes.body.data.id } });
     await prisma.farmerProfile.deleteMany({ where: { userId: throwaway.id } });
     await prisma.user.deleteMany({ where: { id: throwaway.id } });
+  });
+
+  // ==========================================================================
+  // 11. THE SESSION MUST RESOLVE TO A REAL, ACTIVE ACCOUNT
+  // ==========================================================================
+
+  it('SESSION: a token of an account that does not exist is refused', async () => {
+    // The token is signed with the **real** secret, so only the database
+    // can tell that the account is gone. The session must not be accepted.
+    const orphanToken = jwt.sign(
+      { id: '00000000-0000-0000-0000-000000000000', role: 'FARMER' },
+      process.env.JWT_SECRET as string,
+      { expiresIn: '1h' }
+    );
+
+    const me = await agent
+      .get('/api/users/me')
+      .set('Authorization', `Bearer ${orphanToken}`);
+    expect(me.status).toBe(401);
+
+    const authMe = await agent
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${orphanToken}`);
+    expect(authMe.status).toBe(401);
+    // The endpoint must never answer with the decoded token payload.
+    expect(authMe.body?.data?.user?.iat).toBeUndefined();
+
+    const mine = await agent
+      .get('/api/products/my-products')
+      .set('Authorization', `Bearer ${orphanToken}`);
+    expect(mine.status).toBe(401);
+
+    const orders = await agent
+      .get('/api/orders/my')
+      .set('Authorization', `Bearer ${orphanToken}`);
+    expect(orders.status).toBe(401);
+  });
+
+  it('SESSION: a token of a suspended account is refused', async () => {
+    // The administrator's "suspend account" action has to **end** the
+    // session of that account. Before the fix the token stayed valid for
+    // its whole lifetime, so the action was ineffective.
+    const suspended = await prisma.user.create({
+      data: {
+        email: `audit.suspended.${Date.now()}@farmconnect.test`,
+        phone: `6${String(Date.now()).slice(-9)}`,
+        name: 'Audit Suspended Account',
+        passwordHash,
+        role: 'CONSUMER',
+        isActive: true,
+      },
+    });
+
+    const loginRes = await agent
+      .post('/api/auth/login')
+      .send({ email: suspended.email, password: 'Password@123' });
+    expect(loginRes.status).toBe(200);
+    const suspendedToken = loginRes.body.data.token;
+
+    // While the account is active, the session works.
+    const active = await agent
+      .get('/api/users/me')
+      .set('Authorization', `Bearer ${suspendedToken}`);
+    expect(active.status).toBe(200);
+    expect(active.body.data.id).toBe(suspended.id);
+
+    // The administrator suspends the account.
+    await prisma.user.update({ where: { id: suspended.id }, data: { isActive: false } });
+
+    const refused = await agent
+      .get('/api/users/me')
+      .set('Authorization', `Bearer ${suspendedToken}`);
+    expect(refused.status).toBe(401);
+
+    const refusedOrders = await agent
+      .get('/api/orders/my')
+      .set('Authorization', `Bearer ${suspendedToken}`);
+    expect(refusedOrders.status).toBe(401);
+
+    // A suspended account cannot sign in again either.
+    const secondLogin = await agent
+      .post('/api/auth/login')
+      .send({ email: suspended.email, password: 'Password@123' });
+    expect(secondLogin.status).toBe(401);
+
+    await prisma.user.deleteMany({ where: { id: suspended.id } });
+  });
+
+  it('SESSION: a token signed with a published secret is refused', async () => {
+    // The two hard-coded secrets are part of the public repository. A token
+    // signed with them must never open a session — not even with the role
+    // of an administrator.
+    for (const publishedSecret of [
+      'farmconnect-secret-key',
+      'farmconnect-secret-key-development',
+    ]) {
+      const forged = jwt.sign(
+        { id: farmerUserId, role: 'ADMIN', email: 'ramesh.mandya@farmconnect.org' },
+        publishedSecret,
+        { expiresIn: '1h' }
+      );
+
+      const me = await agent
+        .get('/api/users/me')
+        .set('Authorization', `Bearer ${forged}`);
+      expect(me.status).toBe(401);
+
+      const admin = await agent
+        .get('/api/admin/metrics')
+        .set('Authorization', `Bearer ${forged}`);
+      expect(admin.status).toBe(401);
+
+      const adminUsers = await agent
+        .get('/api/admin/users')
+        .set('Authorization', `Bearer ${forged}`);
+      expect(adminUsers.status).toBe(401);
+    }
+  });
+
+  it('SESSION: the role of the live account decides, not the role of the token', async () => {
+    // A token that claims the role `ADMIN` for an ordinary farmer must not
+    // open the administrator endpoints. The role is read from the database.
+    const escalated = jwt.sign(
+      { id: farmerUserId, role: 'ADMIN' },
+      process.env.JWT_SECRET as string,
+      { expiresIn: '1h' }
+    );
+
+    const metrics = await agent
+      .get('/api/admin/metrics')
+      .set('Authorization', `Bearer ${escalated}`);
+    expect(metrics.status).toBe(403);
+
+    // The very same account still works with its real role.
+    const mine = await agent
+      .get('/api/products/my-products')
+      .set('Authorization', `Bearer ${escalated}`);
+    expect(mine.status).toBe(200);
   });
 });

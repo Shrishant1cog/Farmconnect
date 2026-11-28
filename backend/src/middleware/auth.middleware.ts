@@ -1,13 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-
-const env = process.env as Record<string, string | undefined>;
-
-const JWT_SECRETS: string[] = [
-  env.JWT_SECRET,
-  'farmconnect-secret-key',
-  'farmconnect-secret-key-development',
-].filter(Boolean) as string[];
+import { db } from '../config/db';
+import { JWT_SECRETS } from '../config/jwt';
 
 export interface AuthenticatedRequest extends Request {
   user?: any;
@@ -17,8 +11,17 @@ export interface AuthenticatedRequest extends Request {
 /**
  * Core Authentication Middleware
  * Resolves JWT from Authorization header, cookies, or custom headers
+ *
+ * A valid signature is **not** enough to open a session: the account has to
+ * exist in the shared database and has to be active. The token only proves
+ * that the key belongs to this service — the database proves that the
+ * person is still allowed to act.
  */
-export const authenticate = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export const authenticate = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
   let token: string | undefined;
 
   const authHeader = req.headers.authorization;
@@ -57,12 +60,65 @@ export const authenticate = (req: AuthenticatedRequest, res: Response, next: Nex
     });
   }
 
-  // Normalize user payload on request object
-  req.user = decodedUser;
-  if (!req.user.id && req.user.userId) {
-    req.user.id = req.user.userId;
+  const sessionUserId = decodedUser.id || decodedUser.userId;
+  if (!sessionUserId) {
+    return res.status(401).json({
+      success: false,
+      message: 'Unauthorized: The session carries no account.',
+    });
   }
-  req.userId = req.user.id;
+
+  // The account has to exist and has to be active. Without this check a
+  // token of a deleted account — and of a **suspended** account — kept
+  // working for the whole lifetime of the token, which made the
+  // administrator's "suspend account" action ineffective.
+  let account: any = null;
+  try {
+    account = await db.user.findUnique({
+      where: { id: String(sessionUserId) },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        isActive: true,
+        preferredLanguage: true,
+      },
+    });
+  } catch (dbError: any) {
+    console.error('[Auth] The account could not be verified:', dbError?.message || dbError);
+    return res.status(503).json({
+      success: false,
+      message: 'The session could not be verified right now. Please try again.',
+    });
+  }
+
+  if (!account) {
+    return res.status(401).json({
+      success: false,
+      message: 'Your session is no longer valid. Please sign in again.',
+    });
+  }
+
+  if (account.isActive === false) {
+    return res.status(401).json({
+      success: false,
+      message: 'This account has been suspended. Please contact the administrator.',
+    });
+  }
+
+  // Normalize user payload on request object.
+  //
+  // The **live database row** is authoritative: the role and the status are
+  // read from the database, never from the (possibly stale) token.
+  req.user = {
+    ...decodedUser,
+    ...account,
+    id: account.id,
+    role: account.role,
+  };
+  req.userId = account.id;
 
   next();
 };

@@ -55,3 +55,38 @@ export const latitudeSchema = coordinateSchema('Latitude', 90);
 
 /** The longitude of a farm or of a delivery address. */
 export const longitudeSchema = coordinateSchema('Longitude', 180);
+
+/**
+ * Parses a coordinate that a client really sent.
+ *
+ * A missing, malformed or out-of-range value yields `null` — the position is
+ * then simply **unknown** instead of being replaced by the point `0 / 0`.
+ *
+ * `Number(null)` is `0`, so the value has to be checked **before** it is
+ * converted. Otherwise a cleared position would silently become the point
+ * `0 / 0` in the Gulf of Guinea.
+ *
+ * @param value  The raw value of the request.
+ * @param limit  The largest absolute value the coordinate may have.
+ */
+export function parseCoordinateOrNull(value: unknown, limit: number): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'boolean') return null;
+
+  // A blank string is not a position. `Number('   ')` is `0`, so the value
+  // has to be trimmed and checked before it is converted.
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === '') return null;
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) return null;
+    if (parsed < -limit || parsed > limit) return null;
+    return parsed;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  if (parsed < -limit || parsed > limit) return null;
+
+  return parsed;
+}

@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { db } from '../../config/db';
 import { buildProductWhereClause, normalizeCropFields } from '../../utils/productQuery';
 import { resolveCategory } from '../../utils/categoryResolver';
+import { parseCoordinateOrNull } from '../../utils/coordinate';
 import {
   describeApmcBenchmark,
   loadApmcBenchmarkIndex,
@@ -158,8 +159,11 @@ export const createProduct = async (req: Request, res: Response) => {
           state: String(state || 'Karnataka'),
           // The position is stored only when it was really shared — a
           // placeholder would put the farm somewhere it does not exist.
-          latitude: Number.isFinite(Number(latitude)) ? Number(latitude) : null,
-          longitude: Number.isFinite(Number(longitude)) ? Number(longitude) : null,
+          // `Number(null)` is 0, so the value has to be checked **before**
+          // it is converted: a missing or cleared position must never
+          // become the point 0 / 0.
+          latitude: parseCoordinateOrNull(latitude, 90),
+          longitude: parseCoordinateOrNull(longitude, 180),
           isVerified: true,
         },
       });

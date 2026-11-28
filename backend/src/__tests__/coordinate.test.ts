@@ -1,4 +1,8 @@
-import { latitudeSchema, longitudeSchema } from '../utils/coordinate';
+import {
+  latitudeSchema,
+  longitudeSchema,
+  parseCoordinateOrNull,
+} from '../utils/coordinate';
 
 /**
  * The coordinate schema has to keep three states apart:
@@ -74,5 +78,45 @@ describe('coordinate schema — no fabricated position', () => {
     const raw = latitudeSchema.parse(null);
     const latitude = raw === null || raw === undefined ? NaN : Number(raw);
     expect(Number.isFinite(latitude)).toBe(false);
+  });
+});
+
+/**
+ * `parseCoordinateOrNull` is the shared helper of every backend write path.
+ *
+ * It has to reject an unknown value **before** the conversion — `Number(null)`
+ * is `0`, so a cleared position would otherwise be stored as the point
+ * `0 / 0` in the Gulf of Guinea.
+ */
+describe('parseCoordinateOrNull — the shared null-safe coordinate parser', () => {
+  it('returns null for every unknown value', () => {
+    expect(parseCoordinateOrNull(null, 90)).toBeNull();
+    expect(parseCoordinateOrNull(undefined, 90)).toBeNull();
+    expect(parseCoordinateOrNull('', 90)).toBeNull();
+    expect(parseCoordinateOrNull('   ', 90)).toBeNull();
+    expect(parseCoordinateOrNull('not-a-number', 90)).toBeNull();
+    expect(parseCoordinateOrNull(true, 90)).toBeNull();
+    expect(parseCoordinateOrNull(Number.NaN, 90)).toBeNull();
+    expect(parseCoordinateOrNull(Number.POSITIVE_INFINITY, 90)).toBeNull();
+  });
+
+  it('returns null for a value that is out of range', () => {
+    expect(parseCoordinateOrNull(91, 90)).toBeNull();
+    expect(parseCoordinateOrNull(-91, 90)).toBeNull();
+    expect(parseCoordinateOrNull(181, 180)).toBeNull();
+    expect(parseCoordinateOrNull(-181, 180)).toBeNull();
+  });
+
+  it('returns the real position', () => {
+    expect(parseCoordinateOrNull(12.5231, 90)).toBe(12.5231);
+    expect(parseCoordinateOrNull('12.5231', 90)).toBe(12.5231);
+    expect(parseCoordinateOrNull(0, 90)).toBe(0);
+    expect(parseCoordinateOrNull(76.8962, 180)).toBe(76.8962);
+  });
+
+  it('never turns a cleared position into the number 0', () => {
+    expect(parseCoordinateOrNull(null, 90)).not.toBe(0);
+    expect(parseCoordinateOrNull('', 90)).not.toBe(0);
+    expect(parseCoordinateOrNull(undefined, 90)).not.toBe(0);
   });
 });

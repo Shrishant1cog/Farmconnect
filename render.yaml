@@ -15,7 +15,7 @@ services:
     plan: free
     region: singapore
     branch: fix/local-updates
-    buildCommand: cd backend && npm ci --include=dev && npm run db:generate && npm run build && npm run db:migrate && npm run db:categories
+    buildCommand: cd backend && npm ci --include=dev && npm run db:generate && npm run build && npm run db:migrate && npm run db:categories && npm run db:demo-accounts
     startCommand: cd backend && npm start
     healthCheckPath: /api/health
     envVars:

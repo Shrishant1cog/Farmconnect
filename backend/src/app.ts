@@ -274,6 +274,10 @@ app.get('/api/farmers/map', async (req: Request, res: Response) => {
     let results = farmers.map((f: any) => {
       let distanceKm: number | null = null;
       if (lat && lon) {
+        // The distance is only known when **both** the query point and the
+        // farm really shared a position. A farm without a position keeps
+        // `null` — it is never plotted on the point 0 / 0 with a made-up
+        // distance to it.
         distanceKm = calculateDistanceKm(
           parseFloat(String(lat)),
           parseFloat(String(lon)),
@@ -384,18 +388,28 @@ app.post('/api/logistics/quote', (req: Request, res: Response) => {
 
   const benchmark = parseFloat(apmcModalPricePerQuintal);
 
-  const quote = computeLogisticsAndProfit({
-    cropQuantityKg: quantity,
-    farmerPricePerKg: farmerPrice,
-    originLat: originLatValue,
-    originLon: originLonValue,
-    destLat: destLatValue,
-    destLon: destLonValue,
-    containerType: containerType || 'STANDARD_CRATE',
-    ...(Number.isFinite(benchmark) && benchmark > 0
-      ? { apmcModalPricePerQuintal: benchmark }
-      : {}),
-  });
+  let quote;
+  try {
+    quote = computeLogisticsAndProfit({
+      cropQuantityKg: quantity,
+      farmerPricePerKg: farmerPrice,
+      originLat: originLatValue,
+      originLon: originLonValue,
+      destLat: destLatValue,
+      destLon: destLonValue,
+      containerType: containerType || 'STANDARD_CRATE',
+      ...(Number.isFinite(benchmark) && benchmark > 0
+        ? { apmcModalPricePerQuintal: benchmark }
+        : {}),
+    });
+  } catch (quoteError: any) {
+    // The route could not be computed from the supplied positions — the
+    // quote is refused instead of answering with a made-up distance.
+    return res.status(400).json({
+      success: false,
+      message: quoteError?.message || 'The route could not be computed.',
+    });
+  }
 
   return res.json({ success: true, data: quote });
 });

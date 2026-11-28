@@ -1,12 +1,28 @@
-// Fallback Haversine formula calculation if geo utility is unavailable
-const haversineFallback = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+// Fallback Haversine formula calculation if geo utility is unavailable.
+//
+// The fallback also refuses an unknown position: `Number(null)` is 0, so a
+// cleared coordinate would otherwise place the farm on the point 0 / 0 and
+// produce a fabricated distance.
+const haversineFallback = (
+  lat1: number | string | null | undefined,
+  lon1: number | string | null | undefined,
+  lat2: number | string | null | undefined,
+  lon2: number | string | null | undefined
+): number | null => {
+  if (![lat1, lon1, lat2, lon2].every((value) => Number.isFinite(Number(value)))) {
+    return null;
+  }
+  const nLat1 = Number(lat1);
+  const nLon1 = Number(lon1);
+  const nLat2 = Number(lat2);
+  const nLon2 = Number(lon2);
   const R = 6371; // Earth's mean radius in kilometers
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const dLat = ((nLat2 - nLat1) * Math.PI) / 180;
+  const dLon = ((nLon2 - nLon1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
+    Math.cos((nLat1 * Math.PI) / 180) *
+      Math.cos((nLat2 * Math.PI) / 180) *
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
@@ -14,7 +30,12 @@ const haversineFallback = (lat1: number, lon1: number, lat2: number, lon2: numbe
 };
 
 // Safe resolution of calculateDistanceKm from utils/geo
-let calculateDistanceKm: (lat1: number, lon1: number, lat2: number, lon2: number) => number = haversineFallback;
+let calculateDistanceKm: (
+  lat1: number | string | null | undefined,
+  lon1: number | string | null | undefined,
+  lat2: number | string | null | undefined,
+  lon2: number | string | null | undefined
+) => number | null = haversineFallback;
 try {
   const geoUtils = require('../utils/geo');
   if (typeof geoUtils.calculateDistanceKm === 'function') {
@@ -115,10 +136,21 @@ export function computeLogisticsAndProfit(params: LogisticsQuoteInput): Logistic
   const apmcModalPricePerQuintal = Math.max(0, parseFloat(String(params?.apmcModalPricePerQuintal)) || 0);
 
   // 1. Calculate Great-Circle Distance
-  let rawDistance = calculateDistanceKm(originLat, originLon, destLat, destLon);
-  if (isNaN(rawDistance) || rawDistance < 0) {
-    rawDistance = haversineFallback(originLat, originLon, destLat, destLon);
+  //
+  //    An unknown position means the route is unknown — it is never reported
+  //    as zero kilometres, because that would be a fabricated freight cost.
+  const computedDistance = calculateDistanceKm(originLat, originLon, destLat, destLon);
+  const rawDistance =
+    computedDistance === null || !Number.isFinite(computedDistance) || computedDistance < 0
+      ? haversineFallback(originLat, originLon, destLat, destLon)
+      : computedDistance;
+
+  if (rawDistance === null || !Number.isFinite(rawDistance) || rawDistance < 0) {
+    throw new Error(
+      'The route could not be computed from the supplied positions.',
+    );
   }
+
   const distanceKm = Math.max(0.5, rawDistance);
 
   // 2. Freight Pricing (Distance * Rate with minimum dispatch tariff guarantee)

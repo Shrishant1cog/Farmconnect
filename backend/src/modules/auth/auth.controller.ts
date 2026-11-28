@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { db } from '../../config/db';
 import { normalizeLanguage, resolveSupportedLanguage } from '../../utils/language';
+import { parseCoordinateOrNull } from '../../utils/coordinate';
 import { firebaseAdmin } from '../../config/firebaseAdmin';
 
 const JWT_SECRETS = [
@@ -34,13 +35,8 @@ const sanitizePhone = (rawPhone: string = ''): string => {
  * A missing or malformed value yields `null` — the position is then simply
  * unknown instead of being replaced by a fixed placeholder.
  */
-const parseCoordinate = (value: unknown): number | null => {
-  if (value === null || value === undefined || value === '') return null;
-  const parsed = parseFloat(String(value));
-  if (!Number.isFinite(parsed)) return null;
-  if (parsed < -90 || parsed > 90) return null;
-  return parsed;
-};
+const parseCoordinate = (value: unknown): number | null =>
+  parseCoordinateOrNull(value, 90);
 
 /**
  * 1. User Registration Handler
@@ -282,7 +278,13 @@ export const login = async (req: Request, res: Response) => {
     }
 
     const digitsOnly = loginKey.replace(/\D/g, '');
-    const isPhone = digitsOnly.length >= 10;
+    // An identifier is only treated as a phone number when it **is** one.
+    // An e-mail address that happens to contain digits (for example
+    // `someone.9876543210@example.com`) must never be matched against the
+    // phone column — otherwise the account of a different person could be
+    // opened with the wrong identifier.
+    const looksLikePhone = /^\+?\d[\d\s-]{8,}$/.test(loginKey);
+    const isPhone = looksLikePhone && digitsOnly.length >= 10;
     const searchPhone = isPhone ? digitsOnly.slice(-10) : null;
 
     let user: any = null;
@@ -304,31 +306,6 @@ export const login = async (req: Request, res: Response) => {
       console.warn('[Login] DB search notice:', dbErr);
     }
 
-    // Seed credential overrides for testing
-    if (loginKey === 'farmer@farmconnect.com' || searchPhone === '9876543210') {
-      if (cleanPassword === 'password123') {
-        user = {
-          id: user?.id || 'usr_farmer_demo',
-          name: user?.name && !user?.name.includes('Buyer') ? user.name : 'Ramesh Kumar (Demo Cultivator)',
-          email: 'farmer@farmconnect.com',
-          phone: '9876543210',
-          role: 'FARMER',
-          farmerProfile: user?.farmerProfile || { farmName: 'Mandya Agro Farm', district: 'Mandya', state: 'Karnataka', isVerified: true },
-        };
-      }
-    } else if (loginKey === 'consumer@farmconnect.com' || searchPhone === '9876543211') {
-      if (cleanPassword === 'password123') {
-        user = {
-          id: user?.id || 'usr_consumer_demo',
-          name: user?.name || 'Priya Narayanan (Demo Buyer)',
-          email: 'consumer@farmconnect.com',
-          phone: '9876543211',
-          role: 'CONSUMER',
-          consumerProfile: user?.consumerProfile || { district: 'Bengaluru Urban' },
-        };
-      }
-    }
-
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -336,23 +313,29 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
-    if (loginKey !== 'farmer@farmconnect.com' && loginKey !== 'consumer@farmconnect.com') {
-      const hashToCompare = user.passwordHash || user.password;
-      if (hashToCompare) {
-        let isMatch = false;
-        if (bcrypt) {
-          isMatch = await bcrypt.compare(cleanPassword, hashToCompare);
-        } else {
-          isMatch = cleanPassword === hashToCompare;
-        }
+    // The password is **always** checked against the stored hash. There is
+    // no hard-coded account and no shortcut: a session is only ever issued
+    // for an account that really exists in the shared database.
+    const hashToCompare = user.passwordHash || user.password;
+    if (!hashToCompare) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials. Please check your password.',
+      });
+    }
 
-        if (!isMatch) {
-          return res.status(401).json({
-            success: false,
-            message: 'Invalid credentials. Please check your password.',
-          });
-        }
-      }
+    let isMatch = false;
+    if (bcrypt) {
+      isMatch = await bcrypt.compare(cleanPassword, hashToCompare);
+    } else {
+      isMatch = cleanPassword === hashToCompare;
+    }
+
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials. Please check your password.',
+      });
     }
 
     const normalizedRole = (user.role || 'CONSUMER').toUpperCase();

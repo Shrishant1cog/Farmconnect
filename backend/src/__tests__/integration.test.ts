@@ -21,6 +21,10 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
   let thirdProductId: string;
   let testOrderId: string;
   let testEnquiryId: string;
+  let adminUserId: string;
+  let adminToken: string;
+  /** The hash of the test password — shared by every test account. */
+  let passwordHash: string;
 
   beforeAll(async () => {
     // 1. Ensure test categories exist
@@ -36,7 +40,7 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
     testCategoryId = category.id;
 
     // 2. Ensure test farmer exists with verified credentials
-    const passwordHash = await bcrypt.hash('Password@123', 10);
+    passwordHash = await bcrypt.hash('Password@123', 10);
     const farmerUser = await prisma.user.upsert({
       where: { email: 'ramesh.mandya@farmconnect.org' },
       update: { passwordHash, isActive: true },
@@ -129,6 +133,9 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
       if (!productId) continue;
       await prisma.priceHistory.deleteMany({ where: { productId } }).catch(() => {});
       await prisma.product.deleteMany({ where: { id: productId } }).catch(() => {});
+    }
+    if (adminUserId) {
+      await prisma.user.deleteMany({ where: { id: adminUserId } }).catch(() => {});
     }
     await prisma.$disconnect();
   });
@@ -637,5 +644,337 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
       .patch('/api/notifications/read-all')
       .set('Authorization', `Bearer ${farmerToken}`);
     expect(markAllRead.status).toBe(200);
+  });
+
+  // ==========================================================================
+  // 8. THE AUTHENTICATION JOURNEY
+  // ==========================================================================
+
+  it('AUTH: a wrong password is refused', async () => {
+    const res = await agent
+      .post('/api/auth/login')
+      .send({ email: 'ramesh.mandya@farmconnect.org', password: 'not-the-password' });
+
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+    expect(res.body.token).toBeUndefined();
+  });
+
+  it('AUTH: an unknown account is refused', async () => {
+    const res = await agent
+      .post('/api/auth/login')
+      .send({ email: 'nobody.at.all@farmconnect.test', password: 'Password@123' });
+
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('AUTH: the hard-coded demo credential does not open a session', async () => {
+    // The login screen used to offer a quick sign-in. That shortcut issued a
+    // JWT for an account id (`usr_farmer_demo`) that never existed in the
+    // shared database — a fabricated session that still passed the role
+    // guards. There is no shortcut any more: a session is only issued for an
+    // account that really exists and whose password really matches.
+    const res = await agent
+      .post('/api/auth/login')
+      .send({ identifier: 'farmer@farmconnect.com', password: 'password123' });
+
+    // Either the account does not exist at all, or it exists and the real
+    // password check applies. What must never happen is a session for an
+    // account that is not in the database.
+    if (res.status === 200) {
+      expect(res.body.data.user.id).not.toBe('usr_farmer_demo');
+
+      const account = await prisma.user.findUnique({
+        where: { id: res.body.data.user.id },
+      });
+      expect(account).not.toBeNull();
+
+      const me = await agent
+        .get('/api/auth/me')
+        .set('Authorization', `Bearer ${res.body.data.token}`);
+      expect(me.status).toBe(200);
+      expect(me.body.data.user.id).toBe(res.body.data.user.id);
+      // The profile comes from the database, not from the decoded token.
+      expect(me.body.data.user.iat).toBeUndefined();
+    } else {
+      expect(res.status).toBe(401);
+    }
+  });
+
+  it('AUTH: an e-mail address that contains digits is not matched as a phone number', async () => {
+    // The identifier was reduced to its digits, so
+    // `someone.9448123456@example.com` opened the account whose phone number
+    // ends in those digits. An identifier is only a phone number when it
+    // really is one.
+    const res = await agent
+      .post('/api/auth/login')
+      .send({ identifier: 'someone.9448123456@example.com', password: 'Password@123' });
+
+    expect(res.status).toBe(401);
+  });
+
+  it('AUTH: the session keeps working after the sign-in', async () => {
+    const me = await agent
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${farmerToken}`);
+    expect(me.status).toBe(200);
+    expect(me.body.data.user.id).toBe(farmerUserId);
+    expect(me.body.data.user.role).toBe('FARMER');
+
+    // A second request with the same token still works — the session is
+    // persistent, not one-shot.
+    const again = await agent
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${farmerToken}`);
+    expect(again.status).toBe(200);
+  });
+
+  it('AUTH: a forged token is refused', async () => {
+    const res = await agent
+      .get('/api/auth/me')
+      .set('Authorization', 'Bearer not.a.real.token');
+    expect(res.status).toBe(401);
+  });
+
+  // ==========================================================================
+  // 9. THE ADMINISTRATOR WORKFLOWS
+  //
+  // The deployed database has no administrator account, so these routes are
+  // exercised here against a real PostgreSQL with a real administrator that
+  // the suite creates for itself.
+  // ==========================================================================
+
+  it('ADMIN: an administrator account can sign in and sees the platform metrics', async () => {
+    const adminUser = await prisma.user.upsert({
+      where: { email: 'audit.admin@farmconnect.test' },
+      update: { passwordHash, isActive: true, role: 'ADMIN' },
+      create: {
+        email: 'audit.admin@farmconnect.test',
+        passwordHash,
+        name: 'Integration Administrator',
+        phone: '+919000000001',
+        role: 'ADMIN',
+        isActive: true,
+      },
+    });
+    adminUserId = adminUser.id;
+
+    const loginRes = await agent
+      .post('/api/auth/login')
+      .send({ email: 'audit.admin@farmconnect.test', password: 'Password@123' });
+    expect(loginRes.status).toBe(200);
+    expect(loginRes.body.data.user.role).toBe('ADMIN');
+    adminToken = loginRes.body.data.token;
+
+    const metrics = await agent
+      .get('/api/admin/metrics')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(metrics.status).toBe(200);
+    expect(metrics.body.success).toBe(true);
+    expect(typeof metrics.body.data.totalUsers).toBe('number');
+    expect(typeof metrics.body.data.activeProducts).toBe('number');
+    expect(metrics.body.data.totalUsers).toBeGreaterThan(0);
+  });
+
+  it('ADMIN: the administrator sees the user list and can filter it', async () => {
+    const res = await agent
+      .get('/api/admin/users')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data.length).toBeGreaterThan(0);
+
+    const farmers = await agent
+      .get('/api/admin/users?role=FARMER')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(farmers.status).toBe(200);
+    expect(farmers.body.data.every((u: any) => u.role === 'FARMER')).toBe(true);
+
+    const searched = await agent
+      .get('/api/admin/users?search=Integration')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(searched.status).toBe(200);
+    expect(searched.body.data.length).toBeGreaterThan(0);
+  });
+
+  it('ADMIN: the administrator can suspend and reactivate an account', async () => {
+    const suspend = await agent
+      .patch(`/api/admin/users/${consumerUserId}/toggle-status`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(suspend.status).toBe(200);
+    expect(suspend.body.data.isActive).toBe(false);
+
+    const stored = await prisma.user.findUnique({
+      where: { id: consumerUserId },
+      select: { isActive: true },
+    });
+    expect(stored?.isActive).toBe(false);
+
+    const reactivate = await agent
+      .patch(`/api/admin/users/${consumerUserId}/toggle-status`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(reactivate.status).toBe(200);
+    expect(reactivate.body.data.isActive).toBe(true);
+  });
+
+  it('ADMIN: an administrator cannot suspend its own account', async () => {
+    const res = await agent
+      .patch(`/api/admin/users/${adminUserId}/toggle-status`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(400);
+  });
+
+  it('ADMIN: the administrator sees the complaint queue and can resolve a complaint', async () => {
+    const complaintRes = await agent
+      .post('/api/complaints')
+      .set('Authorization', `Bearer ${consumerToken}`)
+      .send({
+        entityType: 'PRODUCT',
+        entityId: thirdProductId,
+        reason: 'Integration complaint',
+        details: 'A complaint that the administrator resolves.',
+      });
+    expect(complaintRes.status).toBe(201);
+    const complaintId = complaintRes.body.data.id;
+
+    const queue = await agent
+      .get('/api/admin/complaints')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(queue.status).toBe(200);
+    expect(queue.body.data.some((c: any) => c.id === complaintId)).toBe(true);
+
+    const resolved = await agent
+      .patch(`/api/admin/complaints/${complaintId}/resolve`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ adminNotes: 'Reviewed by the administrator.', status: 'RESOLVED' });
+    expect(resolved.status).toBe(200);
+    expect(resolved.body.data.status).toBe('RESOLVED');
+
+    const stored = await prisma.complaint.findUnique({ where: { id: complaintId } });
+    expect(stored?.status).toBe('RESOLVED');
+
+    await prisma.complaint.deleteMany({ where: { id: complaintId } });
+  });
+
+  it('ADMIN: a farmer and a consumer are both refused by every admin route', async () => {
+    for (const token of [farmerToken, consumerToken]) {
+      const metrics = await agent
+        .get('/api/admin/metrics')
+        .set('Authorization', `Bearer ${token}`);
+      expect(metrics.status).toBe(403);
+
+      const users = await agent
+        .get('/api/admin/users')
+        .set('Authorization', `Bearer ${token}`);
+      expect(users.status).toBe(403);
+
+      const complaints = await agent
+        .get('/api/admin/complaints')
+        .set('Authorization', `Bearer ${token}`);
+      expect(complaints.status).toBe(403);
+    }
+
+    const guest = await agent.get('/api/admin/metrics');
+    expect(guest.status).toBe(401);
+  });
+
+  // ==========================================================================
+  // 10. THE POSITION OF A FARM THAT DID NOT SHARE ONE
+  // ==========================================================================
+
+  it('POSITION: a farm without a shared position carries no distance', async () => {
+    // The farmer profile of the suite farmer is cleared, so the map must
+    // report `null` for its distance — never the distance to the point
+    // 0 / 0, which would be a fabricated number.
+    await prisma.farmerProfile.update({
+      where: { id: farmerProfileId },
+      data: { latitude: null, longitude: null },
+    });
+
+    const res = await agent.get('/api/farmers/map?lat=12.9716&lon=77.5946');
+    expect(res.status).toBe(200);
+
+    const farm = res.body.data.find((f: any) => f.id === farmerProfileId);
+    expect(farm).toBeDefined();
+    expect(farm.latitude).toBeNull();
+    expect(farm.distanceKm).toBeNull();
+  });
+
+  it('POSITION: a farm that shares a position carries its real distance', async () => {
+    await prisma.farmerProfile.update({
+      where: { id: farmerProfileId },
+      data: { latitude: 12.5218, longitude: 76.8951 },
+    });
+
+    const res = await agent.get('/api/farmers/map?lat=12.9716&lon=77.5946');
+    expect(res.status).toBe(200);
+
+    const farm = res.body.data.find((f: any) => f.id === farmerProfileId);
+    expect(farm).toBeDefined();
+    expect(typeof farm.distanceKm).toBe('number');
+    expect(farm.distanceKm).toBeGreaterThan(50);
+    expect(farm.distanceKm).toBeLessThan(150);
+
+    // The suite leaves the account without a position again.
+    await prisma.farmerProfile.update({
+      where: { id: farmerProfileId },
+      data: { latitude: null, longitude: null },
+    });
+  });
+
+  it('POSITION: a listing that creates the missing farm profile stores no point 0 / 0', async () => {
+    // `Number(null)` is 0. A profile that is created without a position must
+    // not end up on the point 0 / 0 in the Gulf of Guinea.
+    const throwaway = await prisma.user.create({
+      data: {
+        email: `audit.noprofile.${Date.now()}@farmconnect.test`,
+        phone: `7${String(Date.now()).slice(-9)}`,
+        name: 'Audit Account Without A Farm Profile',
+        passwordHash,
+        role: 'CONSUMER',
+      },
+    });
+
+    const tokenRes = await agent
+      .post('/api/auth/login')
+      .send({ email: throwaway.email, password: 'Password@123' });
+    const throwawayToken = tokenRes.body.data.token;
+
+    // Promote the account to a farmer and remove its profile, so the listing
+    // has to create the profile itself.
+    await prisma.user.update({ where: { id: throwaway.id }, data: { role: 'FARMER' } });
+    await prisma.consumerProfile.deleteMany({ where: { userId: throwaway.id } });
+
+    const createRes = await agent
+      .post('/api/products')
+      .set('Authorization', `Bearer ${throwawayToken}`)
+      .send({
+        title: 'Audit Lot Without A Position',
+        description: 'A lot that creates the farm profile.',
+        categoryId: testCategoryId,
+        cropName: 'Tomato',
+        farmerPrice: 15,
+        quantityAvailable: 40,
+        quantityUnit: 'KG',
+        priceUnit: 'PER_KG',
+        isOrganic: false,
+        latitude: null,
+        longitude: null,
+      });
+
+    expect(createRes.status).toBe(201);
+
+    const profile = await prisma.farmerProfile.findUnique({
+      where: { userId: throwaway.id },
+    });
+    expect(profile).not.toBeNull();
+    expect(profile!.latitude).toBeNull();
+    expect(profile!.longitude).toBeNull();
+
+    await prisma.priceHistory.deleteMany({ where: { productId: createRes.body.data.id } });
+    await prisma.product.deleteMany({ where: { id: createRes.body.data.id } });
+    await prisma.farmerProfile.deleteMany({ where: { userId: throwaway.id } });
+    await prisma.user.deleteMany({ where: { id: throwaway.id } });
   });
 });

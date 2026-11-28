@@ -3,16 +3,27 @@ const EARTH_RADIUS_KM = 6371.0;
 /**
  * Validates that latitude and longitude fall within legal spherical coordinates.
  * Handles both number and valid numeric string inputs.
+ *
+ * An **unknown** coordinate (`null`, `undefined` or an empty string) is never
+ * valid. `Number(null)` is `0`, so a farm without a shared position would
+ * otherwise be treated as if it stood on the point `0 / 0` in the Gulf of
+ * Guinea — and every distance to it would be a fabricated number.
  */
 export function isValidCoordinate(lat: unknown, lon: unknown): boolean {
+  if (lat === null || lat === undefined || lon === null || lon === undefined) {
+    return false;
+  }
+  if (typeof lat === 'string' && lat.trim() === '') return false;
+  if (typeof lon === 'string' && lon.trim() === '') return false;
+
   const numLat = Number(lat);
   const numLon = Number(lon);
 
   return (
     typeof lat !== 'boolean' &&
     typeof lon !== 'boolean' &&
-    !Number.isNaN(numLat) &&
-    !Number.isNaN(numLon) &&
+    Number.isFinite(numLat) &&
+    Number.isFinite(numLon) &&
     numLat >= -90 &&
     numLat <= 90 &&
     numLon >= -180 &&
@@ -23,15 +34,18 @@ export function isValidCoordinate(lat: unknown, lon: unknown): boolean {
 /**
  * Computes Great-Circle distance between two coordinates using the Haversine formula.
  * Returns distance in kilometers rounded to two decimal places.
+ *
+ * The result is `null` when one of the positions is unknown — the distance is
+ * then **not known**, which is different from being zero kilometres.
  */
 export function calculateDistanceKm(
-  lat1: number | string,
-  lon1: number | string,
-  lat2: number | string,
-  lon2: number | string
-): number {
+  lat1: number | string | null | undefined,
+  lon1: number | string | null | undefined,
+  lat2: number | string | null | undefined,
+  lon2: number | string | null | undefined
+): number | null {
   if (!isValidCoordinate(lat1, lon1) || !isValidCoordinate(lat2, lon2)) {
-    return 0;
+    return null;
   }
 
   const nLat1 = Number(lat1);
@@ -61,17 +75,17 @@ export function calculateDistanceKm(
  * for database geospatial pre-filtering before fine Haversine sorting.
  */
 export function getBoundingBox(
-  lat: number | string,
-  lon: number | string,
+  lat: number | string | null | undefined,
+  lon: number | string | null | undefined,
   radiusKm: number | string
 ): { minLat: number; maxLat: number; minLon: number; maxLon: number } {
+  if (!isValidCoordinate(lat, lon)) {
+    return { minLat: 0, maxLat: 0, minLon: 0, maxLon: 0 };
+  }
+
   const nLat = Number(lat);
   const nLon = Number(lon);
   const nRadius = Math.max(0, Number(radiusKm) || 0);
-
-  if (!isValidCoordinate(nLat, nLon)) {
-    return { minLat: 0, maxLat: 0, minLon: 0, maxLon: 0 };
-  }
 
   const dLat = (nRadius / EARTH_RADIUS_KM) * (180 / Math.PI);
   const cosLat = Math.cos((nLat * Math.PI) / 180);

@@ -28,6 +28,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   ADMIN_RESOURCES,
+  anySettled,
   errorKeyForStatus,
   extractComplaintList,
   extractMetrics,
@@ -36,6 +37,7 @@ import {
   firstFailure,
   isErrorBody,
   loadedState,
+  pendingState,
 } from '../adminResources.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -164,11 +166,50 @@ test('ADMIN: a request without an HTTP status is reported as a failure', () => {
   assert.equal(state.errorKey, 'misc.admin.loadError');
 });
 
+test('ADMIN: the three resources of the command center are known', () => {
+  assert.deepEqual([...ADMIN_RESOURCES], ['metrics', 'users', 'complaints']);
+});
+
+test('ADMIN: a resource that is still running is neither read nor failed', () => {
+  assert.equal(pendingState.loaded, false);
+  assert.equal(pendingState.pending, true);
+  assert.equal(pendingState.status, null);
+  assert.equal(pendingState.errorKey, null);
+});
+
+test('ADMIN: a pending resource is not reported as a failure', () => {
+  // The request may still answer — it is not a failure yet.
+  const failure = firstFailure({
+    metrics: pendingState,
+    users: pendingState,
+    complaints: pendingState,
+  });
+  assert.equal(failure, null);
+});
+
+test('ADMIN: the page leaves its loading state when one resource answered', () => {
+  // A single request that never arrives must not keep the whole command
+  // center on "Loading Command Center...".
+  assert.equal(
+    anySettled({ metrics: pendingState, users: pendingState, complaints: pendingState }),
+    false
+  );
+  assert.equal(
+    anySettled({ metrics: loadedState, users: pendingState, complaints: pendingState }),
+    true
+  );
+  assert.equal(
+    anySettled({ metrics: failedState(403), users: pendingState, complaints: pendingState }),
+    true
+  );
+});
+
 test('ADMIN: a resource that was read has no error', () => {
   const state = loadedState;
   assert.equal(state.loaded, true);
   assert.equal(state.status, null);
   assert.equal(state.errorKey, null);
+  assert.equal(state.pending, false);
 });
 
 test('ADMIN: the banner reports the first failed resource', () => {

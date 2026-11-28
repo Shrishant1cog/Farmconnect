@@ -194,6 +194,7 @@ export const miscKn: TranslationMap = {
   'misc.admin.subtitle': 'ಪ್ಲಾಟ್‌ಫಾರ್ಮ್ ನಿರ್ವಹಣೆ, ಬಳಕೆದಾರ ನಿರ್ವಹಣೆ ಮತ್ತು ಸಂಘರ್ಷ ನಿರ್ವಹಣೆ.',
   'misc.admin.refresh': 'ಡೇಟಾ ರಿಫ್ರೆಶ್ ಮಾಡಿ',
   'misc.admin.loading': 'ಕಮಾಂಡ್ ಸೆಂಟರ್ ಲೋಡ್ ಆಗುತ್ತಿದೆ...',
+  'misc.admin.loadingResource': 'ಹಂಚಿಕೊಂಡ ವೇದಿಕೆಯಿಂದ ಓದುತ್ತಿದೆ...',
   'misc.admin.loadError': 'ಕಮಾಂಡ್ ಸೆಂಟರ್ ಡೇಟಾ ಲೋಡ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ.',
   'misc.admin.forbidden':
     'ಈ ಡೇಟಾವನ್ನು ಓದಲು ನಿರ್ವಹಕ ಪ್ರವೇಶ ಅಗತ್ಯ. ವೇದಿಕೆಯ ಸಂಖ್ಯೆಗಳನ್ನು ಓದದಿರುವುದರಿಂದ ತೋರಿಸಲಾಗುತ್ತಿಲ್ಲ.',

@@ -194,6 +194,7 @@ export const miscHi: TranslationMap = {
   'misc.admin.subtitle': 'प्लेटफ़ॉर्म नियंत्रण, उपयोगकर्ता प्रबंधन और टकराव समाधान।',
   'misc.admin.refresh': 'डेटा रीफ़्रेश करें',
   'misc.admin.loading': 'कमांड सेंटर लोड हो रहा है...',
+  'misc.admin.loadingResource': 'साझा प्लेटफ़ॉर्म से पढ़ा जा रहा है...',
   'misc.admin.loadError': 'कमांड सेंटर का डेटा लोड नहीं हो सका।',
   'misc.admin.forbidden':
     'यह डेटा पढ़ने के लिए व्यवस्थापक की अनुमति आवश्यक है। प्लेटफ़ॉर्म के आंकड़े नहीं दिखाए गए क्योंकि वे पढ़े नहीं गए।',

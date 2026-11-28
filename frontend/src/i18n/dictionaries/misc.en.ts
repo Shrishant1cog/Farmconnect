@@ -197,6 +197,7 @@ export const miscEn: TranslationMap = {
   'misc.admin.subtitle': 'Platform moderation, user management and conflict resolution.',
   'misc.admin.refresh': 'Refresh Data',
   'misc.admin.loading': 'Loading Command Center...',
+  'misc.admin.loadingResource': 'Reading from the shared platform...',
   'misc.admin.loadError': 'Failed to load command center data.',
   'misc.admin.forbidden':
     'Administrator access is required to read this data. The numbers of the platform are not shown because they were not read.',

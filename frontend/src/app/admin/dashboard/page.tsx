@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Users, ShieldAlert, Activity, CheckCircle, Ban, Power, RefreshCw, AlertCircle } from 'lucide-react';
 import { fetchApi } from '../../../lib/api';
 import {
+  anySettled,
   errorKeyForStatus,
   extractComplaintList,
   extractMetrics,
@@ -11,6 +12,7 @@ import {
   failedState,
   firstFailure,
   loadedState,
+  pendingState,
   type AdminResource,
   type AdminResourceState,
 } from '../../../lib/adminResources';
@@ -37,9 +39,9 @@ export default function AdminDashboard() {
    * had verified.
    */
   const [resources, setResources] = useState<Record<AdminResource, AdminResourceState>>({
-    metrics: failedState(null),
-    users: failedState(null),
-    complaints: failedState(null),
+    metrics: pendingState,
+    users: pendingState,
+    complaints: pendingState,
   });
 
   /**
@@ -59,6 +61,7 @@ export default function AdminDashboard() {
   const fetchAdminData = useCallback(async () => {
     setLoading(true);
     setErrorMessage(null);
+    setResources({ metrics: pendingState, users: pendingState, complaints: pendingState });
 
     const load = async (
       resource: AdminResource,
@@ -144,7 +147,18 @@ export default function AdminDashboard() {
     }
   };
 
-  if (loading) {
+  /**
+   * The first loading state ends as soon as **one** resource has
+   * answered.
+   *
+   * The page used to wait for all three of them. A single request that
+   * never arrived — which the host of the platform does occasionally —
+   * therefore kept the whole command center on "Loading Command
+   * Center..." for ever. Every resource carries its own state, so the
+   * tab that is open can be rendered as soon as **its** resource has
+   * answered.
+   */
+  if (loading && !anySettled(resources)) {
     return (
       <div className="p-16 text-center">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-stone-300 border-t-stone-900 mb-4" />
@@ -229,6 +243,12 @@ export default function AdminDashboard() {
           <div className="p-8 text-center bg-stone-50 rounded-2xl border border-stone-200 text-stone-500 text-sm font-semibold">
             {t('misc.admin.noStats')}
           </div>
+        ) : resources.metrics.pending ? (
+          // The request is still running. Nothing is claimed about the
+          // numbers of the platform yet.
+          <div className="p-8 text-center bg-stone-50 rounded-2xl border border-stone-200 text-stone-500 text-sm font-semibold">
+            {t('misc.admin.loadingResource')}
+          </div>
         ) : (
           // The metrics were **not** read. Saying "0 users" here would be
           // a statement about the platform that nobody has verified.
@@ -309,7 +329,11 @@ export default function AdminDashboard() {
               ) : (
                 <tr>
                   <td colSpan={4} className="p-8 text-center text-stone-500 font-semibold">
-                    {t(resources.users.errorKey ?? 'misc.admin.loadError')}
+                    {t(
+                      resources.users.pending
+                        ? 'misc.admin.loadingResource'
+                        : resources.users.errorKey ?? 'misc.admin.loadError'
+                    )}
                   </td>
                 </tr>
               )}
@@ -368,7 +392,11 @@ export default function AdminDashboard() {
             ))
           ) : (
             <p className="text-stone-500 font-bold p-8 text-center bg-stone-50 rounded-2xl">
-              {t(resources.complaints.errorKey ?? 'misc.admin.loadError')}
+              {t(
+                resources.complaints.pending
+                  ? 'misc.admin.loadingResource'
+                  : resources.complaints.errorKey ?? 'misc.admin.loadError'
+              )}
             </p>
           )}
         </div>

@@ -123,6 +123,13 @@ export interface AdminResourceState {
   status: number | null;
   /** The translation key that describes the failure — `null` on success. */
   errorKey: AdminErrorKey | null;
+  /**
+   * Is the request still running?
+   *
+   * A resource that is still pending is neither read nor failed — the
+   * page must not claim that it knows anything about it.
+   */
+  pending: boolean;
 }
 
 /** The state of a resource that was read. */
@@ -130,35 +137,64 @@ export const loadedState: AdminResourceState = {
   loaded: true,
   status: null,
   errorKey: null,
+  pending: false,
+};
+
+/** The state of a resource whose request has not finished yet. */
+export const pendingState: AdminResourceState = {
+  loaded: false,
+  status: null,
+  errorKey: null,
+  pending: true,
 };
 
 /**
  * The state of a resource that was **not** read.
  *
  * `status` is `null` when the request failed without an HTTP status
- * (a network error, for example).
+ * (a network error or a deadline, for example).
  */
 export function failedState(status: number | null | undefined): AdminResourceState {
   return {
     loaded: false,
     status: typeof status === 'number' ? status : null,
     errorKey: errorKeyForStatus(status),
+    pending: false,
   };
 }
 
 /**
  * The first failure of a set of resources — the one the banner reports.
  *
- * `null` when every resource was read.
+ * A resource that is still pending is **not** a failure: the request may
+ * still answer. `null` when every resource was read or is still pending.
  */
 export function firstFailure(
   states: Partial<Record<AdminResource, AdminResourceState>>
 ): { resource: AdminResource; state: AdminResourceState } | null {
   for (const resource of ADMIN_RESOURCES) {
     const state = states[resource];
-    if (state && !state.loaded) {
+    if (state && !state.loaded && !state.pending) {
       return { resource, state };
     }
   }
   return null;
+}
+
+/**
+ * Has at least one resource finished — read or failed?
+ *
+ * The page leaves its first loading state as soon as one resource has
+ * answered. It used to wait for **all** of them, so a single request
+ * that never arrived kept the whole command center on "Loading Command
+ * Center...".
+ */
+export function anySettled(
+  states: Partial<Record<AdminResource, AdminResourceState>>
+): boolean {
+  for (const resource of ADMIN_RESOURCES) {
+    const state = states[resource];
+    if (state && !state.pending) return true;
+  }
+  return false;
 }

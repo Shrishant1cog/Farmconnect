@@ -1,0 +1,14 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The INTERNET permission is required for development. Specifically,
+         the Flutter tool needs it to communicate with the running application
+         to allow setting breakpoints, to provide hot reload, etc.
+    -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!--
+        Cleartext HTTP is allowed in the profile variant only, so the app can
+        be profiled against a backend running on the host machine. The release
+        variant never inherits this attribute and therefore only talks HTTPS
+        to the production Render API.
+    -->
+    <application android:usesCleartextTraffic="true" />
+</manifest>

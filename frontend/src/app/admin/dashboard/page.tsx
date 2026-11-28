@@ -3,8 +3,23 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Users, ShieldAlert, Activity, CheckCircle, Ban, Power, RefreshCw, AlertCircle } from 'lucide-react';
 import { fetchApi } from '../../../lib/api';
+import {
+  anySettled,
+  errorKeyForStatus,
+  extractComplaintList,
+  extractMetrics,
+  extractUserList,
+  failedState,
+  firstFailure,
+  loadedState,
+  pendingState,
+  type AdminResource,
+  type AdminResourceState,
+} from '../../../lib/adminResources';
+import { useI18n } from '../../../hooks/useI18n';
 
 export default function AdminDashboard() {
+  const { t, formatNumber } = useI18n();
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'complaints'>('overview');
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
@@ -12,78 +27,94 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const getAuthToken = () => {
-    if (typeof window === 'undefined') return '';
-    return localStorage.getItem('farmconnect_token') || localStorage.getItem('fc_token') || '';
-  };
+  /**
+   * What actually happened to every resource.
+   *
+   * `loaded` is **false** until the shared backend answered with the data.
+   * That distinction matters: an empty list means "there is nothing", while
+   * a failed request means "nothing is known". The dashboard used to treat
+   * a failed request as an empty list and an empty metric set, so a
+   * visitor without administrator rights saw a plausible looking
+   * dashboard full of zeros — a statement about the platform that nobody
+   * had verified.
+   */
+  const [resources, setResources] = useState<Record<AdminResource, AdminResourceState>>({
+    metrics: pendingState,
+    users: pendingState,
+    complaints: pendingState,
+  });
 
+  /**
+   * Every call goes through `fetchApi`, which **throws** on a non-2xx
+   * answer and carries the HTTP status on the error.
+   *
+   * The old code had a second, direct `fetch` in the `catch` branch that
+   * ignored the status code and returned the error body as if it were the
+   * requested data — so a 403 became "zero users, zero complaints". The
+   * second call was also made against a possibly empty base URL, which
+   * left the page waiting for an answer that never came.
+   */
   const executeApiCall = async (endpoint: string, options: RequestInit = {}) => {
-    try {
-      return await fetchApi(endpoint, options);
-    } catch {
-      // Fallback direct fetch if helper handles URL formatting differently
-      const token = getAuthToken();
-      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
-      const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-      const res = await fetch(`${baseUrl}${cleanEndpoint}`, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-          ...options.headers,
-        },
-      });
-      return await res.json();
-    }
+    return fetchApi(endpoint, options);
   };
 
   const fetchAdminData = useCallback(async () => {
     setLoading(true);
     setErrorMessage(null);
+    setResources({ metrics: pendingState, users: pendingState, complaints: pendingState });
 
-    try {
-      // Corrected route: /admin/metrics (previously /dashboard/admin)
-      const [statsRes, usersRes, complaintsRes] = await Promise.all([
-        executeApiCall('/admin/metrics').catch((err) => {
-          console.warn('Metrics endpoint error:', err);
-          return null;
-        }),
-        executeApiCall('/admin/users').catch((err) => {
-          console.warn('Users endpoint error:', err);
-          return null;
-        }),
-        executeApiCall('/admin/complaints').catch((err) => {
-          console.warn('Complaints endpoint error:', err);
-          return null;
-        }),
-      ]);
-
-      if (statsRes) {
-        const statsPayload = statsRes?.data?.stats || statsRes?.data || statsRes?.stats || statsRes;
-        if (statsPayload && typeof statsPayload === 'object') {
-          setStats(statsPayload);
-        }
+    const load = async (
+      resource: AdminResource,
+      endpoint: string,
+      apply: (payload: any) => void
+    ) => {
+      try {
+        const res = await executeApiCall(endpoint);
+        apply(res);
+        setResources((prev) => ({ ...prev, [resource]: loadedState }));
+        return loadedState;
+      } catch (err: any) {
+        console.warn(`Admin resource "${resource}" could not be loaded:`, err);
+        const state = failedState(err?.status);
+        setResources((prev) => ({ ...prev, [resource]: state }));
+        return state;
       }
+    };
 
-      if (usersRes) {
-        const userList = usersRes?.data?.users || usersRes?.data || usersRes?.users || (Array.isArray(usersRes) ? usersRes : []);
-        if (Array.isArray(userList)) {
-          setUsers(userList);
+    const results = await Promise.all([
+      load('metrics', '/admin/metrics', (res) => {
+        const payload = extractMetrics(res);
+        if (payload) {
+          setStats(payload);
         }
-      }
+      }),
+      load('users', '/admin/users', (res) => {
+        const list = extractUserList(res);
+        if (list) {
+          setUsers(list);
+        }
+      }),
+      load('complaints', '/admin/complaints', (res) => {
+        const list = extractComplaintList(res);
+        if (list) {
+          setComplaints(list);
+        }
+      }),
+    ]);
 
-      if (complaintsRes) {
-        const complaintList = complaintsRes?.data?.complaints || complaintsRes?.data || complaintsRes?.complaints || (Array.isArray(complaintsRes) ? complaintsRes : []);
-        if (Array.isArray(complaintList)) {
-          setComplaints(complaintList);
-        }
-      }
-    } catch (err: any) {
-      console.error('Failed to load admin data:', err);
-      setErrorMessage(err.message || 'Failed to load command center data.');
-    } finally {
-      setLoading(false);
+    // The banner reports the **first** failure. The status decides the
+    // wording: a 403 means the account may not read the data at all, any
+    // other status means the platform could not answer.
+    const failure = firstFailure({
+      metrics: results[0],
+      users: results[1],
+      complaints: results[2],
+    });
+    if (failure) {
+      setErrorMessage(failure.state.errorKey ?? errorKeyForStatus(failure.state.status));
     }
+
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -91,19 +122,19 @@ export default function AdminDashboard() {
   }, [fetchAdminData]);
 
   const toggleUserStatus = async (userId: string) => {
-    if (!confirm("Are you sure you want to change this user's access?")) return;
+    if (!confirm(t('misc.admin.confirmAccessChange'))) return;
     try {
       await executeApiCall(`/admin/users/${userId}/toggle-status`, {
         method: 'PATCH',
       });
       fetchAdminData();
     } catch (e) {
-      alert('Failed to update user access status.');
+      alert(t('misc.admin.accessUpdateError'));
     }
   };
 
   const resolveComplaint = async (complaintId: string) => {
-    const notes = prompt('Enter resolution notes:');
+    const notes = prompt(t('misc.admin.resolutionNotesPrompt'));
     if (notes === null) return;
     try {
       await executeApiCall(`/admin/complaints/${complaintId}/resolve`, {
@@ -112,15 +143,26 @@ export default function AdminDashboard() {
       });
       fetchAdminData();
     } catch (e) {
-      alert('Failed to resolve complaint.');
+      alert(t('misc.admin.complaintResolveError'));
     }
   };
 
-  if (loading) {
+  /**
+   * The first loading state ends as soon as **one** resource has
+   * answered.
+   *
+   * The page used to wait for all three of them. A single request that
+   * never arrived — which the host of the platform does occasionally —
+   * therefore kept the whole command center on "Loading Command
+   * Center..." for ever. Every resource carries its own state, so the
+   * tab that is open can be rendered as soon as **its** resource has
+   * answered.
+   */
+  if (loading && !anySettled(resources)) {
     return (
       <div className="p-16 text-center">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-stone-300 border-t-stone-900 mb-4" />
-        <p className="font-bold text-stone-600 text-sm">Loading Command Center...</p>
+        <p className="font-bold text-stone-600 text-sm">{t('misc.admin.loading')}</p>
       </div>
     );
   }
@@ -130,22 +172,22 @@ export default function AdminDashboard() {
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-stone-900 tracking-tight flex items-center gap-3">
-            <ShieldAlert className="w-8 h-8 text-rose-700" /> Admin Command Center
+            <ShieldAlert className="w-8 h-8 text-rose-700" /> {t('misc.admin.title')}
           </h1>
-          <p className="text-stone-600 text-sm mt-1">Platform moderation, user management, and conflict resolution.</p>
+          <p className="text-stone-600 text-sm mt-1">{t('misc.admin.subtitle')}</p>
         </div>
         <button
           onClick={() => fetchAdminData()}
           className="inline-flex items-center gap-2 self-start px-3.5 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold transition-colors"
         >
-          <RefreshCw className="w-3.5 h-3.5" /> Refresh Data
+          <RefreshCw className="w-3.5 h-3.5" /> {t('misc.admin.refresh')}
         </button>
       </div>
 
       {errorMessage && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 text-xs text-red-700">
           <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-          <span className="font-semibold">{errorMessage}</span>
+          <span className="font-semibold">{t(errorMessage)}</span>
         </div>
       )}
 
@@ -159,43 +201,59 @@ export default function AdminDashboard() {
               activeTab === tab ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
             }`}
           >
-            {tab}
+            {tab === 'overview'
+              ? t('misc.admin.tabOverview')
+              : tab === 'users'
+                ? t('misc.admin.tabUsers')
+                : t('misc.admin.tabComplaints')}
           </button>
         ))}
       </div>
 
       {/* TAB 1: OVERVIEW */}
       {activeTab === 'overview' && (
-        stats ? (
+        resources.metrics.loaded && stats ? (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm">
-              <p className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Total Users</p>
-              <p className="text-4xl font-black text-stone-900">{stats.totalUsers ?? 0}</p>
+              <p className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">{t('misc.admin.totalUsers')}</p>
+              <p className="text-4xl font-black text-stone-900">{formatNumber(stats.totalUsers ?? 0)}</p>
               <div className="flex gap-4 mt-2 text-xs font-medium text-stone-500">
-                <span>{stats.totalFarmers ?? 0} Farmers</span>
-                <span>{stats.totalConsumers ?? 0} Consumers</span>
+                <span>{formatNumber(stats.totalFarmers ?? 0)} {t('misc.admin.farmers')}</span>
+                <span>{formatNumber(stats.totalConsumers ?? 0)} {t('misc.admin.consumers')}</span>
               </div>
             </div>
             <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm">
-              <p className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Active Crops</p>
+              <p className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">{t('misc.admin.activeCrops')}</p>
               <p className="text-4xl font-black text-emerald-700">
-                {stats.activeProducts ?? stats.totalProducts ?? 0}
+                {formatNumber(stats.activeProducts ?? stats.totalProducts ?? 0)}
               </p>
             </div>
             <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm">
-              <p className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Total Enquiries</p>
-              <p className="text-4xl font-black text-blue-700">{stats.totalEnquiries ?? 0}</p>
+              <p className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">{t('misc.admin.totalEnquiries')}</p>
+              <p className="text-4xl font-black text-blue-700">{formatNumber(stats.totalEnquiries ?? 0)}</p>
             </div>
             <div className="bg-rose-50 p-6 rounded-2xl border border-rose-200 shadow-sm">
               <p className="text-xs font-bold text-rose-700 uppercase tracking-wider mb-2 flex items-center gap-1">
-                <Activity className="w-4 h-4" /> Pending Reports
+                <Activity className="w-4 h-4" /> {t('misc.admin.pendingReports')}
               </p>
-              <p className="text-4xl font-black text-rose-900">{stats.pendingComplaints ?? 0}</p>
+              <p className="text-4xl font-black text-rose-900">{formatNumber(stats.pendingComplaints ?? 0)}</p>
             </div>
           </div>
-        ) : (
+        ) : resources.metrics.loaded ? (
           <div className="p-8 text-center bg-stone-50 rounded-2xl border border-stone-200 text-stone-500 text-sm font-semibold">
-            No statistics metrics available currently.
+            {t('misc.admin.noStats')}
+          </div>
+        ) : resources.metrics.pending ? (
+          // The request is still running. Nothing is claimed about the
+          // numbers of the platform yet.
+          <div className="p-8 text-center bg-stone-50 rounded-2xl border border-stone-200 text-stone-500 text-sm font-semibold">
+            {t('misc.admin.loadingResource')}
+          </div>
+        ) : (
+          // The metrics were **not** read. Saying "0 users" here would be
+          // a statement about the platform that nobody has verified.
+          <div className="p-8 text-center bg-stone-50 rounded-2xl border border-stone-200 text-stone-500 text-sm font-semibold">
+            {t(resources.metrics.errorKey ?? 'misc.admin.loadError')}
           </div>
         )
       )}
@@ -206,20 +264,20 @@ export default function AdminDashboard() {
           <table className="w-full text-left text-sm">
             <thead className="bg-stone-100 text-stone-600 font-bold uppercase text-xs tracking-wider">
               <tr>
-                <th className="px-6 py-4">User</th>
-                <th className="px-6 py-4">Role</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Action</th>
+                <th className="px-6 py-4">{t('misc.admin.user')}</th>
+                <th className="px-6 py-4">{t('misc.admin.role')}</th>
+                <th className="px-6 py-4">{t('misc.admin.status')}</th>
+                <th className="px-6 py-4 text-right">{t('misc.admin.action')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-200">
-              {users.length === 0 ? (
+              {resources.users.loaded && users.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="p-8 text-center text-stone-500 font-semibold">
-                    No users registered yet.
+                    {t('misc.admin.noUsers')}
                   </td>
                 </tr>
-              ) : (
+              ) : resources.users.loaded ? (
                 users.map((user) => (
                   <tr key={user.id} className="hover:bg-stone-50 transition-colors">
                     <td className="px-6 py-4">
@@ -236,17 +294,21 @@ export default function AdminDashboard() {
                             : 'bg-blue-100 text-blue-800'
                         }`}
                       >
-                        {user.role}
+                        {user.role === 'FARMER'
+                          ? t('misc.role.farmer')
+                          : user.role === 'ADMIN'
+                            ? t('misc.role.admin')
+                            : t('misc.role.consumer')}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       {user.isActive ? (
                         <span className="flex items-center gap-1 text-xs font-bold text-emerald-700">
-                          <CheckCircle className="w-3 h-3" /> Active
+                          <CheckCircle className="w-3 h-3" /> {t('misc.status.active')}
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 text-xs font-bold text-rose-700">
-                          <Ban className="w-3 h-3" /> Suspended
+                          <Ban className="w-3 h-3" /> {t('misc.status.suspended')}
                         </span>
                       )}
                     </td>
@@ -259,11 +321,21 @@ export default function AdminDashboard() {
                             : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
                         }`}
                       >
-                        <Power className="w-3 h-3" /> {user.isActive ? 'Suspend' : 'Reactivate'}
+                        <Power className="w-3 h-3" /> {user.isActive ? t('misc.admin.suspend') : t('misc.admin.reactivate')}
                       </button>
                     </td>
                   </tr>
                 ))
+              ) : (
+                <tr>
+                  <td colSpan={4} className="p-8 text-center text-stone-500 font-semibold">
+                    {t(
+                      resources.users.pending
+                        ? 'misc.admin.loadingResource'
+                        : resources.users.errorKey ?? 'misc.admin.loadError'
+                    )}
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
@@ -273,9 +345,9 @@ export default function AdminDashboard() {
       {/* TAB 3: COMPLAINTS / REPORTS */}
       {activeTab === 'complaints' && (
         <div className="space-y-4">
-          {complaints.length === 0 ? (
-            <p className="text-stone-500 font-bold p-8 text-center bg-stone-50 rounded-2xl">No complaints filed.</p>
-          ) : (
+          {resources.complaints.loaded && complaints.length === 0 ? (
+            <p className="text-stone-500 font-bold p-8 text-center bg-stone-50 rounded-2xl">{t('misc.admin.noComplaints')}</p>
+          ) : resources.complaints.loaded ? (
             complaints.map((complaint) => (
               <div
                 key={complaint.id}
@@ -290,17 +362,19 @@ export default function AdminDashboard() {
                         complaint.status === 'PENDING' ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
                       }`}
                     >
-                      {complaint.status}
+                      {complaint.status === 'PENDING'
+                        ? t('misc.status.pending')
+                        : t('misc.status.resolved')}
                     </span>
                     <span className="text-xs font-bold text-stone-500">
-                      Reported by: {complaint.reporter?.name || 'Anonymous User'}
+                      {t('misc.admin.reportedBy')} {complaint.reporter?.name || t('misc.admin.anonymousUser')}
                     </span>
                   </div>
                   <h3 className="font-bold text-stone-900">{complaint.subject}</h3>
                   <p className="text-sm text-stone-600 mt-1">{complaint.reason}</p>
                   {complaint.adminNotes && (
                     <p className="text-xs font-medium text-emerald-700 mt-3 bg-emerald-50 p-2 rounded-lg border border-emerald-100">
-                      <strong>Resolution Note:</strong> {complaint.adminNotes}
+                      <strong>{t('misc.admin.resolutionNote')}</strong> {complaint.adminNotes}
                     </p>
                   )}
                 </div>
@@ -310,12 +384,20 @@ export default function AdminDashboard() {
                       onClick={() => resolveComplaint(complaint.id)}
                       className="px-4 py-2 bg-stone-900 text-white text-xs font-bold rounded-xl hover:bg-stone-800 transition-colors"
                     >
-                      Mark Resolved
+                      {t('misc.admin.markResolved')}
                     </button>
                   </div>
                 )}
               </div>
             ))
+          ) : (
+            <p className="text-stone-500 font-bold p-8 text-center bg-stone-50 rounded-2xl">
+              {t(
+                resources.complaints.pending
+                  ? 'misc.admin.loadingResource'
+                  : resources.complaints.errorKey ?? 'misc.admin.loadError'
+              )}
+            </p>
           )}
         </div>
       )}

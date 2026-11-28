@@ -37,6 +37,13 @@ const updateCurrentProfile = resolveHandler(
   ctrl.updateCurrentProfile || ctrl.updateProfile || ctrl.updateMe || ctrl.editProfile,
   'updateCurrentProfile'
 );
+const listPublicFarmers = resolveHandler(
+  ctrl.listPublicFarmers || ctrl.getFarmers || ctrl.farmers,
+  'listPublicFarmers'
+);
+
+// Public farmer directory (no session required) — declared before the auth guard
+router.get('/farmers', listPublicFarmers);
 
 // Lock down all user self-service endpoints to authenticated sessions
 router.use(authenticate);

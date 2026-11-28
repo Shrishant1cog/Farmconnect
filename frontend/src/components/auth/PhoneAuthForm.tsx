@@ -2,9 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Phone, ArrowRight, Loader2, AlertCircle, CheckCircle2, ShieldCheck, KeyRound } from 'lucide-react';
+import { Phone, ArrowRight, Loader2, AlertCircle, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { fetchApi } from '../../lib/api';
-import { auth, setupRecaptcha } from '../../lib/firebase';
+import {
+  auth,
+  setupRecaptcha,
+  isFirebasePhoneAuthConfigured,
+  SMS_UNAVAILABLE_CODES,
+} from '../../lib/firebase';
+import { useI18n } from '../../hooks/useI18n';
 import { signInWithPhoneNumber } from 'firebase/auth';
 
 interface PhoneAuthFormProps {
@@ -13,6 +19,7 @@ interface PhoneAuthFormProps {
 }
 
 export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
+  const { t } = useI18n();
   const router = useRouter();
 
   const [phone, setPhone] = useState('');
@@ -21,7 +28,6 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmationResult, setConfirmationResult] = useState<any>(null);
-  const [isTestBypass, setIsTestBypass] = useState(false);
 
   useEffect(() => {
     // Reset reCAPTCHA container on unmount
@@ -43,7 +49,7 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
 
     const cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length < 10) {
-      setError('Please provide a valid 10-digit mobile number.');
+      setError(t('auth.phone.errorInvalidPhone'));
       return;
     }
 
@@ -51,8 +57,11 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
     setLoading(true);
 
     try {
-      if (!auth) {
-        throw new Error('Firebase Auth is not initialized. Using local verification mode.');
+      if (!isFirebasePhoneAuthConfigured) {
+        // The message service is not configured. There is **no** test
+        // code: a sign-in without a real code would open the account of
+        // whoever owns the number.
+        throw new Error(t('auth.phone.errorSmsUnavailable'));
       }
 
       const appVerifier = setupRecaptcha('recaptcha-container');
@@ -62,18 +71,13 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
     } catch (err: any) {
       console.warn('Firebase SMS attempt notice:', err?.code || err?.message);
 
-      // If Firebase blocked India or config was missing, switch cleanly to test mode
       if (
-        err?.code === 'auth/operation-not-allowed' ||
-        err?.code === 'auth/configuration-not-found' ||
-        err?.code === 'auth/invalid-app-credential' ||
-        !auth
+        SMS_UNAVAILABLE_CODES.includes(err?.code) ||
+        !isFirebasePhoneAuthConfigured
       ) {
-        setIsTestBypass(true);
-        setStep('OTP');
-        setError(null);
+        setError(t('auth.phone.errorSmsUnavailable'));
       } else {
-        setError(err?.message || 'Unable to dispatch verification SMS.');
+        setError(err?.message || t('auth.phone.errorUnableDispatch'));
       }
     } finally {
       setLoading(false);
@@ -85,51 +89,49 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
     setError(null);
 
     if (otp.length < 6) {
-      setError('Please enter the 6-digit verification code.');
+      setError(t('auth.phone.errorInvalidOtpLength'));
       return;
     }
 
     setLoading(true);
 
     try {
-      const cleanPhone = phone.replace(/\D/g, '').slice(-10);
-
-      // 1. If using Firebase live confirmation
-      if (confirmationResult && !isTestBypass) {
-        await confirmationResult.confirm(otp);
-      } else if (isTestBypass && otp !== '123456') {
-        throw new Error('Invalid test code. Enter 123456 to verify.');
+      if (!confirmationResult) {
+        // No code was ever sent — there is nothing to confirm.
+        throw new Error(t('auth.phone.errorSmsUnavailable'));
       }
 
-      // 2. Complete session with backend
-      const res = await fetchApi('/auth/login-phone', {
+      // The code is confirmed by the message service. The backend then
+      // verifies the **ID token** of that confirmation, so the session is
+      // only issued for a number whose owner really received the code.
+      const confirmation = await confirmationResult.confirm(otp);
+      const idToken = await confirmation.user.getIdToken();
+
+      const res = await fetchApi('/auth/firebase-phone', {
         method: 'POST',
-        body: JSON.stringify({
-          phone: cleanPhone,
-          role,
-        }),
+        body: JSON.stringify({ idToken, role }),
       });
 
       const token = res?.data?.token || res?.token;
       const user = res?.data?.user || res?.user;
 
-      if (token && user) {
-        localStorage.setItem('farmconnect_token', token);
-        localStorage.setItem('fc_token', token);
-        localStorage.setItem('farmconnect_role', user.role || role);
-        localStorage.setItem('farmconnect_user', JSON.stringify(user));
-        localStorage.setItem('fc_user', JSON.stringify(user));
+      if (!token || !user) {
+        throw new Error(t('auth.phone.errorVerificationFailed'));
+      }
 
-        if (onSuccess) {
-          onSuccess();
-        } else {
-          router.push(role === 'FARMER' ? '/farmer/dashboard' : '/consumer/explore');
-        }
+      localStorage.setItem('farmconnect_token', token);
+      localStorage.setItem('fc_token', token);
+      localStorage.setItem('farmconnect_role', user.role || role);
+      localStorage.setItem('farmconnect_user', JSON.stringify(user));
+      localStorage.setItem('fc_user', JSON.stringify(user));
+
+      if (onSuccess) {
+        onSuccess();
       } else {
         router.push(role === 'FARMER' ? '/farmer/dashboard' : '/consumer/explore');
       }
     } catch (err: any) {
-      setError(err?.message || 'Verification code failed. Please try again.');
+      setError(err?.message || t('auth.phone.errorVerificationFailed'));
     } finally {
       setLoading(false);
     }
@@ -148,37 +150,29 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
         </div>
       )}
 
-      {/* Test Bypass Notification */}
-      {isTestBypass && (
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2 text-xs text-amber-900">
-          <KeyRound className="w-4 h-4 shrink-0 text-amber-600" />
-          <span>
-            <strong>Local Dev Mode:</strong> Region SMS is restricted. Use test OTP: <strong>123456</strong>
-          </span>
-        </div>
-      )}
-
       {step === 'PHONE' ? (
         <form onSubmit={handleSendCode} className="space-y-4">
           <div>
             <label className="text-[11px] font-bold uppercase text-stone-700 block mb-1">
-              Mobile Number
+              {t('auth.phone.mobileNumber')}
             </label>
             <div className="flex gap-2">
               <span className="px-3.5 py-2.5 bg-stone-100 border border-stone-200 rounded-xl text-xs font-bold text-stone-700 flex items-center">
-                IN +91
+                {t('auth.phone.countryCode')}
               </span>
               <input
                 type="tel"
                 maxLength={10}
                 required
-                placeholder="8073477125"
+                placeholder={t('auth.phone.phonePlaceholder')}
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 className="flex-1 px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600"
               />
             </div>
-            <p className="text-[11px] text-stone-400 mt-1">An SMS verification code will be sent to your phone.</p>
+            <p className="text-[11px] text-stone-400 mt-1">
+              {t('auth.phone.smsHelper')}
+            </p>
           </div>
 
           <button
@@ -187,21 +181,21 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
             className="w-full py-3.5 bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-            {loading ? 'Sending OTP Code...' : 'Send Verification Code'}
+            {loading ? t('auth.phone.sendingOtp') : t('auth.phone.sendCode')}
           </button>
         </form>
       ) : (
         <form onSubmit={handleVerifyOtp} className="space-y-4">
           <div>
             <label className="text-[11px] font-bold uppercase text-stone-700 block mb-1">
-              Enter 6-Digit OTP Code
+              {t('auth.phone.otpLabel')}
             </label>
             <input
               type="text"
               maxLength={6}
               required
               autoFocus
-              placeholder="123456"
+              placeholder={t('auth.phone.otpPlaceholder')}
               value={otp}
               onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
               className="w-full text-center tracking-widest text-lg font-black py-2.5 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600"
@@ -214,7 +208,7 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
             className="w-full py-3.5 bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-            {loading ? 'Verifying OTP...' : 'Verify & Enter Workspace'}
+            {loading ? t('auth.phone.verifyingOtp') : t('auth.phone.verifyWorkspace')}
           </button>
 
           <button
@@ -222,7 +216,7 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
             onClick={() => setStep('PHONE')}
             className="w-full text-center text-xs font-bold text-stone-500 hover:text-stone-800"
           >
-            Change Mobile Number
+            {t('auth.phone.changeMobile')}
           </button>
         </form>
       )}

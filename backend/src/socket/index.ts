@@ -1,10 +1,9 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import jwt from 'jsonwebtoken';
-import { env } from '../config/env';
+import { db } from '../config/db';
+import { JWT_SECRETS } from '../config/jwt';
 import * as handlersModule from './handlers';
-
-const rawEnv = process.env as Record<string, string | undefined>;
 
 export interface AuthenticatedSocketUser {
   id: string;
@@ -20,13 +19,6 @@ export interface AuthenticatedSocket extends Socket {
   };
 }
 
-const JWT_SECRETS: string[] = [
-  rawEnv.JWT_SECRET,
-  (env as any)?.JWT_SECRET,
-  'farmconnect-secret-key',
-  'farmconnect-secret-key-development',
-].filter(Boolean) as string[];
-
 let ioInstance: SocketIOServer | null = null;
 
 export const initSocket = (server: HttpServer, clientUrl: string | string[]): SocketIOServer => {
@@ -40,7 +32,7 @@ export const initSocket = (server: HttpServer, clientUrl: string | string[]): So
   });
 
   // Authentication middleware for WebSocket handshakes
-  ioInstance.use((socket: AuthenticatedSocket, next) => {
+  ioInstance.use(async (socket: AuthenticatedSocket, next) => {
     const query = socket.handshake.query as Record<string, any>;
     const queryToken = typeof query?.token === 'string' ? query.token : undefined;
 
@@ -64,16 +56,44 @@ export const initSocket = (server: HttpServer, clientUrl: string | string[]): So
       }
     }
 
-    if (decodedUser) {
-      socket.data.user = {
-        ...decodedUser,
-        id: decodedUser.id || decodedUser.userId,
-        role: (decodedUser.role || '').toUpperCase(),
-      };
-      return next();
+    if (!decodedUser) {
+      return next(new Error('Unauthorized: Invalid or expired session token'));
     }
 
-    return next(new Error('Unauthorized: Invalid or expired session token'));
+    const sessionUserId = decodedUser.id || decodedUser.userId;
+    if (!sessionUserId) {
+      return next(new Error('Unauthorized: The session carries no account.'));
+    }
+
+    // The account has to exist and has to be active, exactly like on the
+    // HTTP routes — otherwise a deleted or suspended account could still
+    // receive its notifications through the real-time channel.
+    let account: any = null;
+    try {
+      account = await db.user.findUnique({
+        where: { id: String(sessionUserId) },
+        select: { id: true, name: true, email: true, phone: true, role: true, isActive: true },
+      });
+    } catch (dbError: any) {
+      console.error('[Socket] The account could not be verified:', dbError?.message || dbError);
+      return next(new Error('The session could not be verified right now.'));
+    }
+
+    if (!account) {
+      return next(new Error('Unauthorized: This account no longer exists.'));
+    }
+
+    if (account.isActive === false) {
+      return next(new Error('Unauthorized: This account has been suspended.'));
+    }
+
+    socket.data.user = {
+      ...decodedUser,
+      ...account,
+      id: account.id,
+      role: (account.role || '').toUpperCase(),
+    };
+    return next();
   });
 
   ioInstance.on('connection', (socket: AuthenticatedSocket) => {

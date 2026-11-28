@@ -17,6 +17,8 @@ export interface AuthUser {
   address?: string;
   latitude?: number;
   longitude?: number;
+  /** Interface language stored on the shared account (en | kn | hi). */
+  preferredLanguage?: string;
   farmerProfile?: {
     id: string;
     farmName: string;
@@ -41,7 +43,8 @@ export interface UseAuthReturn {
   refreshUser: () => void;
 }
 
-const AUTH_SYNC_EVENT = 'farmconnect_auth_sync';
+/** Dispatched on `window` whenever the cached session changes in this tab. */
+export const AUTH_SYNC_EVENT = 'farmconnect_auth_sync';
 
 export function useAuth(): UseAuthReturn {
   const [user, setUser] = useState<AuthUser | null>(null);

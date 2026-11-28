@@ -68,7 +68,18 @@ export interface CartContextType {
   transportCost: number;
   grandTotal: number;
   totalItemsCount: number;
-  distanceKm: number;
+  /**
+   * The freight distance in kilometres, or `null` when the route is unknown
+   * because the farm or the delivery address carries no real coordinates.
+   * It is never derived from a made-up position.
+   */
+  distanceKm: number | null;
+  /**
+   * True when the transport cost is an exact quote from the shared backend,
+   * false when only the published minimum dispatch tariff could be applied
+   * because the route is unknown.
+   */
+  isFreightExact: boolean;
   
   // Enhanced Wholesale & Logistics Capabilities
   volumeDiscountPercent: number;
@@ -135,11 +146,24 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (savedDest) {
           const parsedDest = JSON.parse(savedDest);
           if (parsedDest && typeof parsedDest === 'object') {
-            setDestination({
-              latitude: Number(parsedDest.latitude) || 12.9716,
-              longitude: Number(parsedDest.longitude) || 77.5946,
-              address: String(parsedDest.address || 'Bengaluru, Karnataka'),
-            });
+            // The stored destination is only used when it really carries
+            // coordinates — a fallback position would put the delivery
+            // somewhere the buyer never chose. `Number(null)` is `0`, so a
+            // missing value has to be rejected **before** the conversion.
+            const hasRawCoordinates =
+              parsedDest.latitude !== null &&
+              parsedDest.latitude !== undefined &&
+              parsedDest.longitude !== null &&
+              parsedDest.longitude !== undefined;
+            const latitude = hasRawCoordinates ? Number(parsedDest.latitude) : NaN;
+            const longitude = hasRawCoordinates ? Number(parsedDest.longitude) : NaN;
+            if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+              setDestination({
+                latitude,
+                longitude,
+                address: String(parsedDest.address || ''),
+              });
+            }
           }
         }
       }
@@ -176,9 +200,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
 
-    const resolvedAvailableStock = Math.max(0, Number(product.availableStock ?? 9999));
-    if (resolvedAvailableStock <= 0) {
-      safeAlert('This crop lot is currently out of stock.');
+    const resolvedAvailableStock = Math.max(0, Number(product.availableStock));
+    if (!Number.isFinite(resolvedAvailableStock) || resolvedAvailableStock <= 0) {
+      // The available quantity is unknown or zero — the lot cannot be ordered.
+      // Assuming a stock would be a fabricated number.
+      safeAlert('This crop lot has no available quantity.');
       return false;
     }
 
@@ -193,6 +219,20 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ? Number(product.containerCostPerKg) 
       : CONTAINER_COST_MAP[containerType];
 
+    // The farm coordinates are kept only when the listing really carries
+    // them. A made-up position would produce a made-up distance and a
+    // made-up freight cost. `Number(null)` is `0`, so a missing value has to
+    // be rejected **before** the conversion.
+    const hasRawCoordinates =
+      product.farmerLat !== null &&
+      product.farmerLat !== undefined &&
+      product.farmerLon !== null &&
+      product.farmerLon !== undefined;
+    const farmerLat = hasRawCoordinates ? Number(product.farmerLat) : NaN;
+    const farmerLon = hasRawCoordinates ? Number(product.farmerLon) : NaN;
+    const hasFarmCoordinates =
+      Number.isFinite(farmerLat) && Number.isFinite(farmerLon);
+
     const normalizedItem: CartItem = {
       ...product,
       productId: resolvedProductId,
@@ -206,8 +246,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       containerType,
       containerCostPerKg: isNaN(safeContainerCost) ? CONTAINER_COST_MAP[containerType] : safeContainerCost,
       quantity: resolvedQuantity,
-      farmerLat: product.farmerLat !== undefined ? Number(product.farmerLat) : 12.5218,
-      farmerLon: product.farmerLon !== undefined ? Number(product.farmerLon) : 76.8951,
+      farmerLat: hasFarmCoordinates ? farmerLat : undefined,
+      farmerLon: hasFarmCoordinates ? farmerLon : undefined,
     };
 
     // Single-farmer validation: Prompts cleanly if switching source farms
@@ -309,10 +349,26 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const setDeliveryDestination = useCallback((dest: DestinationCoords | null) => {
     if (dest) {
+      // `Number(null)` is `0`, so a missing coordinate has to be rejected
+      // **before** the conversion — otherwise the delivery would be placed
+      // at `0 / 0`.
+      const hasRawCoordinates =
+        dest.latitude !== null &&
+        dest.latitude !== undefined &&
+        dest.longitude !== null &&
+        dest.longitude !== undefined;
+      const latitude = hasRawCoordinates ? Number(dest.latitude) : NaN;
+      const longitude = hasRawCoordinates ? Number(dest.longitude) : NaN;
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        // Without real coordinates the freight distance cannot be computed.
+        setDestination(null);
+        setServerTransportCost(null);
+        return;
+      }
       setDestination({
-        latitude: Number(dest.latitude) || 12.9716,
-        longitude: Number(dest.longitude) || 77.5946,
-        address: String(dest.address || 'Karnataka, India'),
+        latitude,
+        longitude,
+        address: String(dest.address || ''),
       });
     } else {
       setDestination(null);
@@ -368,27 +424,63 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 0);
   }, [items]);
 
-  const distanceKm = useMemo(() => {
-    if (!destination || items.length === 0) return 0;
-    const originLat = Number(items[0].farmerLat) || 12.5218;
-    const originLon = Number(items[0].farmerLon) || 76.8951;
-    const destLat = Number(destination.latitude) || 12.9716;
-    const destLon = Number(destination.longitude) || 77.5946;
+  /**
+   * The freight distance — `null` when the route is unknown.
+   *
+   * The distance is only calculated from the **real** coordinates of the
+   * farm and of the delivery address. When one of them is missing the route
+   * is unknown, and no distance is invented.
+   */
+  const distanceKm = useMemo<number | null>(() => {
+    if (!destination || items.length === 0) return null;
+
+    const hasRawCoordinates =
+      items[0].farmerLat !== null &&
+      items[0].farmerLat !== undefined &&
+      items[0].farmerLon !== null &&
+      items[0].farmerLon !== undefined;
+    const originLat = hasRawCoordinates ? Number(items[0].farmerLat) : NaN;
+    const originLon = hasRawCoordinates ? Number(items[0].farmerLon) : NaN;
+    const destLat = Number(destination.latitude);
+    const destLon = Number(destination.longitude);
+
+    if (
+      !Number.isFinite(originLat) ||
+      !Number.isFinite(originLon) ||
+      !Number.isFinite(destLat) ||
+      !Number.isFinite(destLon)
+    ) {
+      return null;
+    }
 
     const calculated = calculateDistanceKm(originLat, originLon, destLat, destLon);
-    return isNaN(calculated) ? 0 : Math.round(calculated);
+    return isNaN(calculated) ? null : Math.round(calculated);
   }, [destination, items]);
 
+  /**
+   * The freight cost.
+   *
+   * When the route is known it is calculated from the real distance. When
+   * it is unknown only the published **minimum dispatch tariff** applies —
+   * a distance-based cost would be based on a route that does not exist.
+   */
   const transportCost = useMemo(() => {
     if (items.length === 0) return 0;
     if (serverTransportCost !== null && !isNaN(serverTransportCost)) {
       return serverTransportCost;
     }
-    if (distanceKm === 0) return BASE_FREIGHT_FLAT;
+    if (distanceKm === null) return BASE_FREIGHT_FLAT;
 
     const quintals = Math.max(1, totalWeightKg / 100);
     return Math.round((BASE_FREIGHT_FLAT + distanceKm * FREIGHT_PER_KM_PER_QUINTAL * quintals) * 100) / 100;
   }, [items, distanceKm, totalWeightKg, serverTransportCost]);
+
+  /** True when the freight cost is an exact quote from the shared backend. */
+  const isFreightExact = useMemo(() => {
+    if (items.length === 0) return false;
+    if (serverTransportCost !== null && !isNaN(serverTransportCost)) return true;
+    return distanceKm !== null;
+  }, [items, distanceKm, serverTransportCost]);
 
   const grandTotal = useMemo(() => {
     return Math.round((netProduceCost + transportCost + containerCost) * 100) / 100;
@@ -406,42 +498,76 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isMinOrderMet = totalWeightKg >= requiredMinOrderKg;
   const minOrderDeficitKg = Math.max(0, requiredMinOrderKg - totalWeightKg);
 
-  // Delivery estimation
+  // Delivery estimation — only meaningful when the route is known.
   const estimatedDeliveryHours = useMemo(() => {
-    if (distanceKm <= 0) return 24;
+    if (distanceKm === null) return 0;
     if (distanceKm <= 50) return 6;   // Intra-district
     if (distanceKm <= 150) return 14; // Regional
     return 28;                         // Inter-district state-wide
   }, [distanceKm]);
 
   const estimatedDeliveryText = useMemo(() => {
-    if (distanceKm <= 0) return 'Standard Direct Farm Dispatch';
+    if (distanceKm === null) return 'Delivery window is confirmed by the farmer';
     if (distanceKm <= 50) return 'Same-Day Farm-Gate Pickup (4-8 hrs)';
     if (distanceKm <= 150) return 'Next-Morning Express Truck (12-18 hrs)';
     return 'Inter-District Cold Freight (24-36 hrs)';
   }, [distanceKm]);
 
+  /**
+   * Asks the shared backend for the exact freight quote.
+   *
+   * The request only carries **real** values: the farmer's price of the
+   * cart, the farm coordinates of the listing and the delivery coordinates
+   * of the chosen address. When one of them is missing the request is not
+   * sent at all, because the backend would reject it — and a request with
+   * invented coordinates would produce an invented distance.
+   */
   const refreshFreightQuote = useCallback(async () => {
     if (!destination || items.length === 0) return;
+
+    const hasRawCoordinates =
+      items[0].farmerLat !== null &&
+      items[0].farmerLat !== undefined &&
+      items[0].farmerLon !== null &&
+      items[0].farmerLon !== undefined;
+    const originLat = hasRawCoordinates ? Number(items[0].farmerLat) : NaN;
+    const originLon = hasRawCoordinates ? Number(items[0].farmerLon) : NaN;
+    const destLat = Number(destination.latitude);
+    const destLon = Number(destination.longitude);
+    const farmerPrice = Number(items[0].farmerPrice);
+
+    if (
+      !Number.isFinite(originLat) ||
+      !Number.isFinite(originLon) ||
+      !Number.isFinite(destLat) ||
+      !Number.isFinite(destLon) ||
+      !Number.isFinite(farmerPrice)
+    ) {
+      return;
+    }
+
     try {
       const res = await fetchApi('/logistics/quote', {
         method: 'POST',
         body: JSON.stringify({
           cropQuantityKg: totalWeightKg,
-          originLat: Number(items[0].farmerLat) || 12.5218,
-          originLon: Number(items[0].farmerLon) || 76.8951,
-          destLat: Number(destination.latitude) || 12.9716,
-          destLon: Number(destination.longitude) || 77.5946,
+          farmerPricePerKg: farmerPrice,
+          originLat,
+          originLon,
+          destLat,
+          destLon,
           containerType: items[0].containerType || 'STANDARD_CRATE',
         }),
       });
 
       const quote = res?.data || res;
-      if (quote && typeof quote.totalCost === 'number' && !isNaN(quote.totalCost)) {
-        setServerTransportCost(quote.totalCost);
+      const breakdown = quote?.breakdown;
+      const landedCost = Number(breakdown?.totalLandedCost ?? quote?.totalCost);
+      if (!isNaN(landedCost)) {
+        setServerTransportCost(landedCost);
       }
     } catch {
-      // Retains local geometric fallback calculations cleanly
+      // The published minimum dispatch tariff stays in place.
     }
   }, [destination, items, totalWeightKg]);
 
@@ -462,6 +588,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         grandTotal,
         totalItemsCount,
         distanceKm,
+        isFreightExact,
 
         // Enhanced Fields
         volumeDiscountPercent,

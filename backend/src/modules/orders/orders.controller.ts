@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db } from '../../config/db';
 import { AuthenticatedRequest } from '../../middleware/auth.middleware';
 import { getIO } from '../../socket';
+import { createNotification, resolveFarmerUserId as resolveFarmerUserIdForNotification } from '../../utils/notifications';
 
 const orderItemSchema = z.object({
   productId: z.string().min(1, 'Product ID is required'),
@@ -19,6 +20,24 @@ const createOrderSchema = z.object({
   totalAmount: z.coerce.number().nonnegative().optional(),
   items: z.array(orderItemSchema).min(1, 'At least one harvest item is required'),
 });
+
+/**
+ * Resolves the `User.id` of the farmer who owns a `FarmerProfile`.
+ *
+ * `Order.farmerId` references `FarmerProfile.id`, but Socket.IO rooms are named
+ * after the authenticated **user** (`user_<User.id>` — see
+ * `backend/src/socket/index.ts`). Emitting to `user_<FarmerProfile.id>` would
+ * therefore target a room nobody ever joins and the real-time notification
+ * would be silently dropped.
+ */
+const resolveFarmerUserId = async (farmerProfileId: string): Promise<string | null> => {
+  if (!farmerProfileId) return null;
+  const profile = await db.farmerProfile.findUnique({
+    where: { id: farmerProfileId },
+    select: { userId: true },
+  });
+  return profile?.userId ?? null;
+};
 
 // 1. Consumer: Place Order (Atomic inventory deduction with farmer fallback resolution)
 export const createOrder = async (req: AuthenticatedRequest, res: Response) => {
@@ -119,17 +138,36 @@ export const createOrder = async (req: AuthenticatedRequest, res: Response) => {
       });
     });
 
-    // Notify farmer via real-time WebSocket room
+    // Notify farmer via real-time WebSocket room.
+    // The room is keyed by the farmer's `User.id`, not the `FarmerProfile.id`
+    // stored in `Order.farmerId`.
     try {
       const io = typeof getIO === 'function' ? getIO() : null;
       if (io && order.farmerId) {
-        io.to(`user_${order.farmerId}`).emit('new_order_received', {
-          orderId: order.id,
-          totalAmount: order.grandTotal,
-        });
+        const farmerUserId = await resolveFarmerUserId(order.farmerId);
+        if (farmerUserId) {
+          io.to(`user_${farmerUserId}`).emit('new_order_received', {
+            orderId: order.id,
+            totalAmount: order.grandTotal,
+          });
+        }
       }
     } catch {
       // Safe fallback if socket is unmounted
+    }
+
+    // The same event is stored in the shared notification inbox so the
+    // farmer sees it in the notification screen of either client, even when
+    // the app was closed at the time.
+    const farmerUserId = await resolveFarmerUserIdForNotification(order.farmerId);
+    if (farmerUserId) {
+      await createNotification({
+        userId: farmerUserId,
+        title: 'New order received',
+        message: `A buyer placed order ${order.id} for ${order.grandTotal}.`,
+        type: 'NEW_ORDER',
+        link: '/farmer/orders',
+      });
     }
 
     return res.status(201).json({
@@ -258,8 +296,18 @@ export const updateOrderStatus = async (req: AuthenticatedRequest, res: Response
     }
 
     let prismaStatus = String(status || '').toUpperCase();
-    if (prismaStatus === 'PACKED') prismaStatus = 'CONFIRMED';
+    // `IN_TRANSIT` is the name some clients use for the same state. Every
+    // other status is stored **as it was asked for**: the harvest can
+    // really be packed, and the database knows that state.
     if (prismaStatus === 'IN_TRANSIT') prismaStatus = 'DISPATCHED';
+
+    const validStatuses = ['PENDING', 'CONFIRMED', 'PACKED', 'DISPATCHED', 'DELIVERED', 'CANCELLED'];
+    if (!validStatuses.includes(prismaStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: `Unknown order status "${status}".`,
+      });
+    }
 
     const updatedOrder = await db.order.update({
       where: { id },
@@ -282,6 +330,15 @@ export const updateOrderStatus = async (req: AuthenticatedRequest, res: Response
     } catch {
       // Safe fallback
     }
+
+    // The same change is stored in the shared notification inbox.
+    await createNotification({
+      userId: order.consumerId,
+      title: 'Order status updated',
+      message: `Order ${order.id} is now ${prismaStatus.replace(/_/g, ' ').toLowerCase()}.`,
+      type: 'ORDER_STATUS',
+      link: '/consumer/orders',
+    });
 
     return res.json({ success: true, data: updatedOrder, order: updatedOrder });
   } catch (err: any) {
@@ -310,14 +367,30 @@ export const confirmOrderDelivery = async (req: AuthenticatedRequest, res: Respo
       },
     });
 
-    // Notify cultivator that payment can be settled
+    // Notify cultivator that payment can be settled.
+    // The room is keyed by the farmer's `User.id`, not the `FarmerProfile.id`
+    // stored in `Order.farmerId`.
     try {
       const io = typeof getIO === 'function' ? getIO() : null;
       if (io && order.farmerId) {
-        io.to(`user_${order.farmerId}`).emit('order_delivered', { orderId: order.id });
+        const farmerUserId = await resolveFarmerUserId(order.farmerId);
+        if (farmerUserId) {
+          io.to(`user_${farmerUserId}`).emit('order_delivered', { orderId: order.id });
+        }
       }
     } catch {
       // Safe fallback
+    }
+
+    const farmerUserId = await resolveFarmerUserIdForNotification(order.farmerId);
+    if (farmerUserId) {
+      await createNotification({
+        userId: farmerUserId,
+        title: 'Order delivered',
+        message: `The buyer confirmed the delivery of order ${order.id}.`,
+        type: 'ORDER_DELIVERED',
+        link: '/farmer/orders',
+      });
     }
 
     return res.json({ success: true, data: updatedOrder, order: updatedOrder });

@@ -1,15 +1,11 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { db } from '../../config/db';
+import { normalizeLanguage, resolveSupportedLanguage } from '../../utils/language';
+import { parseCoordinateOrNull } from '../../utils/coordinate';
+import { JWT_SECRET, JWT_SECRETS } from '../../config/jwt';
 import { firebaseAdmin } from '../../config/firebaseAdmin';
-
-const JWT_SECRETS = [
-  process.env.JWT_SECRET,
-  'farmconnect-secret-key',
-  'farmconnect-secret-key-development',
-].filter(Boolean) as string[];
-
-const JWT_SECRET = JWT_SECRETS[0];
 
 // Resilient loader for bcrypt / bcryptjs
 let bcrypt: any;
@@ -26,6 +22,15 @@ try {
 const sanitizePhone = (rawPhone: string = ''): string => {
   return rawPhone.replace(/\D/g, '').slice(-10);
 };
+
+/**
+ * Parses a coordinate that the client really sent.
+ *
+ * A missing or malformed value yields `null` — the position is then simply
+ * unknown instead of being replaced by a fixed placeholder.
+ */
+const parseCoordinate = (value: unknown): number | null =>
+  parseCoordinateOrNull(value, 90);
 
 /**
  * 1. User Registration Handler
@@ -46,7 +51,8 @@ export const register = async (req: Request, res: Response) => {
       latitude = null, 
       longitude = null, 
       showOnMap = false,
-      farmName = ''
+      farmName = '',
+      preferredLanguage
     } = req.body;
 
     if (!name?.trim() || !phone?.trim() || !password?.trim()) {
@@ -64,8 +70,18 @@ export const register = async (req: Request, res: Response) => {
     const cleanDistrict = district.trim();
     const cleanState = state.trim();
     const cleanPincode = pincode ? pincode.toString().trim() : '';
-    const parsedLat = latitude ? parseFloat(String(latitude)) : 12.5218;
-    const parsedLon = longitude ? parseFloat(String(longitude)) : 76.8951;
+
+    // The farm position is stored **only** when the account really shared
+    // one. A placeholder would put the farm on the map somewhere it does not
+    // exist and would produce a fabricated freight distance.
+    const parsedLat = parseCoordinate(latitude);
+    const parsedLon = parseCoordinate(longitude);
+    if ((parsedLat === null) !== (parsedLon === null)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Both latitude and longitude are required when a position is shared',
+      });
+    }
 
     if (cleanPhone.length < 10) {
       return res.status(400).json({
@@ -79,6 +95,22 @@ export const register = async (req: Request, res: Response) => {
         success: false,
         message: 'Password must be at least 6 characters long',
       });
+    }
+
+    // The account language may be chosen during sign-up. A regional or alias
+    // form (`kn-IN`, `kannada`) is accepted and stored canonically, while a
+    // genuinely unsupported language is rejected instead of silently
+    // becoming English.
+    let requestedLanguage: string | undefined;
+    if (preferredLanguage !== undefined && preferredLanguage !== null && String(preferredLanguage).trim() !== '') {
+      const resolved = resolveSupportedLanguage(preferredLanguage);
+      if (!resolved) {
+        return res.status(400).json({
+          success: false,
+          message: 'Unsupported preferred language. Use one of: en, kn, hi',
+        });
+      }
+      requestedLanguage = resolved;
     }
 
     let existingUser: any = null;
@@ -120,6 +152,7 @@ export const register = async (req: Request, res: Response) => {
           email: cleanEmail || `${cleanPhone}@phone.farmconnect.in`,
           passwordHash: hashedPassword,
           role: normalizedRole as any,
+          ...(requestedLanguage ? { preferredLanguage: requestedLanguage } : {}),
         } as any,
       });
     } catch (createErr) {
@@ -161,7 +194,12 @@ export const register = async (req: Request, res: Response) => {
           create: {
             userId: createdUser.id,
             district: cleanDistrict || 'Bengaluru Urban',
-            address: addressLine.trim() || 'Karnataka',
+            deliveryAddress: addressLine.trim() || 'Karnataka',
+            // The delivery position is stored only when it was really
+            // shared — a placeholder would put the delivery somewhere the
+            // buyer never chose.
+            latitude: parsedLat,
+            longitude: parsedLon,
           },
         });
         createdUser.consumerProfile = cProfile;
@@ -187,6 +225,7 @@ export const register = async (req: Request, res: Response) => {
       phone: createdUser.phone,
       email: createdUser.email,
       role: createdUser.role,
+      preferredLanguage: normalizeLanguage((createdUser as any).preferredLanguage),
       state: cleanState,
       district: cleanDistrict,
       taluk: cleanTaluk,
@@ -199,9 +238,11 @@ export const register = async (req: Request, res: Response) => {
       success: true,
       token,
       user: safeUser,
+      preferredLanguage: safeUser.preferredLanguage,
       data: {
         token,
         user: safeUser,
+        preferredLanguage: safeUser.preferredLanguage,
       },
     });
   } catch (error: any) {
@@ -231,7 +272,13 @@ export const login = async (req: Request, res: Response) => {
     }
 
     const digitsOnly = loginKey.replace(/\D/g, '');
-    const isPhone = digitsOnly.length >= 10;
+    // An identifier is only treated as a phone number when it **is** one.
+    // An e-mail address that happens to contain digits (for example
+    // `someone.9876543210@example.com`) must never be matched against the
+    // phone column — otherwise the account of a different person could be
+    // opened with the wrong identifier.
+    const looksLikePhone = /^\+?\d[\d\s-]{8,}$/.test(loginKey);
+    const isPhone = looksLikePhone && digitsOnly.length >= 10;
     const searchPhone = isPhone ? digitsOnly.slice(-10) : null;
 
     let user: any = null;
@@ -253,31 +300,6 @@ export const login = async (req: Request, res: Response) => {
       console.warn('[Login] DB search notice:', dbErr);
     }
 
-    // Seed credential overrides for testing
-    if (loginKey === 'farmer@farmconnect.com' || searchPhone === '9876543210') {
-      if (cleanPassword === 'password123') {
-        user = {
-          id: user?.id || 'usr_farmer_demo',
-          name: user?.name && !user?.name.includes('Buyer') ? user.name : 'Ramesh Kumar (Demo Cultivator)',
-          email: 'farmer@farmconnect.com',
-          phone: '9876543210',
-          role: 'FARMER',
-          farmerProfile: user?.farmerProfile || { farmName: 'Mandya Agro Farm', district: 'Mandya', state: 'Karnataka', isVerified: true },
-        };
-      }
-    } else if (loginKey === 'consumer@farmconnect.com' || searchPhone === '9876543211') {
-      if (cleanPassword === 'password123') {
-        user = {
-          id: user?.id || 'usr_consumer_demo',
-          name: user?.name || 'Priya Narayanan (Demo Buyer)',
-          email: 'consumer@farmconnect.com',
-          phone: '9876543211',
-          role: 'CONSUMER',
-          consumerProfile: user?.consumerProfile || { district: 'Bengaluru Urban' },
-        };
-      }
-    }
-
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -285,23 +307,38 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
-    if (loginKey !== 'farmer@farmconnect.com' && loginKey !== 'consumer@farmconnect.com') {
-      const hashToCompare = user.passwordHash || user.password;
-      if (hashToCompare) {
-        let isMatch = false;
-        if (bcrypt) {
-          isMatch = await bcrypt.compare(cleanPassword, hashToCompare);
-        } else {
-          isMatch = cleanPassword === hashToCompare;
-        }
+    // The password is **always** checked against the stored hash. There is
+    // no hard-coded account and no shortcut: a session is only ever issued
+    // for an account that really exists in the shared database.
+    const hashToCompare = user.passwordHash || user.password;
+    if (!hashToCompare) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials. Please check your password.',
+      });
+    }
 
-        if (!isMatch) {
-          return res.status(401).json({
-            success: false,
-            message: 'Invalid credentials. Please check your password.',
-          });
-        }
-      }
+    let isMatch = false;
+    if (bcrypt) {
+      isMatch = await bcrypt.compare(cleanPassword, hashToCompare);
+    } else {
+      isMatch = cleanPassword === hashToCompare;
+    }
+
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials. Please check your password.',
+      });
+    }
+
+    // A suspended account cannot sign in. The administrator's moderation
+    // action has to hold for a new session as well.
+    if ((user as any).isActive === false) {
+      return res.status(401).json({
+        success: false,
+        message: 'This account has been suspended. Please contact the administrator.',
+      });
     }
 
     const normalizedRole = (user.role || 'CONSUMER').toUpperCase();
@@ -323,6 +360,7 @@ export const login = async (req: Request, res: Response) => {
       email: user.email,
       phone: user.phone,
       role: normalizedRole,
+      preferredLanguage: normalizeLanguage((user as any).preferredLanguage),
       district: user.farmerProfile?.district || user.consumerProfile?.district || 'Mandya',
       state: user.farmerProfile?.state || 'Karnataka',
       farmerProfile: user.farmerProfile,
@@ -333,9 +371,11 @@ export const login = async (req: Request, res: Response) => {
       success: true,
       token,
       user: safeUser,
+      preferredLanguage: safeUser.preferredLanguage,
       data: {
         token,
         user: safeUser,
+        preferredLanguage: safeUser.preferredLanguage,
       },
     });
   } catch (error: any) {
@@ -349,11 +389,37 @@ export const login = async (req: Request, res: Response) => {
 };
 
 /**
- * 3. Mobile OTP / Direct Phone Login Handler
+ * A password hash for an account that has no password of its own.
+ *
+ * The value has to be **unguessable**: it used to be derived from the
+ * phone number (`otp_auth_<phone>`) or from the Firebase uid
+ * (`firebase_<uid>`), which turned every phone account into an account
+ * that anybody could open with a computed password.
+ */
+const randomPasswordHash = (): string => {
+  const secret = crypto.randomBytes(32).toString('hex');
+  if (bcrypt) {
+    return bcrypt.hashSync(secret, 10);
+  }
+  return secret;
+};
+
+/**
+ * 2b. Phone Sign-In
+ *
+ * The endpoint used to answer a session for **any** phone number: it
+ * created the account when it was missing and signed it in without any
+ * proof of ownership. The phone numbers of the cultivators are published by
+ * the public directory (`GET /api/users/farmers`), so knowing a phone
+ * number was enough to take over that account.
+ *
+ * A phone number is now only an **identifier**. The proof is the password
+ * of the account, exactly as on the password endpoint. The account is
+ * never created here — a sign-in cannot bring an account into existence.
  */
 export const loginPhone = async (req: Request, res: Response) => {
   try {
-    const { phone, role = 'FARMER' } = req.body;
+    const { phone, password, role = 'CONSUMER' } = req.body;
     if (!phone) {
       return res.status(400).json({ success: false, message: 'Phone number is required.' });
     }
@@ -363,7 +429,13 @@ export const loginPhone = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Invalid 10-digit mobile number.' });
     }
 
-    const normalizedRole = String(role).toUpperCase() === 'CONSUMER' ? 'CONSUMER' : 'FARMER';
+    const cleanPassword = (password || '').toString().trim();
+    if (!cleanPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'The password of the account is required.',
+      });
+    }
 
     let user: any = null;
     try {
@@ -380,45 +452,43 @@ export const loginPhone = async (req: Request, res: Response) => {
       console.warn('[loginPhone] Find user DB notice:', err);
     }
 
-    let defaultHash = 'otp_verified';
+    // The same generic answer for an unknown account and for a wrong
+    // password — the endpoint must not reveal which phone numbers exist.
+    const invalid = () =>
+      res.status(401).json({
+        success: false,
+        message: 'Invalid credentials. Please verify your mobile number and password.',
+      });
+
+    if (!user) {
+      return invalid();
+    }
+
+    const hashToCompare = user.passwordHash || user.password;
+    if (!hashToCompare) {
+      return invalid();
+    }
+
+    let isMatch = false;
     if (bcrypt) {
-      defaultHash = await bcrypt.hash('otp_auth_' + cleanPhone, 10);
+      isMatch = await bcrypt.compare(cleanPassword, hashToCompare);
+    } else {
+      isMatch = cleanPassword === hashToCompare;
     }
 
-    if (!user) {
-      const defaultName = normalizedRole === 'FARMER' ? 'Cultivator Farmer' : 'Verified Buyer';
-
-      try {
-        user = await db.user.create({
-          data: {
-            phone: cleanPhone,
-            name: defaultName,
-            role: normalizedRole as any,
-            email: `${cleanPhone}@phone.farmconnect.in`,
-            passwordHash: defaultHash,
-          } as any,
-          include: {
-            farmerProfile: true,
-            consumerProfile: true,
-          },
-        });
-      } catch (createErr) {
-        console.error('[loginPhone] User creation notice:', createErr);
-      }
+    if (!isMatch) {
+      return invalid();
     }
 
-    if (!user) {
-      user = {
-        id: `usr_phone_${Date.now()}`,
-        phone: cleanPhone,
-        name: normalizedRole === 'FARMER' ? 'Cultivator Farmer' : 'Verified Buyer',
-        role: normalizedRole,
-        email: `${cleanPhone}@phone.farmconnect.in`,
-      };
+    if (user.isActive === false) {
+      return res.status(401).json({
+        success: false,
+        message: 'This account has been suspended. Please contact the administrator.',
+      });
     }
 
     // Ensure FarmerProfile exists
-    if (user && normalizedRole === 'FARMER' && !user.farmerProfile) {
+    if (user && (user.role || '').toUpperCase() === 'FARMER' && !user.farmerProfile) {
       try {
         const fp = await db.farmerProfile.findFirst({ where: { userId: user.id } });
         if (!fp) {
@@ -428,8 +498,10 @@ export const loginPhone = async (req: Request, res: Response) => {
               farmName: `${user.name || 'Cultivator'}'s Farm`,
               district: 'Mandya',
               state: 'Karnataka',
-              latitude: 12.5218,
-              longitude: 76.8951,
+              // A phone sign-in carries no position — the farm is stored
+              // without one instead of at a made-up place.
+              latitude: null,
+              longitude: null,
               isVerified: true,
             },
           });
@@ -439,7 +511,9 @@ export const loginPhone = async (req: Request, res: Response) => {
       } catch {}
     }
 
-    const tokenRole = (user.role || normalizedRole).toUpperCase();
+    // The role of the **account** decides — not the role the client asked
+    // for. A request cannot promote itself.
+    const tokenRole = (user.role || 'CONSUMER').toUpperCase();
 
     const token = jwt.sign(
       { id: user.id, role: tokenRole, phone: user.phone },
@@ -453,6 +527,7 @@ export const loginPhone = async (req: Request, res: Response) => {
       phone: user.phone,
       email: user.email,
       role: tokenRole,
+      preferredLanguage: normalizeLanguage((user as any).preferredLanguage),
       farmerProfile: user.farmerProfile,
       consumerProfile: user.consumerProfile,
     };
@@ -462,9 +537,11 @@ export const loginPhone = async (req: Request, res: Response) => {
       message: 'Phone authentication successful',
       token,
       user: safeUser,
+      preferredLanguage: safeUser.preferredLanguage,
       data: {
         token,
         user: safeUser,
+        preferredLanguage: safeUser.preferredLanguage,
       },
     });
   } catch (error: any) {
@@ -527,16 +604,16 @@ export const firebasePhoneAuth = async (req: Request, res: Response) => {
       });
 
       if (!user) {
-        let defaultHash = 'firebase_otp';
-        if (bcrypt) {
-          defaultHash = await bcrypt.hash('firebase_' + firebaseUid, 10);
-        }
+        const defaultHash = randomPasswordHash();
         user = await db.user.create({
           data: {
             phone: cleanPhone,
             firebaseUid: firebaseUid,
             name: name?.trim() || (normalizedRole === 'FARMER' ? 'Verified Cultivator' : 'Direct Consumer'),
             email: `${cleanPhone}@phone.farmconnect.in`,
+            // The password of a phone account is **random**. It used to be
+            // derived from the phone number (`firebase_<uid>`), which made
+            // every phone account reachable with a guessable password.
             passwordHash: defaultHash,
             role: normalizedRole as any,
           } as any,
@@ -550,14 +627,23 @@ export const firebasePhoneAuth = async (req: Request, res: Response) => {
       console.warn('[FirebasePhoneAuth] DB sync notice:', dbErr);
     }
 
-    const activeUser = user || {
-      id: `usr_${firebaseUid.substring(0, 8)}`,
-      name: name?.trim() || (normalizedRole === 'FARMER' ? 'Verified Cultivator' : 'Direct Buyer'),
-      phone: cleanPhone,
-      role: normalizedRole,
-      state,
-      district,
-    };
+    if (!user) {
+      // The account could not be stored. A session for an account that does
+      // not exist in the shared database would be a fabricated session.
+      return res.status(500).json({
+        success: false,
+        message: 'The phone account could not be prepared. Please try again.',
+      });
+    }
+
+    if (user.isActive === false) {
+      return res.status(401).json({
+        success: false,
+        message: 'This account has been suspended. Please contact the administrator.',
+      });
+    }
+
+    const activeUser = user;
 
     const token = jwt.sign(
       { 
@@ -668,6 +754,7 @@ export const getCurrentUser = async (req: Request, res: Response) => {
           email: true,
           phone: true,
           role: true,
+          preferredLanguage: true,
           createdAt: true,
           farmerProfile: true,
           consumerProfile: true,
@@ -678,7 +765,14 @@ export const getCurrentUser = async (req: Request, res: Response) => {
     }
 
     if (!userProfile) {
-      userProfile = (req as any).user || { id: sessionUserId, role: 'CONSUMER' };
+      // The account is gone. The session is over — the endpoint must not
+      // answer with the decoded token payload, because that would present
+      // a session for an account that does not exist in the shared
+      // database.
+      return res.status(401).json({
+        success: false,
+        message: 'Your session is no longer valid. Please sign in again.',
+      });
     }
 
     const enrichedProfile = {

@@ -7,6 +7,7 @@ import {
   Sprout, ArrowLeft, Flame, Loader2, AlertCircle, RefreshCw, MessageSquare
 } from 'lucide-react';
 import { fetchApi } from '../../../lib/api';
+import { useI18n } from '../../../hooks/useI18n';
 
 interface Message {
   id: string;
@@ -36,91 +37,14 @@ interface Inquiry {
   messages?: Message[];
 }
 
-const FALLBACK_INQUIRIES: Inquiry[] = [
-  {
-    id: 'inq-lead-1',
-    subject: 'Bulk Procurement Inquiry - Nati Tomatoes',
-    status: 'ACTIVE',
-    createdAt: new Date().toISOString(),
-    consumer: {
-      id: 'cons-1',
-      name: 'Priya Narayanan (Bengaluru Consumer)',
-      phone: '+91 98765 43211',
-    },
-    product: {
-      id: 'prod-1',
-      title: 'Tomato (Nati Desi Heirloom)',
-      farmerPrice: 20,
-      priceUnit: 'kg',
-    },
-    messages: [
-      {
-        id: 'msg-1',
-        enquiryId: 'inq-lead-1',
-        content: 'Namaskara! Can you dispatch 250 kg by 5 AM truck to our Bengaluru depot?',
-        senderId: 'cons-1',
-        createdAt: new Date(Date.now() - 3600000).toISOString(),
-        sender: { name: 'Priya Narayanan', role: 'CONSUMER' },
-      },
-    ],
-  },
-  {
-    id: 'inq-lead-2',
-    subject: 'Residue Free Certification Request',
-    status: 'ACTIVE',
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    consumer: {
-      id: 'cons-2',
-      name: 'Suresh Gowda (Retail Merchant)',
-      phone: '+91 98765 43222',
-    },
-    product: {
-      id: 'prod-2',
-      title: 'Mandya Brown Finger Millet (Ragi)',
-      farmerPrice: 42,
-      priceUnit: 'kg',
-    },
-    messages: [
-      {
-        id: 'msg-2',
-        enquiryId: 'inq-lead-2',
-        content: 'Requested lab residue test documentation for 500kg procurement batch.',
-        senderId: 'cons-2',
-        createdAt: new Date(Date.now() - 86400000).toISOString(),
-        sender: { name: 'Suresh Gowda', role: 'CONSUMER' },
-      },
-    ],
-  },
-  {
-    id: 'inq-lead-3',
-    subject: 'Weekly Crates Schedule',
-    status: 'ACTIVE',
-    createdAt: new Date(Date.now() - 172800000).toISOString(),
-    consumer: {
-      id: 'cons-3',
-      name: 'Hotel Nisarga Greens',
-      phone: '+91 98765 43233',
-    },
-    product: {
-      id: 'prod-3',
-      title: 'Yelakki Banana (Elakki Bale)',
-      farmerPrice: 65,
-      priceUnit: 'kg',
-    },
-    messages: [
-      {
-        id: 'msg-3',
-        enquiryId: 'inq-lead-3',
-        content: 'Agreed on 50kg crate consignment delivery schedule for next Monday.',
-        senderId: 'cons-3',
-        createdAt: new Date(Date.now() - 172800000).toISOString(),
-        sender: { name: 'Hotel Nisarga Greens', role: 'CONSUMER' },
-      },
-    ],
-  },
-];
+function formatMessageTime(value: string, intlTag: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat(intlTag, { hour: '2-digit', minute: '2-digit' }).format(date);
+}
 
 export default function FarmerInquiriesPage() {
+  const { t, intlTag } = useI18n();
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [activeInquiry, setActiveInquiry] = useState<Inquiry | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -177,27 +101,24 @@ export default function FarmerInquiriesPage() {
   const fetchInquiries = useCallback(async () => {
     const token = getAuthToken();
     if (!token) {
+      // Signed out: there is no shared enquiry list to show.
       setLoading(false);
-      setInquiries(FALLBACK_INQUIRIES);
-      setActiveInquiry(FALLBACK_INQUIRIES[0]);
-      setMessages(FALLBACK_INQUIRIES[0].messages || []);
+      setInquiries([]);
+      setActiveInquiry(null);
+      setMessages([]);
       return;
     }
 
     try {
       let json: any;
+      // `fetchApi` resolves the shared backend and attaches the bearer
+      // token. A **failed** request must reach the error handler below —
+      // a second, direct `fetch` used to swallow the HTTP status and
+      // report an error body as if it were an empty enquiry list.
       try {
         json = await fetchApi('/enquiries/farmer');
       } catch {
-        try {
-          json = await fetchApi('/farmer/enquiries');
-        } catch {
-          const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
-          const res = await fetch(`${baseUrl}/enquiries/farmer`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          json = await res.json();
-        }
+        json = await fetchApi('/farmer/enquiries');
       }
 
       const inquiryList = json?.data || json?.enquiries || (Array.isArray(json) ? json : []);
@@ -208,23 +129,26 @@ export default function FarmerInquiriesPage() {
           setMessages(inquiryList[0].messages || []);
         }
       } else {
-        setInquiries(FALLBACK_INQUIRIES);
+        // Only the real shared enquiries are shown — an empty response
+        // renders the translated empty state, never demo conversations.
+        setInquiries([]);
         if (!activeInquiry) {
-          setActiveInquiry(FALLBACK_INQUIRIES[0]);
-          setMessages(FALLBACK_INQUIRIES[0].messages || []);
+          setActiveInquiry(null);
+          setMessages([]);
         }
       }
     } catch (e: any) {
-      console.warn('Backend inquiry fetch fallback:', e?.message);
-      setInquiries(FALLBACK_INQUIRIES);
+      console.warn('Backend inquiry fetch failed:', e?.message);
+      setErrorMessage(t('farmer.inquiries.loadError'));
+      setInquiries([]);
       if (!activeInquiry) {
-        setActiveInquiry(FALLBACK_INQUIRIES[0]);
-        setMessages(FALLBACK_INQUIRIES[0].messages || []);
+        setActiveInquiry(null);
+        setMessages([]);
       }
     } finally {
       setLoading(false);
     }
-  }, [activeInquiry, getAuthToken]);
+  }, [activeInquiry, getAuthToken, t]);
 
   useEffect(() => {
     setCurrentUserId(resolveCurrentUserId());
@@ -313,7 +237,7 @@ export default function FarmerInquiriesPage() {
       content: cleanContent,
       senderId: currentUserId || 'farmer',
       createdAt: new Date().toISOString(),
-      sender: { name: 'You', role: 'FARMER' },
+      sender: { name: t('farmer.inquiries.you'), role: 'FARMER' },
     };
 
     setMessages((prev) => [...prev, optimisticMessage]);
@@ -321,24 +245,10 @@ export default function FarmerInquiriesPage() {
 
     try {
       const payload = { content: cleanContent };
-      let json: any;
-      try {
-        json = await fetchApi(`/enquiries/${activeInquiry.id}/messages`, {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
-      } catch {
-        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
-        const res = await fetch(`${baseUrl}/enquiries/${activeInquiry.id}/messages`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify(payload),
-        });
-        json = await res.json();
-      }
+      const json: any = await fetchApi(`/enquiries/${activeInquiry.id}/messages`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
 
       if (json?.success && json?.data) {
         const confirmedMsg = json.data;
@@ -358,9 +268,16 @@ export default function FarmerInquiriesPage() {
             return inq;
           })
         );
+      } else {
+        // The shared backend did not store the message — the placeholder is
+        // removed so the conversation never shows a message that does not
+        // exist on the server.
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        setErrorMessage(json?.message || t('farmer.inquiries.sendFailed'));
       }
-    } catch {
-      // Retain optimistic message in view for local negotiation demonstration
+    } catch (err: any) {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setErrorMessage(err?.message || t('farmer.inquiries.sendFailed'));
     } finally {
       setIsSending(false);
     }
@@ -388,8 +305,8 @@ export default function FarmerInquiriesPage() {
                 <Sprout className="w-5 h-5 text-emerald-200" />
               </div>
               <div>
-                <h1 className="text-sm font-black tracking-tight">Customer Inquiries</h1>
-                <p className="text-[11px] text-emerald-200 font-medium">Direct Produce Negotiation</p>
+                <h1 className="text-sm font-black tracking-tight">{t('farmer.inquiries.customerInquiries')}</h1>
+                <p className="text-[11px] text-emerald-200 font-medium">{t('farmer.inquiries.directNegotiation')}</p>
               </div>
             </div>
 
@@ -398,12 +315,12 @@ export default function FarmerInquiriesPage() {
                 type="button"
                 onClick={fetchInquiries}
                 className="p-1.5 rounded-lg text-emerald-200 hover:text-white hover:bg-emerald-700 transition-colors"
-                title="Refresh leads"
+                title={t('farmer.inquiries.refreshTitle')}
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               </button>
               <span className="bg-amber-400 text-stone-950 font-black text-[10px] px-2.5 py-0.5 rounded-full uppercase flex items-center gap-1 shadow-xs">
-                <Flame className="w-3 h-3 text-red-600 fill-red-600" /> Leads
+                <Flame className="w-3 h-3 text-red-600 fill-red-600" /> {t('farmer.inquiries.leads')}
               </span>
             </div>
           </div>
@@ -414,7 +331,7 @@ export default function FarmerInquiriesPage() {
               <Search className="w-4 h-4 text-stone-400 shrink-0" />
               <input
                 type="text"
-                placeholder="Search buyer name, crop, or subject..."
+                placeholder={t('farmer.inquiries.searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full text-xs outline-none bg-transparent placeholder-stone-400 font-medium"
@@ -427,12 +344,12 @@ export default function FarmerInquiriesPage() {
             {loading ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-stone-400">
                 <Loader2 className="w-7 h-7 animate-spin text-emerald-700" />
-                <p className="text-xs font-bold uppercase tracking-wider">Syncing Buyer Leads...</p>
+                <p className="text-xs font-bold uppercase tracking-wider">{t('farmer.inquiries.syncing')}</p>
               </div>
             ) : filteredInquiries.length === 0 ? (
               <div className="p-8 text-center text-stone-400 space-y-1">
-                <p className="text-xs font-bold">No customer inquiries found.</p>
-                <p className="text-[11px] text-stone-500">Incoming buyer requests will appear here instantly.</p>
+                <p className="text-xs font-bold">{t('farmer.inquiries.noInquiries')}</p>
+                <p className="text-[11px] text-stone-500">{t('farmer.inquiries.incomingRequests')}</p>
               </div>
             ) : (
               filteredInquiries.map((inq) => {
@@ -454,11 +371,11 @@ export default function FarmerInquiriesPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-baseline mb-0.5">
                         <h4 className="text-xs font-bold text-stone-900 truncate">
-                          {inq.consumer?.name || 'Verified Buyer'}
+                          {inq.consumer?.name || t('farmer.inquiries.verifiedBuyer')}
                         </h4>
                         <span className="text-[10px] text-stone-400 shrink-0 ml-1">
                           {lastMsg?.createdAt 
-                            ? new Date(lastMsg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+                            ? formatMessageTime(lastMsg.createdAt, intlTag) 
                             : ''}
                         </span>
                       </div>
@@ -466,13 +383,13 @@ export default function FarmerInquiriesPage() {
                       <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-800 truncate mb-1">
                         <Sprout className="w-3 h-3 text-emerald-600 shrink-0" />
                         <span className="truncate">
-                          {inq.product?.title || 'Harvest Crop'} 
+                          {inq.product?.title || t('farmer.inquiries.harvestCrop')} 
                           {inq.product?.farmerPrice ? ` (₹${inq.product.farmerPrice})` : ''}
                         </span>
                       </div>
 
                       <p className="text-[11px] text-stone-500 truncate leading-snug">
-                        {lastMsg ? lastMsg.content : (inq.subject || 'Direct trade inquiry')}
+                        {lastMsg ? lastMsg.content : (inq.subject || t('farmer.inquiries.directTradeInquiry'))}
                       </p>
                     </div>
                   </div>
@@ -493,7 +410,7 @@ export default function FarmerInquiriesPage() {
                     type="button"
                     onClick={() => setActiveInquiry(null)} 
                     className="md:hidden text-stone-600 p-1.5 hover:bg-stone-200 rounded-xl transition-colors"
-                    title="Back to inquiries"
+                    title={t('farmer.inquiries.backTitle')}
                   >
                     <ArrowLeft className="w-5 h-5" />
                   </button>
@@ -505,19 +422,19 @@ export default function FarmerInquiriesPage() {
                   <div>
                     <div className="flex items-center gap-1.5">
                       <h3 className="text-sm font-black text-stone-900 tracking-tight">
-                        {activeInquiry.consumer?.name || 'Consumer Lead'}
+                        {activeInquiry.consumer?.name || t('farmer.inquiries.consumerLead')}
                       </h3>
                       <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                     </div>
                     <p className="text-[11px] text-stone-500 flex items-center gap-1">
-                      <Phone className="w-3 h-3 text-stone-400" /> {activeInquiry.consumer?.phone || 'Direct Buyer'} • <span className="text-emerald-700 font-bold">Live Lead</span>
+                      <Phone className="w-3 h-3 text-stone-400" /> {activeInquiry.consumer?.phone || t('farmer.inquiries.directBuyer')} • <span className="text-emerald-700 font-bold">{t('farmer.inquiries.liveLead')}</span>
                     </p>
                   </div>
                 </div>
 
                 <div className="bg-emerald-100 text-emerald-950 border border-emerald-300 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 shadow-2xs">
                   <Sprout className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                  <span className="hidden sm:inline">{activeInquiry.product?.title || 'Harvest Crop'}</span>
+                  <span className="hidden sm:inline">{activeInquiry.product?.title || t('farmer.inquiries.harvestCrop')}</span>
                   {activeInquiry.product?.farmerPrice && (
                     <span className="text-emerald-800 font-black">₹{activeInquiry.product.farmerPrice}/kg</span>
                   )}
@@ -541,7 +458,7 @@ export default function FarmerInquiriesPage() {
                 }}
               >
                 <div className="max-w-md mx-auto my-2 p-2.5 bg-[#fff3cd] border border-[#ffeeba] text-[#856404] rounded-2xl text-[11px] text-center font-bold shadow-xs">
-                  ⚡ High-intent buyer inquiry. Direct farm negotiation is open.
+                  ⚡ {t('farmer.inquiries.highIntent')}
                 </div>
 
                 {messages.map((m, idx) => {
@@ -558,7 +475,7 @@ export default function FarmerInquiriesPage() {
                         <p className="font-medium leading-relaxed pr-14 whitespace-pre-wrap break-words">{m.content}</p>
                         <div className="absolute right-2 bottom-1.5 flex items-center gap-1 text-[9px] text-stone-400 font-semibold">
                           <span>
-                            {m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                            {m.createdAt ? formatMessageTime(m.createdAt, intlTag) : ''}
                           </span>
                           {isMe && <CheckCheck className="w-3.5 h-3.5 text-blue-500" />}
                         </div>
@@ -575,7 +492,7 @@ export default function FarmerInquiriesPage() {
                   type="text"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  placeholder="Type farm gate offer, transport pickup terms, or reply..."
+                  placeholder={t('farmer.inquiries.messagePlaceholder')}
                   className="flex-1 bg-white border border-stone-300 rounded-2xl px-4 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#128c7e] transition-shadow placeholder-stone-400 font-medium"
                 />
                 <button
@@ -592,9 +509,9 @@ export default function FarmerInquiriesPage() {
               <div className="w-16 h-16 rounded-3xl bg-stone-200/80 flex items-center justify-center shadow-xs">
                 <MessageSquare className="w-8 h-8 text-emerald-800" />
               </div>
-              <h3 className="text-base font-black text-stone-700">FarmConnect Negotiation Desk</h3>
+              <h3 className="text-base font-black text-stone-700">{t('farmer.inquiries.negotiationDesk')}</h3>
               <p className="text-xs text-stone-500 max-w-sm">
-                Select an active customer lead from the left to discuss wholesale price points, crate packaging, and gate dispatch logistics.
+                {t('farmer.inquiries.negotiationBody')}
               </p>
             </div>
           )}

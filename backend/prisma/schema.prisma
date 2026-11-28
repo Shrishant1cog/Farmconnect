@@ -1,6 +1,9 @@
+// The database connection is environment driven so the exact same schema can be
+// used against the local docker PostgreSQL instance and the managed PostgreSQL
+// database used in production (Render).
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -27,6 +30,7 @@ enum ContainerType {
 enum OrderStatus {
   PENDING
   CONFIRMED
+  PACKED
   DISPATCHED
   DELIVERED
   CANCELLED
@@ -56,8 +60,12 @@ model User {
   passwordHash String
   name         String
   phone        String
+  firebaseUid  String?  @unique
   role         Role     @default(CONSUMER)
   isActive     Boolean  @default(true)
+  /// Interface language preferred by this account (en | kn | hi). Shared by
+  /// the website and the Android app so both clients speak the same language.
+  preferredLanguage String @default("en")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -92,8 +100,10 @@ model FarmerProfile {
   district          String
   state             String   @default("Karnataka")
   addressLine       String?
-  latitude          Float
-  longitude         Float
+  // The farm position is only stored when the farmer really shared it.
+  // A placeholder would put the farm somewhere it does not exist.
+  latitude          Float?
+  longitude         Float?
   isAadhaarVerified Boolean  @default(false)
   aadhaarMasked     String?
   isVerified        Boolean  @default(false)
@@ -151,10 +161,18 @@ model Product {
 
   title              String
   description        String
+  /// Crop this lot represents (e.g. "Tomato"). One listing = one crop, so a
+  /// farmer can publish several independent crop lots side by side.
+  cropName           String?
+  /// Variety of the crop where applicable (e.g. "Hybrid", "Local").
+  variety            String?
   farmerPrice        Float
   priceUnit          String        @default("PER_KG")
   quantityAvailable  Float
   quantityUnit       String        @default("KG")
+  minOrderKg         Float         @default(10)
+  grade              String        @default("Grade-A Export")
+  location           String        @default("Karnataka")
   isAvailable        Boolean       @default(true)
   isOrganic          Boolean       @default(false)
   harvestDate        DateTime?
@@ -173,6 +191,7 @@ model Product {
 
   @@index([farmerId, isAvailable])
   @@index([categoryId])
+  @@index([cropName])
   @@index([farmerPrice])
   @@index([isAvailable])
   @@index([createdAt])
@@ -297,6 +316,10 @@ model ApmcMarketRate {
   maxPrice     Float
   updatedAt    DateTime @default(now())
 
+  // A published rate is unique: the same market centre publishes the same
+  // commodity once per day. The key makes the import repeatable instead of
+  // piling up duplicate rows.
+  @@unique([state, district, marketCenter, commodity, updatedAt], name: "ApmcMarketRate_publication_key")
   @@index([district, commodity])
   @@index([commodity])
 }

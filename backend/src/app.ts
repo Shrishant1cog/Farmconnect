@@ -15,14 +15,24 @@ import * as errorMiddlewareModule from './middleware/error.middleware';
 import * as authMiddlewareModule from './middleware/auth.middleware';
 import { calculateDistanceKm } from './utils/geo';
 import { computeLogisticsAndProfit } from './services/logisticsService';
+import {
+  CROP_CATEGORY_LABELS,
+  findCatalogueEntry,
+  localizedCropNames,
+} from './data/cropCatalog';
 
 // Modular Domain Routers
 import authRoutes from './modules/auth/auth.routes';
 import productRoutes from './modules/products/products.routes';
+import catalogRoutes from './modules/catalog/catalog.routes';
 import orderRoutes from './modules/orders/orders.routes';
 import enquiryRoutes from './modules/enquiries/enquiries.routes';
 import adminRoutes from './modules/admin/admin.routes';
 import userRoutes from './modules/users/users.routes';
+import favoriteRoutes from './modules/favorites/favorites.routes';
+import notificationRoutes from './modules/notifications/notifications.routes';
+import complaintRoutes from './modules/complaints/complaints.routes';
+import { ensureUploadDirectory, storeImage, uploadDirectory } from './services/storage.service';
 
 dotenv.config();
 
@@ -125,30 +135,34 @@ if (typeof globalLimiter === 'function') {
 }
 
 // ---------------------------------------------------------------------------
-// 4. FILE UPLOADS SETUP
+// 4. FILE UPLOADS SETUP (pluggable: local disk or S3-compatible object storage)
 // ---------------------------------------------------------------------------
-const uploadDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+ensureUploadDirectory();
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `${uniqueSuffix}${path.extname(file.originalname)}`);
-  },
+// Multer keeps the file in memory so the storage provider decides where it lives.
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
 });
-const upload = multer({ storage });
 
-app.use('/uploads', express.static(uploadDir));
+app.use('/uploads', express.static(uploadDirectory));
 
-app.post('/api/upload', authenticate, upload.single('image'), (req: AuthenticatedRequest, res: Response) => {
+app.post('/api/upload', authenticate, upload.single('image'), async (req: AuthenticatedRequest, res: Response) => {
   if (!req.file) {
     return res.status(400).json({ success: false, message: 'No file uploaded' });
   }
-  const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-  return res.json({ success: true, imageUrl });
+
+  try {
+    const publicBaseUrl = `${req.protocol}://${req.get('host')}`;
+    const stored = await storeImage(req.file, publicBaseUrl);
+    return res.json({ success: true, imageUrl: stored.url, provider: stored.provider });
+  } catch (uploadError: any) {
+    console.error('[Upload] Storage failure:', uploadError);
+    return res.status(500).json({
+      success: false,
+      message: uploadError?.message || 'Failed to persist the uploaded image',
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -165,16 +179,32 @@ const mountRouter = (basePath: string, routerModule: any, moduleName: string) =>
 
 mountRouter('/api/auth', authRoutes, 'authRoutes');
 mountRouter('/api/products', productRoutes, 'productRoutes');
+mountRouter('/api/catalog', catalogRoutes, 'catalogRoutes');
 mountRouter('/api/orders', orderRoutes, 'orderRoutes');
 mountRouter('/api/enquiries', enquiryRoutes, 'enquiryRoutes');
 mountRouter('/api/admin', adminRoutes, 'adminRoutes');
 mountRouter('/api/users', userRoutes, 'userRoutes');
+mountRouter('/api/favorites', favoriteRoutes, 'favoriteRoutes');
+mountRouter('/api/notifications', notificationRoutes, 'notificationRoutes');
+mountRouter('/api/complaints', complaintRoutes, 'complaintRoutes');
 
 // Root Health & Probe Endpoints
-app.get('/api/health', (_req: Request, res: Response) => {
-  res.json({
-    status: 'UP',
+app.get('/api/health', async (_req: Request, res: Response) => {
+  let database: 'UP' | 'DOWN' = 'DOWN';
+
+  try {
+    await db.$queryRaw`SELECT 1`;
+    database = 'UP';
+  } catch (dbError: any) {
+    database = 'DOWN';
+    console.error('[Health] Database probe failed:', dbError?.message || dbError);
+  }
+
+  return res.status(database === 'UP' ? 200 : 503).json({
+    status: database === 'UP' ? 'UP' : 'DEGRADED',
     service: 'FarmConnect Engine',
+    database,
+    uptime: Math.round(process.uptime()),
     timestamp: new Date().toISOString(),
   });
 });
@@ -244,6 +274,10 @@ app.get('/api/farmers/map', async (req: Request, res: Response) => {
     let results = farmers.map((f: any) => {
       let distanceKm: number | null = null;
       if (lat && lon) {
+        // The distance is only known when **both** the query point and the
+        // farm really shared a position. A farm without a position keeps
+        // `null` — it is never plotted on the point 0 / 0 with a made-up
+        // distance to it.
         distanceKm = calculateDistanceKm(
           parseFloat(String(lat)),
           parseFloat(String(lon)),
@@ -305,6 +339,18 @@ app.get('/api/farmers/:id', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * Logistics + profit quote.
+ *
+ * The quantity, the farmer's price and the four coordinates are **mandatory**
+ * — a missing value is reported as an error instead of being replaced by a
+ * made-up default, because a fabricated distance or price would produce a
+ * fabricated freight cost.
+ *
+ * The APMC benchmark is optional: when the caller has no published benchmark
+ * the profit assessment is reported as unknown (`null`) rather than being
+ * derived from the farmer's own rate.
+ */
 app.post('/api/logistics/quote', (req: Request, res: Response) => {
   const {
     cropQuantityKg,
@@ -315,32 +361,112 @@ app.post('/api/logistics/quote', (req: Request, res: Response) => {
     destLon,
     containerType,
     apmcModalPricePerQuintal,
-  } = req.body;
+  } = req.body || {};
 
-  const quote = computeLogisticsAndProfit({
-    cropQuantityKg: parseFloat(cropQuantityKg) || 100,
-    farmerPricePerKg: parseFloat(farmerPricePerKg) || 20,
-    originLat: parseFloat(originLat) || 12.5218,
-    originLon: parseFloat(originLon) || 76.8951,
-    destLat: parseFloat(destLat) || 12.9716,
-    destLon: parseFloat(destLon) || 77.5946,
-    containerType: containerType || 'STANDARD_CRATE',
-    apmcModalPricePerQuintal: parseFloat(apmcModalPricePerQuintal) || 3200,
-  });
+  const quantity = parseFloat(cropQuantityKg);
+  const farmerPrice = parseFloat(farmerPricePerKg);
+  const originLatValue = parseFloat(originLat);
+  const originLonValue = parseFloat(originLon);
+  const destLatValue = parseFloat(destLat);
+  const destLonValue = parseFloat(destLon);
+
+  const missing: string[] = [];
+  if (!Number.isFinite(quantity) || quantity <= 0) missing.push('cropQuantityKg');
+  if (!Number.isFinite(farmerPrice) || farmerPrice < 0) missing.push('farmerPricePerKg');
+  if (!Number.isFinite(originLatValue)) missing.push('originLat');
+  if (!Number.isFinite(originLonValue)) missing.push('originLon');
+  if (!Number.isFinite(destLatValue)) missing.push('destLat');
+  if (!Number.isFinite(destLonValue)) missing.push('destLon');
+
+  if (missing.length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: `Missing or invalid value(s): ${missing.join(', ')}`,
+      missing,
+    });
+  }
+
+  const benchmark = parseFloat(apmcModalPricePerQuintal);
+
+  let quote;
+  try {
+    quote = computeLogisticsAndProfit({
+      cropQuantityKg: quantity,
+      farmerPricePerKg: farmerPrice,
+      originLat: originLatValue,
+      originLon: originLonValue,
+      destLat: destLatValue,
+      destLon: destLonValue,
+      containerType: containerType || 'STANDARD_CRATE',
+      ...(Number.isFinite(benchmark) && benchmark > 0
+        ? { apmcModalPricePerQuintal: benchmark }
+        : {}),
+    });
+  } catch (quoteError: any) {
+    // The route could not be computed from the supplied positions — the
+    // quote is refused instead of answering with a made-up distance.
+    return res.status(400).json({
+      success: false,
+      message: quoteError?.message || 'The route could not be computed.',
+    });
+  }
 
   return res.json({ success: true, data: quote });
 });
 
-app.get('/api/apmc/rates', async (_req: Request, res: Response) => {
+/**
+ * APMC benchmark rates.
+ *
+ * The rates are **real rows** of the shared database — the website and the
+ * Android app read the same endpoint, so both clients always show the same
+ * (possibly empty) set of published benchmarks. Nothing is invented here.
+ *
+ * The category of a commodity is derived from the shared crop catalogue so
+ * both clients can filter the rates by crop group.
+ */
+app.get('/api/apmc/rates', async (req: Request, res: Response) => {
   try {
     if (!(db as any).apmcMarketRate) {
-      return res.json({ success: true, data: [] });
+      return res.json({ success: true, data: [], rates: [], total: 0 });
     }
+
+    const { state, commodity } = req.query as Record<string, string | undefined>;
+    const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 500);
+
     const rates = await (db as any).apmcMarketRate.findMany({
-      orderBy: { updatedAt: 'desc' },
-      take: 50,
+      where: {
+        ...(state ? { state: { equals: state, mode: 'insensitive' } } : {}),
+        ...(commodity
+          ? { commodity: { contains: commodity, mode: 'insensitive' } }
+          : {}),
+      },
+      orderBy: [{ state: 'asc' }, { marketCenter: 'asc' }, { commodity: 'asc' }],
+      take: limit,
     });
-    return res.json({ success: true, data: rates });
+
+    const data = rates.map((rate: any) => {
+      const catalogue = findCatalogueEntry(rate.commodity);
+      return {
+        id: rate.id,
+        state: rate.state,
+        district: rate.district,
+        marketCenter: rate.marketCenter,
+        commodity: rate.commodity,
+        minPrice: rate.minPrice,
+        maxPrice: rate.maxPrice,
+        modalPrice: rate.modalPrice,
+        updatedAt: rate.updatedAt,
+        // Derived from the shared crop catalogue (never invented).
+        category: catalogue?.category ?? null,
+        categoryName: catalogue ? CROP_CATEGORY_LABELS[catalogue.category]?.en ?? null : null,
+        categoryNameKn: catalogue ? CROP_CATEGORY_LABELS[catalogue.category]?.kn ?? null : null,
+        categoryNameHi: catalogue ? CROP_CATEGORY_LABELS[catalogue.category]?.hi ?? null : null,
+        commodityNameKn: catalogue ? localizedCropNames(catalogue).nameKn : null,
+        commodityNameHi: catalogue ? localizedCropNames(catalogue).nameHi : null,
+      };
+    });
+
+    return res.json({ success: true, data, rates: data, total: data.length });
   } catch (err: any) {
     return res.status(500).json({ success: false, message: err.message });
   }

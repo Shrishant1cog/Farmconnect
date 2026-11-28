@@ -23,80 +23,25 @@ import {
   IndianRupee
 } from 'lucide-react';
 import { fetchApi } from '../../../lib/api';
+import { useI18n } from '../../../hooks/useI18n';
 
 const TRACKING_STEPS = [
-  { key: 'PENDING', label: 'Order Placed' },
-  { key: 'PACKED', label: 'Harvest Packed' },
-  { key: 'DISPATCHED', label: 'In Transit' },
-  { key: 'DELIVERED', label: 'Delivered' },
+  { key: 'PENDING', translationKey: 'consumer.orders.stepPending' },
+  { key: 'PACKED', translationKey: 'consumer.orders.stepPacked' },
+  { key: 'DISPATCHED', translationKey: 'consumer.orders.stepDispatched' },
+  { key: 'DELIVERED', translationKey: 'consumer.orders.stepDelivered' },
 ];
 
-const FALLBACK_CONSUMER_ORDERS = [
-  {
-    id: 'ord-fc-9021',
-    createdAt: new Date(Date.now() - 3600000 * 3).toISOString(),
-    status: 'DISPATCHED',
-    totalAmount: 5450,
-    grandTotal: 5450,
-    transportCost: 350,
-    containerCost: 100,
-    deliveryAddress: 'Indiranagar 12th Main, Bengaluru, Karnataka - 560038',
-    farmer: {
-      id: 'farmer-1',
-      farmName: 'Mandya Sugarcane & Millet Farm',
-      district: 'Mandya',
-      user: {
-        phone: '+91 98765 43210',
-      },
-    },
-    items: [
-      {
-        id: 'item-c1',
-        quantity: 100,
-        price: 50,
-        unitPrice: 50,
-        product: {
-          id: 'prod-1',
-          title: 'Organic Finger Millet (Ragi)',
-          priceUnit: 'kg',
-        },
-      },
-    ],
-  },
-  {
-    id: 'ord-fc-8814',
-    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-    status: 'DELIVERED',
-    totalAmount: 3250,
-    grandTotal: 3250,
-    transportCost: 250,
-    containerCost: 50,
-    deliveryAddress: 'Gokulam 3rd Stage, Mysuru, Karnataka - 570002',
-    farmer: {
-      id: 'farmer-2',
-      farmName: 'Nanjangud Banana Groves',
-      district: 'Mysuru',
-      user: {
-        phone: '+91 98765 43233',
-      },
-    },
-    items: [
-      {
-        id: 'item-c2',
-        quantity: 50,
-        price: 65,
-        unitPrice: 65,
-        product: {
-          id: 'prod-2',
-          title: 'Yelakki Banana (Elakki Bale)',
-          priceUnit: 'kg',
-        },
-      },
-    ],
-  },
-];
+const STATUS_TRANSLATION_KEYS: Record<string, string> = {
+  ALL: 'consumer.orders.statusAll',
+  PENDING: 'consumer.orders.statusPending',
+  PACKED: 'consumer.orders.statusPacked',
+  DISPATCHED: 'consumer.orders.statusDispatched',
+  DELIVERED: 'consumer.orders.statusDelivered',
+};
 
 export default function ConsumerOrdersPage() {
+  const { t, formatDate, formatNumber, formatCurrency } = useI18n();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
@@ -120,39 +65,37 @@ export default function ConsumerOrdersPage() {
 
     const token = getAuthToken();
     if (!token) {
-      setOrders(FALLBACK_CONSUMER_ORDERS);
+      setOrders([]);
       setLoading(false);
       return;
     }
 
     try {
       let data: any;
-      try {
-        const res = await fetchApi('/orders/my');
-        data = res?.data || res?.orders || res;
-      } catch {
-        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
-        const res = await fetch(`${baseUrl}/orders/my`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const json = await res.json();
-        data = json?.data || json?.orders || json;
-      }
+      // `fetchApi` resolves the shared backend and attaches the bearer
+      // token. A **failed** request must reach the error handler below —
+      // a second, direct `fetch` used to swallow the HTTP status and
+      // report an error body as if it were an empty order list.
+      const res = await fetchApi('/orders/my');
+      data = res?.data || res?.orders || res;
 
-      if (Array.isArray(data) && data.length > 0) {
+      // Only the real shared orders are shown. An empty response renders the
+      // empty state instead of demo records.
+      if (Array.isArray(data)) {
         setOrders(data);
-      } else if (data?.orders && Array.isArray(data.orders) && data.orders.length > 0) {
+      } else if (data?.orders && Array.isArray(data.orders)) {
         setOrders(data.orders);
       } else {
-        setOrders(FALLBACK_CONSUMER_ORDERS);
+        setOrders([]);
       }
     } catch (err: any) {
-      console.warn('Failed to load consumer orders (using offline fallback):', err?.message);
-      setOrders(FALLBACK_CONSUMER_ORDERS);
+      console.warn('Failed to load consumer orders:', err?.message);
+      setPageError(err?.message || t('consumer.orders.loadError'));
+      setOrders([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchOrders();
@@ -181,35 +124,24 @@ export default function ConsumerOrdersPage() {
     setModalError(null);
 
     try {
-      let json: any;
-      try {
-        json = await fetchApi(`/orders/${orderId}/received`, {
-          method: 'PATCH'
-        });
-      } catch {
-        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
-        const res = await fetch(`${baseUrl}/orders/${orderId}/received`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-          }
-        });
-        json = await res.json();
-      }
+      const json: any = await fetchApi(`/orders/${orderId}/received`, {
+        method: 'PATCH'
+      });
 
       if (json?.success || json?.id || json?.data || json?.status === 200) {
         setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'DELIVERED' } : o));
         closeConfirmationModal();
       } else {
-        // Fallback optimistic update for demo resilience
-        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'DELIVERED' } : o));
-        closeConfirmationModal();
+        // The shared backend did not confirm the delivery — the order keeps
+        // its real status. A local "delivered" flag would be a fake success.
+        setModalError(
+          json?.message || t('consumer.orders.deliveryNotConfirmed')
+        );
       }
-    } catch {
-      // Optimistically complete verification locally
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'DELIVERED' } : o));
-      closeConfirmationModal();
+    } catch (err: any) {
+      // The confirmation could not be delivered to the shared backend, so
+      // the order is **not** marked as delivered here.
+      setModalError(err?.message || t('consumer.orders.deliveryNotConfirmed'));
     } finally {
       setConfirmingId(null);
     }
@@ -251,7 +183,7 @@ export default function ConsumerOrdersPage() {
       <div className="min-h-[75vh] flex flex-col items-center justify-center text-emerald-800 gap-3">
         <Loader2 className="w-8 h-8 animate-spin text-emerald-700" />
         <span className="font-bold text-xs tracking-widest uppercase text-stone-500">
-          Loading Your Orders & Shipments...
+          {t('consumer.orders.loading')}
         </span>
       </div>
     );
@@ -265,17 +197,17 @@ export default function ConsumerOrdersPage() {
         <div>
           <h1 className="text-3xl font-black text-stone-900 tracking-tight flex items-center gap-3">
             <Truck className="w-8 h-8 text-emerald-700" />
-            <span>My Orders & Dispatch Tracking</span>
+            <span>{t('consumer.orders.title')}</span>
           </h1>
           <p className="text-stone-600 text-sm mt-1">
-            Monitor your active farm-direct harvests and logistics progress from Karnataka fields to your kitchen.
+            {t('consumer.orders.subtitle')}
           </p>
         </div>
 
         <button
           onClick={fetchOrders}
           className="self-start sm:self-auto p-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-2xl transition-all active:scale-95 shadow-2xs"
-          title="Refresh Orders"
+          title={t('consumer.orders.refresh')}
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-700' : ''}`} />
         </button>
@@ -288,7 +220,7 @@ export default function ConsumerOrdersPage() {
             <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search by Order ID, Farm, or Produce..."
+              placeholder={t('consumer.orders.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-stone-50 rounded-2xl text-xs font-semibold text-stone-900 border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-600 transition-all"
@@ -306,7 +238,7 @@ export default function ConsumerOrdersPage() {
                     : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                 }`}
               >
-                {st}
+                {t(STATUS_TRANSLATION_KEYS[st] || 'common.unknown')}
               </button>
             ))}
           </div>
@@ -325,20 +257,20 @@ export default function ConsumerOrdersPage() {
       {orders.length === 0 ? (
         <div className="bg-white border border-stone-200 rounded-3xl p-12 text-center shadow-sm">
           <Package className="w-12 h-12 text-stone-300 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-stone-800">No Orders Placed Yet</h3>
+          <h3 className="text-base font-bold text-stone-800">{t('consumer.orders.emptyTitle')}</h3>
           <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto mb-6">
-            Procure fresh harvest yields directly from local cultivators to start tracking real-time dispatch.
+            {t('consumer.orders.emptyBody')}
           </p>
           <Link
             href="/consumer/explore"
             className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm active:scale-95"
           >
-            Explore Marketplace <ArrowRight className="w-4 h-4" />
+            {t('consumer.orders.exploreMarketplace')} <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
       ) : filteredOrders.length === 0 ? (
         <div className="bg-white border border-stone-200 rounded-3xl p-8 text-center text-stone-500 text-xs">
-          No orders match your search or filter selection.
+          {t('consumer.orders.noMatches')}
         </div>
       ) : (
         <div className="space-y-6">
@@ -357,16 +289,18 @@ export default function ConsumerOrdersPage() {
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-mono font-bold text-stone-400 uppercase">
-                        Order #{String(order.id || '').slice(0, 8).toUpperCase()}
+                        {t('consumer.orders.orderNumber', {
+                          id: String(order.id || '').slice(0, 8).toUpperCase(),
+                        })}
                       </span>
                       <span className="text-xs font-semibold text-stone-500">
-                        • {order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recent'}
+                        • {order.createdAt ? formatDate(order.createdAt) : t('consumer.orders.recent')}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                       <Sprout className="w-4 h-4 text-emerald-700" />
                       <h3 className="text-sm font-bold text-stone-900">
-                        {order.farmer?.farmName || 'Cultivator Farm'} ({order.farmer?.district || 'Karnataka'})
+                        {order.farmer?.farmName || t('consumer.orders.cultivatorFarm')} ({order.farmer?.district || 'Karnataka'})
                       </h3>
                       {order.farmer?.user?.phone && (
                         <span className="text-xs text-stone-500 flex items-center gap-1 font-medium font-mono">
@@ -377,8 +311,12 @@ export default function ConsumerOrdersPage() {
                   </div>
 
                   <div className="text-right">
-                    <span className="text-[10px] uppercase font-bold text-stone-400 block">Total Amount</span>
-                    <span className="text-xl font-black text-stone-900">₹{totalAmount.toLocaleString('en-IN')}</span>
+                    <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                      {t('consumer.orders.totalAmount')}
+                    </span>
+                    <span className="text-xl font-black text-stone-900">
+                      {formatCurrency(totalAmount, { maximumFractionDigits: 0 })}
+                    </span>
                   </div>
                 </div>
 
@@ -386,7 +324,7 @@ export default function ConsumerOrdersPage() {
                 <div className="p-6 border-b border-stone-100">
                   {isCancelled ? (
                     <div className="p-3 bg-red-50 text-red-700 text-xs font-bold rounded-xl flex items-center gap-2 border border-red-200">
-                      <AlertCircle className="w-4 h-4 text-red-600" /> This order was cancelled.
+                      <AlertCircle className="w-4 h-4 text-red-600" /> {t('consumer.orders.cancelled')}
                     </div>
                   ) : (
                     <div className="grid grid-cols-4 gap-2 relative">
@@ -416,7 +354,7 @@ export default function ConsumerOrdersPage() {
                                 isCurrent ? 'text-emerald-800 font-black' : isCompleted ? 'text-stone-800' : 'text-stone-400'
                               }`}
                             >
-                              {step.label}
+                              {t(step.translationKey)}
                             </span>
                           </div>
                         );
@@ -429,7 +367,7 @@ export default function ConsumerOrdersPage() {
                 <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
                   <div className="space-y-2.5">
                     <span className="text-[10px] font-black uppercase text-stone-400 tracking-wider block">
-                      Procured Items
+                      {t('consumer.orders.procuredItems')}
                     </span>
                     <div className="space-y-2">
                       {order.items?.map((item: any, idx: number) => {
@@ -439,10 +377,16 @@ export default function ConsumerOrdersPage() {
                         return (
                           <div key={item.id || idx} className="flex justify-between items-center bg-stone-50 p-3 rounded-2xl border border-stone-100">
                             <div>
-                              <p className="font-bold text-stone-900">{item.product?.title || 'Harvest Produce'}</p>
-                              <p className="text-[11px] text-stone-500">{itemQty} kg × ₹{unitRate}/kg</p>
+                              <p className="font-bold text-stone-900">
+                                {item.product?.title || t('consumer.orders.harvestProduce')}
+                              </p>
+                              <p className="text-[11px] text-stone-500">
+                                {formatNumber(itemQty)} {t('common.kg')} × {formatCurrency(unitRate, { maximumFractionDigits: 0 })}/{t('common.kg')}
+                              </p>
                             </div>
-                            <span className="font-black text-stone-900">₹{(itemQty * unitRate).toLocaleString('en-IN')}</span>
+                            <span className="font-black text-stone-900">
+                              {formatCurrency(itemQty * unitRate, { maximumFractionDigits: 0 })}
+                            </span>
                           </div>
                         );
                       })}
@@ -451,18 +395,20 @@ export default function ConsumerOrdersPage() {
 
                   <div className="space-y-3">
                     <span className="text-[10px] font-black uppercase text-stone-400 tracking-wider block">
-                      Delivery Location & Freight
+                      {t('consumer.orders.deliveryFreight')}
                     </span>
                     <div className="bg-stone-50 p-4 rounded-2xl border border-stone-100 space-y-2">
                       <div className="flex items-start gap-2">
                         <MapPin className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
                         <p className="font-medium text-stone-800 leading-relaxed">
-                          {order.deliveryAddress || 'Direct Destination Delivery'}
+                          {order.deliveryAddress || t('consumer.orders.directDestination')}
                         </p>
                       </div>
                       <div className="pt-2 border-t border-stone-200 flex justify-between text-stone-500 font-medium">
-                        <span>Logistics Freight:</span>
-                        <span className="font-bold text-stone-800">₹{order.transportCost || 150}</span>
+                        <span>{t('consumer.orders.logisticsFreight')}</span>
+                        <span className="font-bold text-stone-800">
+                          {formatCurrency(Number(order.transportCost) || 150, { maximumFractionDigits: 0 })}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -473,7 +419,7 @@ export default function ConsumerOrdersPage() {
                   <div className="p-4 sm:p-5 bg-emerald-50/70 border-t border-emerald-200 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-xs text-emerald-900 font-semibold">
                       <Truck className="w-4 h-4 text-emerald-700 animate-pulse" />
-                      <span>Produce is in transit! Inspect packaging and confirm below once delivered.</span>
+                      <span>{t('consumer.orders.inTransit')}</span>
                     </div>
                     
                     <button
@@ -482,7 +428,7 @@ export default function ConsumerOrdersPage() {
                       className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-sm flex items-center gap-2 transition-transform active:scale-95 ml-auto"
                     >
                       <CheckCircle2 className="w-4 h-4 text-emerald-300" />
-                      Received Order
+                      {t('consumer.orders.receivedOrder')}
                     </button>
                   </div>
                 )}
@@ -491,9 +437,11 @@ export default function ConsumerOrdersPage() {
                   <div className="p-4 sm:p-5 bg-stone-50 border-t border-stone-200 flex items-center justify-between text-xs">
                     <span className="flex items-center gap-2 font-bold text-emerald-800">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      Order Received & Verified
+                      {t('consumer.orders.orderReceived')}
                     </span>
-                    <span className="text-stone-400 font-medium">Direct procurement completed</span>
+                    <span className="text-stone-400 font-medium">
+                      {t('consumer.orders.procurementCompleted')}
+                    </span>
                   </div>
                 )}
 
@@ -517,9 +465,13 @@ export default function ConsumerOrdersPage() {
                   <ShieldCheck className="w-6 h-6 text-emerald-700" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-black text-stone-900 tracking-tight">Confirm Delivery Receipt</h2>
+                  <h2 className="text-lg font-black text-stone-900 tracking-tight">
+                    {t('consumer.orders.confirmDeliveryTitle')}
+                  </h2>
                   <p className="text-xs text-stone-500 font-medium">
-                    Order #{String(activeModalOrder.id || '').slice(0, 8).toUpperCase()} • {activeModalOrder.farmer?.farmName}
+                    {t('consumer.orders.orderNumber', {
+                      id: String(activeModalOrder.id || '').slice(0, 8).toUpperCase(),
+                    })} • {activeModalOrder.farmer?.farmName}
                   </p>
                 </div>
               </div>
@@ -544,8 +496,8 @@ export default function ConsumerOrdersPage() {
             {/* Produce Lot Item Verification List */}
             <div className="space-y-2 relative z-10">
               <div className="flex justify-between items-center text-[10px] font-black uppercase text-stone-400 tracking-wider">
-                <span>Items in this shipment</span>
-                <span>Expected Amount</span>
+                <span>{t('consumer.orders.itemsInShipment')}</span>
+                <span>{t('consumer.orders.expectedAmount')}</span>
               </div>
               <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200 max-h-48 overflow-y-auto space-y-2 divide-y divide-stone-100">
                 {activeModalOrder.items?.map((item: any, idx: number) => {
@@ -557,11 +509,17 @@ export default function ConsumerOrdersPage() {
                       <div className="flex items-center gap-2">
                         <Boxes className="w-4 h-4 text-emerald-700 shrink-0" />
                         <div>
-                          <p className="font-bold text-stone-800">{item.product?.title || 'Crop Yield'}</p>
-                          <p className="text-[10px] text-stone-500 font-medium">{itemQty} kg</p>
+                          <p className="font-bold text-stone-800">
+                            {item.product?.title || t('consumer.orders.cropYield')}
+                          </p>
+                          <p className="text-[10px] text-stone-500 font-medium">
+                            {formatNumber(itemQty)} {t('common.kg')}
+                          </p>
                         </div>
                       </div>
-                      <span className="font-black text-stone-900">₹{(itemQty * unitRate).toLocaleString('en-IN')}</span>
+                      <span className="font-black text-stone-900">
+                        {formatCurrency(itemQty * unitRate, { maximumFractionDigits: 0 })}
+                      </span>
                     </div>
                   );
                 })}
@@ -572,10 +530,12 @@ export default function ConsumerOrdersPage() {
             <div className="bg-emerald-50 border border-emerald-200/80 rounded-2xl p-4 text-xs text-emerald-950 space-y-1 relative z-10">
               <div className="flex items-center gap-1.5 font-black uppercase text-[10px] tracking-wider text-emerald-800">
                 <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
-                Settlement Authorization
+                {t('consumer.orders.settlementAuthorization')}
               </div>
               <p className="text-[11px] leading-relaxed text-emerald-900 font-medium">
-                Confirming receipt notifies <strong>{activeModalOrder.farmer?.farmName}</strong> and marks this wholesale consignment as fully delivered and accepted.
+                {t('consumer.orders.settlementBody', {
+                  farm: activeModalOrder.farmer?.farmName || t('consumer.orders.cultivatorFarm'),
+                })}
               </p>
             </div>
 
@@ -588,7 +548,7 @@ export default function ConsumerOrdersPage() {
                 className="w-4 h-4 mt-0.5 rounded text-emerald-700 focus:ring-emerald-600 border-stone-300"
               />
               <span className="text-xs text-stone-700 font-semibold leading-snug">
-                I have unpacked and inspected all items. The harvest quantity and quality match my order.
+                {t('consumer.orders.inspection')}
               </span>
             </label>
 
@@ -600,7 +560,7 @@ export default function ConsumerOrdersPage() {
                 disabled={Boolean(confirmingId)}
                 className="px-5 py-2.5 rounded-xl text-xs font-bold text-stone-600 hover:bg-stone-100 transition-colors"
               >
-                Not Yet / Cancel
+                {t('consumer.orders.notYet')}
               </button>
 
               <button
@@ -612,12 +572,12 @@ export default function ConsumerOrdersPage() {
                 {confirmingId ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Verifying...</span>
+                    <span>{t('consumer.orders.verifying')}</span>
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="w-4 h-4 text-emerald-300" />
-                    <span>Confirm & Accept Delivery</span>
+                    <span>{t('consumer.orders.confirmAccept')}</span>
                   </>
                 )}
               </button>

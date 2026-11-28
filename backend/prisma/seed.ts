@@ -1,10 +1,13 @@
+// Load `backend/.env` so the seed script can be executed directly with ts-node
+// (the Prisma CLI loads it automatically, plain node/ts-node does not).
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Cleaning existing SQLite records...');
+  console.log('Cleaning existing database records...');
 
   // 1. Delete dependent child records first to satisfy foreign key constraints
   await prisma.orderItem.deleteMany();
@@ -222,7 +225,7 @@ async function main() {
     },
   });
 
-  console.log('✅ SQLite database initialized and seeded successfully with realistic data!');
+  console.log('✅ PostgreSQL database initialized and seeded successfully with realistic data!');
 }
 
 main()

@@ -5,10 +5,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --test \"src/**/*.test.mjs\""
   },
   "dependencies": {
     "clsx": "^2.1.1",
+    "firebase": "^12.19.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.42.0",
     "next": "^15.5.3",

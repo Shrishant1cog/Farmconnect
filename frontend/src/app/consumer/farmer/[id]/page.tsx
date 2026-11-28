@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { useCart } from '../../../../context/CartContext';
 import { useAuth } from '../../../../hooks/useAuth';
+import { useI18n } from '../../../../hooks/useI18n';
+import FavoriteButton from '../../../../components/consumer/FavoriteButton';
 import { fetchApi } from '../../../../lib/api';
 
 interface ProductItem {
@@ -37,6 +39,8 @@ interface ProductItem {
   quantityUnit: string;
   isOrganic: boolean;
   imageUrl?: string;
+  cropName?: string;
+  variety?: string;
   category?: {
     name: string;
     slug: string;
@@ -66,6 +70,7 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
   const farmerId = resolvedParams.id;
   const router = useRouter();
   const { isAuthenticated } = useAuth();
+  const { t, formatNumber, formatCurrency } = useI18n();
   const { addToCart, clearCart } = useCart();
 
   const [farmer, setFarmer] = useState<FarmerProfileData | null>(null);
@@ -111,10 +116,13 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
     if (!farmer?.user?.phone) return null;
     const digits = farmer.user.phone.replace(/\D/g, '');
     const msg = encodeURIComponent(
-      `Namaskara ${farmer.user.name}! I am looking at your farm catalog for "${farmer.farmName}" on FarmConnect and would like to negotiate whole harvest dispatch.`
+      t('consumer.farmer.whatsappMessage', {
+        name: farmer.user.name,
+        farm: farmer.farmName,
+      })
     );
     return `https://wa.me/${digits}?text=${msg}`;
-  }, [farmer]);
+  }, [farmer, t]);
 
   // Handle direct in-app chat thread initiation
   const handleStartChatWithFarmer = async () => {
@@ -132,18 +140,18 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
         method: 'POST',
         body: JSON.stringify({
           productId: firstProduct ? firstProduct.id : farmer.id,
-          subject: `Bulk Trade Inquiry with ${farmer.farmName}`,
-          message: `Namaskara! I am reviewing your harvest catalog on FarmConnect and would like to coordinate freight delivery.`,
+          subject: t('consumer.farmer.enquirySubject', { farm: farmer.farmName }),
+          message: t('consumer.farmer.enquiryMessage'),
         }),
       });
 
       if (res.success && res.data?.id) {
         router.push(`/consumer/enquiries/${res.data.id}`);
       } else {
-        alert(res.message || 'Unable to establish chat room.');
+        alert(res.message || t('consumer.farmer.unableChat'));
       }
     } catch {
-      alert('Network error connecting to negotiation thread.');
+      alert(t('consumer.farmer.networkError'));
     } finally {
       setIsStartingChat(false);
     }
@@ -242,7 +250,7 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
       <div className="min-h-[70vh] flex flex-col items-center justify-center text-emerald-800 gap-3">
         <Loader2 className="w-9 h-9 animate-spin text-emerald-800" />
         <span className="font-bold text-xs tracking-widest uppercase text-stone-500">
-          Loading Cultivator Profile & Field Stock...
+          {t('consumer.farmer.loadingProfile')}
         </span>
       </div>
     );
@@ -254,15 +262,17 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
         <div className="w-14 h-14 bg-stone-100 rounded-2xl flex items-center justify-center mx-auto text-stone-400">
           <Sprout className="w-7 h-7" />
         </div>
-        <h2 className="text-xl font-black text-stone-900">Cultivator Not Found</h2>
+        <h2 className="text-xl font-black text-stone-900">
+          {t('consumer.farmer.notFoundTitle')}
+        </h2>
         <p className="text-stone-500 text-xs leading-relaxed">
-          This cultivation lot profile is inactive, private, or has been temporarily delisted from the regional exchange.
+          {t('consumer.farmer.notFoundBody')}
         </p>
         <button 
           onClick={() => router.push('/consumer/explore')} 
           className="w-full py-3 bg-emerald-800 hover:bg-emerald-900 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-colors"
         >
-          Return to Marketplace
+          {t('consumer.farmer.returnMarketplace')}
         </button>
       </div>
     );
@@ -286,13 +296,15 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
               </h1>
               {farmer.isVerified && (
                 <span className="flex items-center gap-1 text-[11px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-900 border border-emerald-300 px-2.5 py-0.5 rounded-full">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" /> Verified Cultivator
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" /> {t('consumer.farmer.verifiedCultivator')}
                 </span>
               )}
+              {/* The heart follows the cultivator — the shared backend owns it. */}
+              <FavoriteButton farmerId={farmer.id} />
             </div>
 
             <p className="text-stone-600 text-xs sm:text-sm font-medium">
-              Registered Cultivator: <strong className="text-stone-900">{farmer.user?.name}</strong>
+              {t('consumer.farmer.registeredCultivator', { name: farmer.user?.name })}
             </p>
 
             <div className="flex flex-wrap gap-4 text-xs text-stone-500 pt-1">
@@ -321,13 +333,16 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
           {products.length > 0 && (
             <div className="bg-stone-50 border border-stone-200/90 p-5 rounded-2xl flex-1 space-y-2">
               <span className="text-[10px] font-black uppercase tracking-wider text-stone-500 block">
-                Total Available Harvest Valuation
+                {t('consumer.farmer.totalValuation')}
               </span>
               <p className="text-2xl font-black text-stone-900 leading-none">
-                ₹{lotMetrics.totalVal.toLocaleString('en-IN')}
+                {formatCurrency(lotMetrics.totalVal, { maximumFractionDigits: 0 })}
               </p>
               <p className="text-[11px] text-stone-500">
-                Across {lotMetrics.totalLots} harvest lots ({lotMetrics.totalQty.toLocaleString('en-IN')} units total)
+                {t('consumer.farmer.acrossLots', {
+                  lots: formatNumber(lotMetrics.totalLots),
+                  units: formatNumber(lotMetrics.totalQty),
+                })}
               </p>
 
               <button
@@ -335,7 +350,7 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
                 onClick={handleBuyEntireHarvestLot}
                 className="w-full mt-2 py-3 bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95"
               >
-                <Boxes className="w-4 h-4" /> Procure Entire Harvest Lot
+                <Boxes className="w-4 h-4" /> {t('consumer.farmer.procureEntire')}
               </button>
             </div>
           )}
@@ -348,7 +363,7 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
               className="flex-1 py-3 bg-white hover:bg-stone-50 border border-stone-200 text-stone-800 font-bold text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 transition-colors shadow-xs"
             >
               {isStartingChat ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4 text-emerald-700" />}
-              Direct Chat
+              {t('consumer.farmer.directChat')}
             </button>
 
             {whatsappUrl && (
@@ -357,7 +372,7 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-4 py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors"
-                title="Open WhatsApp Negotiation"
+                title={t('consumer.farmer.whatsappTitle')}
               >
                 <ExternalLink className="w-4 h-4 text-emerald-800" />
               </a>
@@ -372,23 +387,27 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-black text-stone-900 flex items-center gap-2">
-              <Sprout className="w-5 h-5 text-emerald-700" /> Harvested Produce Catalog
+              <Sprout className="w-5 h-5 text-emerald-700" /> {t('consumer.farmer.catalogTitle')}
             </h2>
             <p className="text-stone-500 text-xs mt-0.5">
-              Source farm-fresh harvests directly from {farmer.farmName} with no middleman markups.
+              {t('consumer.farmer.catalogBody', { farm: farmer.farmName })}
             </p>
           </div>
           <span className="text-xs font-bold text-stone-500">
-            {products.length} lot{products.length === 1 ? '' : 's'} available
+            {products.length === 1
+              ? t('consumer.farmer.lotAvailable', { count: formatNumber(products.length) })
+              : t('consumer.farmer.lotsAvailable', { count: formatNumber(products.length) })}
           </span>
         </div>
 
         {products.length === 0 ? (
           <div className="bg-white border border-dashed border-stone-300 rounded-3xl p-12 text-center text-stone-500 space-y-2">
             <PackageCheck className="w-12 h-12 text-stone-300 mx-auto" />
-            <h3 className="font-bold text-stone-800 text-base">No Active Harvest Lots Ready</h3>
+            <h3 className="font-bold text-stone-800 text-base">
+              {t('consumer.farmer.noHarvestTitle')}
+            </h3>
             <p className="text-xs text-stone-500 max-w-sm mx-auto">
-              This farm has dispatched all currently harvested crops. Check back shortly for seasonal harvests.
+              {t('consumer.farmer.noHarvestBody')}
             </p>
           </div>
         ) : (
@@ -416,12 +435,15 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
                       
                       {product.isOrganic && (
                         <span className="absolute top-3 left-3 bg-emerald-800 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full shadow-xs flex items-center gap-1">
-                          <Sparkles className="w-3 h-3 text-emerald-300" /> Organic
+                          <Sparkles className="w-3 h-3 text-emerald-300" /> {t('consumer.farmer.organic')}
                         </span>
                       )}
 
                       <span className="absolute bottom-3 right-3 bg-stone-900/80 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-lg">
-                        Stock: {maxStock} {unit}
+                        {t('consumer.farmer.stock', {
+                          stock: formatNumber(maxStock),
+                          unit,
+                        })}
                       </span>
                     </div>
 
@@ -431,6 +453,14 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
                         <h3 className="font-bold text-stone-900 text-base leading-snug">
                           {product.title}
                         </h3>
+                        {product.cropName && (
+                          <p className="text-[11px] font-semibold text-emerald-700 mt-1">
+                            {t('common.crop')}: {product.cropName}
+                            {product.variety && (
+                              <> · {t('common.variety')}: {product.variety}</>
+                            )}
+                          </p>
+                        )}
                         {product.description && (
                           <p className="text-xs text-stone-500 line-clamp-2 mt-1">
                             {product.description}
@@ -441,10 +471,12 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
                       <div className="flex justify-between items-baseline bg-stone-50 p-3.5 rounded-2xl border border-stone-200/70">
                         <div>
                           <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block">
-                            Direct Farm Rate
+                            {t('consumer.farmer.directFarmRate')}
                           </span>
                           <div className="flex items-baseline gap-1">
-                            <span className="text-xl font-black text-stone-900">₹{product.farmerPrice}</span>
+                            <span className="text-xl font-black text-stone-900">
+                              {formatCurrency(Number(product.farmerPrice) || 0, { maximumFractionDigits: 0 })}
+                            </span>
                             <span className="text-xs text-stone-500">
                               / {product.priceUnit?.replace('PER_', '').toLowerCase()}
                             </span>
@@ -453,10 +485,13 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
 
                         <div className="text-right">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block">
-                            Lot Stock
+                            {t('consumer.farmer.lotStock')}
                           </span>
                           <span className="text-xs font-black text-emerald-900">
-                            {maxStock} {unit} Available
+                            {t('consumer.farmer.available', {
+                              stock: formatNumber(maxStock),
+                              unit,
+                            })}
                           </span>
                         </div>
                       </div>
@@ -465,7 +500,7 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
                       <div className="space-y-2 pt-1">
                         <div className="flex justify-between items-center text-xs">
                           <label className="font-bold text-stone-700 uppercase tracking-wider text-[10px]">
-                            Procurement Volume ({unit})
+                            {t('consumer.farmer.procurementVolume', { unit })}
                           </label>
                           <span className="text-xs font-mono font-black text-stone-900">
                             {selectedQty} {unit}
@@ -478,7 +513,7 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
                             type="button"
                             onClick={() => updateLotQuantity(product.id, selectedQty - 10, maxStock)}
                             className="p-2.5 rounded-xl border border-stone-200 hover:bg-stone-100 text-stone-600 active:scale-95 transition-all"
-                            title="Decrease 10"
+                            title={t('consumer.farmer.decrease10')}
                           >
                             <Minus className="w-3.5 h-3.5" />
                           </button>
@@ -496,7 +531,7 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
                             type="button"
                             onClick={() => updateLotQuantity(product.id, selectedQty + 10, maxStock)}
                             className="p-2.5 rounded-xl border border-stone-200 hover:bg-stone-100 text-stone-600 active:scale-95 transition-all"
-                            title="Increase 10"
+                            title={t('consumer.farmer.increase10')}
                           >
                             <Plus className="w-3.5 h-3.5" />
                           </button>
@@ -509,21 +544,21 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
                             onClick={() => updateLotQuantity(product.id, Math.max(1, Math.round(maxStock * 0.25)), maxStock)}
                             className="py-1 px-2 text-[10px] font-bold rounded-lg border border-stone-200 hover:bg-stone-100 text-stone-600 transition-colors"
                           >
-                            25% Lot
+                            {t('consumer.farmer.lot25')}
                           </button>
                           <button
                             type="button"
                             onClick={() => updateLotQuantity(product.id, Math.max(1, Math.round(maxStock * 0.50)), maxStock)}
                             className="py-1 px-2 text-[10px] font-bold rounded-lg border border-stone-200 hover:bg-stone-100 text-stone-600 transition-colors"
                           >
-                            50% Lot
+                            {t('consumer.farmer.lot50')}
                           </button>
                           <button
                             type="button"
                             onClick={() => updateLotQuantity(product.id, maxStock, maxStock)}
                             className="py-1 px-2 text-[10px] font-black rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-colors"
                           >
-                            100% Stock
+                            {t('consumer.farmer.stock100')}
                           </button>
                         </div>
                       </div>
@@ -534,9 +569,11 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
                   {/* Lot Price Breakdown & Action Buttons */}
                   <div className="p-5 pt-0 space-y-3">
                     <div className="flex justify-between items-center text-xs pt-3 border-t border-stone-100">
-                      <span className="text-stone-500 font-medium">Estimated Lot Subtotal:</span>
+                      <span className="text-stone-500 font-medium">
+                        {t('consumer.farmer.estimatedSubtotal')}
+                      </span>
                       <span className="text-base font-black text-stone-900">
-                        ₹{calculatedLotPrice.toLocaleString('en-IN')}
+                        {formatCurrency(calculatedLotPrice, { maximumFractionDigits: 0 })}
                       </span>
                     </div>
 
@@ -551,9 +588,9 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
                         }`}
                       >
                         {isAdded ? (
-                          <><Check className="w-4 h-4 text-emerald-700" /> Added</>
+                          <><Check className="w-4 h-4 text-emerald-700" /> {t('consumer.farmer.added')}</>
                         ) : (
-                          <><ShoppingBag className="w-4 h-4 text-emerald-800" /> Add to Cart</>
+                          <><ShoppingBag className="w-4 h-4 text-emerald-800" /> {t('consumer.farmer.addCart')}</>
                         )}
                       </button>
 
@@ -562,7 +599,7 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
                         onClick={() => handleBuyItemInWhole(product)}
                         className="py-3 px-3 bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95"
                       >
-                        Checkout <ArrowRight className="w-3.5 h-3.5" />
+                        {t('consumer.farmer.checkout')} <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>

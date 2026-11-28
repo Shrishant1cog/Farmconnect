@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { UploadCloud, Image as ImageIcon, X, Link as LinkIcon, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useI18n } from '../../hooks/useI18n';
 
 interface CropImageUploadProps {
   value: string;
@@ -9,6 +10,7 @@ interface CropImageUploadProps {
 }
 
 export default function CropImageUpload({ value, onChange }: CropImageUploadProps) {
+  const { t } = useI18n();
   const [isDragging, setIsDragging] = useState(false);
   const [useUrlInput, setUseUrlInput] = useState(false);
   const [urlDraft, setUrlDraft] = useState('');
@@ -20,13 +22,13 @@ export default function CropImageUpload({ value, onChange }: CropImageUploadProp
 
     // Support all standard & modern raster/vector image MIME types
     if (!file.type.startsWith('image/')) {
-      setError('Please upload a valid image file (PNG, JPG, WEBP, AVIF, SVG, GIF).');
+      setError(t('farmer.image.invalidFile'));
       return;
     }
 
     // 8MB Client-side limit safeguard
     if (file.size > 8 * 1024 * 1024) {
-      setError('Image size exceeds 8MB. Please select a lighter image.');
+      setError(t('farmer.image.fileTooLarge'));
       return;
     }
 
@@ -38,7 +40,7 @@ export default function CropImageUpload({ value, onChange }: CropImageUploadProp
       }
     };
     reader.onerror = () => {
-      setError('Could not process this image format. Try another image or use a web link.');
+      setError(t('farmer.image.processError'));
     };
     reader.readAsDataURL(file);
   };
@@ -67,7 +69,7 @@ export default function CropImageUpload({ value, onChange }: CropImageUploadProp
       <div className="flex items-center justify-between">
         <label className="text-xs font-bold uppercase tracking-wider text-stone-700 flex items-center gap-1.5">
           <ImageIcon className="w-3.5 h-3.5 text-emerald-700" />
-          Harvest / Crop Photograph
+          {t('farmer.image.label')}
         </label>
         <button
           type="button"
@@ -78,7 +80,7 @@ export default function CropImageUpload({ value, onChange }: CropImageUploadProp
           className="text-[11px] font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 transition-colors"
         >
           <LinkIcon className="w-3 h-3" />
-          {useUrlInput ? 'Upload from Device' : 'Paste Web URL'}
+          {useUrlInput ? t('farmer.image.uploadFromDevice') : t('farmer.image.pasteWebUrl')}
         </button>
       </div>
 
@@ -94,7 +96,7 @@ export default function CropImageUpload({ value, onChange }: CropImageUploadProp
         <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-500/40 bg-stone-100 group aspect-video sm:h-52 w-full">
           <img
             src={value}
-            alt="Crop Harvest Preview"
+            alt={t('farmer.image.previewAlt')}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
           <div className="absolute inset-0 bg-stone-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
@@ -103,19 +105,19 @@ export default function CropImageUpload({ value, onChange }: CropImageUploadProp
               onClick={() => fileInputRef.current?.click()}
               className="px-3.5 py-1.5 bg-white text-stone-900 rounded-xl text-xs font-bold shadow-md hover:bg-stone-100 transition-all"
             >
-              Replace Image
+              {t('farmer.image.replace')}
             </button>
             <button
               type="button"
               onClick={() => onChange('')}
               className="p-2 bg-red-600 text-white rounded-xl shadow-md hover:bg-red-700 transition-all"
-              title="Remove image"
+              title={t('farmer.image.removeTitle')}
             >
               <X className="w-4 h-4" />
             </button>
           </div>
           <span className="absolute bottom-2 left-2 bg-emerald-900/80 backdrop-blur-md text-emerald-100 text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-            <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Ready for Listing
+            <CheckCircle2 className="w-3 h-3 text-emerald-400" /> {t('farmer.image.ready')}
           </span>
         </div>
       ) : useUrlInput ? (
@@ -125,7 +127,7 @@ export default function CropImageUpload({ value, onChange }: CropImageUploadProp
             type="url"
             value={urlDraft}
             onChange={(e) => setUrlDraft(e.target.value)}
-            placeholder="https://images.unsplash.com/... or cloud link"
+            placeholder={t('farmer.image.urlPlaceholder')}
             className="flex-1 px-4 py-2.5 rounded-xl border border-stone-300 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
           />
           <button
@@ -134,7 +136,7 @@ export default function CropImageUpload({ value, onChange }: CropImageUploadProp
             disabled={!urlDraft.trim()}
             className="px-4 py-2.5 bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white text-xs font-bold rounded-xl transition-colors shrink-0"
           >
-            Attach
+            {t('farmer.image.attach')}
           </button>
         </div>
       ) : (
@@ -158,10 +160,10 @@ export default function CropImageUpload({ value, onChange }: CropImageUploadProp
           </div>
           <div>
             <p className="text-xs font-bold text-stone-800">
-              Click to browse or drag & drop harvest photo
+              {t('farmer.image.browse')}
             </p>
             <p className="text-[11px] text-stone-500 mt-0.5">
-              Supports all formats: PNG, JPG, WEBP, AVIF, SVG, GIF (Up to 8MB)
+              {t('farmer.image.formats')}
             </p>
           </div>
         </div>

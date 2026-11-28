@@ -4,10 +4,12 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { useI18n } from '../../hooks/useI18n';
 
 export default function FarmerLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, isLoading } = useAuth();
+  const { t } = useI18n();
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -43,7 +45,7 @@ export default function FarmerLayout({ children }: { children: React.ReactNode }
       <div className="min-h-[75vh] flex flex-col items-center justify-center gap-3">
         <Loader2 className="w-10 h-10 animate-spin text-emerald-700" />
         <p className="text-xs font-bold text-stone-500 uppercase tracking-widest animate-pulse">
-          Loading Cultivator Workspace...
+          {t('farmer.layout.loadingWorkspace')}
         </p>
       </div>
     );

@@ -1,0 +1,199 @@
+name: FarmConnect Verification v3
+
+on:
+  push:
+    branches:
+      - "fix/verified-build-auth"
+      - "fix/**"
+      - "verify/**"
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  normalize-lockfile:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Regenerate frontend lockfile
+        working-directory: frontend
+        run: npm install --package-lock-only
+
+      - name: Commit normalized lockfile
+        shell: bash
+        run: |
+          if git diff --quiet -- frontend/package-lock.json; then
+            echo "Frontend lockfile already normalized."
+            exit 0
+          fi
+          git config user.name "FarmConnect CI"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/package-lock.json
+          git commit -m "chore: regenerate frontend npm lockfile [skip ci]"
+          git push origin HEAD:${{ github.head_ref || github.ref_name }}
+
+  verify:
+    needs: normalize-lockfile
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: farmconnect
+          POSTGRES_PASSWORD: farmconnect
+          POSTGRES_DB: farmconnect
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U farmconnect -d farmconnect"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://farmconnect:farmconnect@localhost:5432/farmconnect?schema=public
+    steps:
+      - name: Checkout latest repaired branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            backend/package-lock.json
+
+      - name: Localisation completeness check (en / kn / hi)
+        run: node scripts/verify-i18n.mjs
+
+      - name: Localisation usage check (every key the website asks for exists)
+        run: node scripts/verify-i18n-usage.mjs
+
+      - name: Install frontend from lockfile
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend TypeScript check
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:5000/api
+          NEXT_PUBLIC_SOCKET_URL: http://localhost:5000
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+        run: npx tsc --noEmit
+
+      - name: Frontend regression tests
+        working-directory: frontend
+        run: npm test
+
+      - name: Frontend production build
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:5000/api
+          NEXT_PUBLIC_SOCKET_URL: http://localhost:5000
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+        run: npm run build
+
+      - name: Install backend from lockfile
+        working-directory: backend
+        run: npm ci
+
+      - name: Backend Prisma generate
+        working-directory: backend
+        run: npx prisma generate
+
+      - name: Backend TypeScript build
+        working-directory: backend
+        run: npm run build
+
+      - name: Apply PostgreSQL migrations
+        working-directory: backend
+        run: npx prisma migrate deploy
+
+      - name: Backend integration tests
+        working-directory: backend
+        env:
+          JWT_SECRET: farmconnect-verification-secret-key
+          NODE_ENV: test
+          CLIENT_URL: http://localhost:3000
+        run: npm test -- --runInBand
+
+      - name: Validate start.bat
+        shell: pwsh
+        run: |
+          $content = Get-Content -Raw .\start.bat
+          $banner = ($content -split "\r?\n" | Where-Object { $_ -match '^echo \[1/3\] Preparing Backend Database' } | Select-Object -First 1)
+          if (-not $banner) {
+            throw 'start.bat preparation banner was not found.'
+          }
+          if ($banner -notmatch 'Database \^& Services') {
+            throw 'start.bat preparation banner does not escape ampersand.'
+          }
+          if ($content -match '(?m)^echo .*Database & Services') {
+            throw 'start.bat contains an unescaped command-separator ampersand.'
+          }
+          Write-Host 'start.bat static validation passed.'
+
+      - name: Package verified source
+        shell: bash
+        run: |
+          mkdir -p verification-output
+          git archive --format=zip --output=verification-output/farmconnect-verified-source.zip HEAD
+          unzip -t verification-output/farmconnect-verified-source.zip
+
+      - name: Upload verified source ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: farmconnect-verified-source
+          path: verification-output/farmconnect-verified-source.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  android:
+    # The Android client has its own contract with the shared backend — the
+    # phone sign-in is the clearest example. It is verified here so that a
+    # change of the mobile code can never pass unnoticed.
+    name: Android client (static analysis and unit tests)
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout latest repaired branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+          cache: true
+
+      - name: Resolve the packages of the Android client
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Flutter static analysis
+        working-directory: mobile
+        run: flutter analyze --no-fatal-infos
+
+      - name: Flutter unit tests
+        working-directory: mobile
+        run: flutter test

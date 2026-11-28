@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useCart, CartItem } from '../../context/CartContext';
 import { useAuth } from '../../hooks/useAuth';
+import { useI18n } from '../../hooks/useI18n';
 import { fetchApi } from '../../lib/api';
 
 interface DialogState {
@@ -23,6 +24,7 @@ interface DialogState {
 export default function CheckoutPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
+  const { t, formatNumber, formatCurrency } = useI18n();
   const { 
     items, 
     activeFarmerId, 
@@ -78,8 +80,8 @@ export default function CheckoutPage() {
     if (!activeFarmerId || items.length === 0) {
       showDialog(
         'WARNING',
-        'Cart Is Empty',
-        'Please add produce lots from the marketplace before checking out.'
+        t('consumer.checkout.cartIsEmptyTitle'),
+        t('consumer.checkout.cartIsEmptyBody')
       );
       return;
     }
@@ -87,8 +89,8 @@ export default function CheckoutPage() {
     if (!address.trim()) {
       showDialog(
         'WARNING',
-        'Delivery Address Required',
-        'Please provide a delivery destination or village landmark for transport routing.'
+        t('consumer.checkout.addressRequiredTitle'),
+        t('consumer.checkout.addressRequiredBody')
       );
       return;
     }
@@ -109,22 +111,10 @@ export default function CheckoutPage() {
         })),
       };
 
-      let res: any;
-      try {
-        res = await fetchApi('/orders', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
-      } catch (networkErr: any) {
-        // Fallback for offline demo resilience if backend socket is restarting
-        if (networkErr?.message?.includes('Failed to fetch') || networkErr?.name === 'TypeError') {
-          const mockOrderId = `ord-demo-${Date.now().toString().slice(-6)}`;
-          setOrderComplete(mockOrderId);
-          clearCart();
-          return;
-        }
-        throw networkErr;
-      }
+      const res: any = await fetchApi('/orders', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
 
       const orderId = res?.id || res?.data?.id || res?.order?.id;
 
@@ -134,15 +124,15 @@ export default function CheckoutPage() {
       } else {
         showDialog(
           'ERROR',
-          'Order Submission Failed',
-          res?.message || 'Could not place order. Please review the consignment details.'
+          t('consumer.checkout.submissionFailedTitle'),
+          res?.message || t('consumer.checkout.submissionFailedBody')
         );
       }
     } catch (err: any) {
       showDialog(
         'ERROR',
-        'Order Processing Error',
-        err.message || 'A network error occurred while submitting your order.'
+        t('consumer.checkout.processingErrorTitle'),
+        err.message || t('consumer.checkout.processingErrorBody')
       );
     } finally {
       setSubmitting(false);
@@ -199,7 +189,7 @@ export default function CheckoutPage() {
                     : 'bg-stone-900 hover:bg-black'
                 }`}
               >
-                Dismiss
+                {t('consumer.checkout.dismiss')}
               </button>
             </div>
 
@@ -215,30 +205,30 @@ export default function CheckoutPage() {
           </div>
           <div className="space-y-2">
             <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 text-xs font-black uppercase tracking-wider">
-              Order Confirmed
+              {t('consumer.checkout.orderConfirmed')}
             </span>
             <h1 className="text-3xl font-black text-stone-900 tracking-tight">
-              Harvest Dispatched for Packing
+              {t('consumer.checkout.dispatchedPacking')}
             </h1>
             <p className="text-sm text-stone-600">
-              Order Ref: <span className="font-mono font-bold text-stone-900">{orderComplete.slice(0, 8).toUpperCase()}</span>
+              {t('consumer.checkout.orderRef', { id: orderComplete.slice(0, 8).toUpperCase() })}
             </p>
           </div>
           <p className="text-xs text-stone-500 max-w-md mx-auto leading-relaxed">
-            The cultivator has received your order and crate specifications. You can monitor fulfillment stages in your order tracker.
+            {t('consumer.checkout.confirmationBody')}
           </p>
           <div className="flex justify-center gap-3 pt-4">
             <Link
               href={user?.role === 'FARMER' ? '/farmer/orders' : '/consumer/orders'}
               className="px-6 py-3 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-2"
             >
-              <Truck className="w-4 h-4" /> Track Order
+              <Truck className="w-4 h-4" /> {t('consumer.checkout.trackOrder')}
             </Link>
             <Link
               href="/consumer/explore"
               className="px-6 py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs rounded-xl transition-colors"
             >
-              Browse Marketplace
+              {t('consumer.checkout.browseMarketplace')}
             </Link>
           </div>
         </div>
@@ -247,15 +237,17 @@ export default function CheckoutPage() {
           <div className="w-16 h-16 bg-stone-100 text-stone-400 rounded-3xl flex items-center justify-center mx-auto shadow-2xs">
             <ShoppingBag className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-black text-stone-900">Your Cart is Empty</h2>
+          <h2 className="text-2xl font-black text-stone-900">
+            {t('consumer.checkout.cartEmptyTitle')}
+          </h2>
           <p className="text-stone-500 text-xs max-w-sm mx-auto leading-relaxed">
-            Browse farmlands to select produce directly from certified growers.
+            {t('consumer.checkout.cartEmptyBody')}
           </p>
           <Link
             href="/consumer/explore"
             className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all active:scale-95 shadow-sm"
           >
-            Explore Harvests <ArrowRight className="w-4 h-4" />
+            {t('consumer.checkout.exploreHarvests')} <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
       ) : (
@@ -267,17 +259,21 @@ export default function CheckoutPage() {
                   href="/consumer/explore"
                   className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 hover:text-emerald-950 transition-colors"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5" /> Back to Marketplace
+                  <ArrowLeft className="w-3.5 h-3.5" /> {t('consumer.checkout.backMarketplace')}
                 </Link>
                 {user?.role === 'FARMER' && (
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">
-                    Cultivator Purchase Mode
+                    {t('consumer.checkout.cultivatorMode')}
                   </span>
                 )}
               </div>
-              <h1 className="text-3xl font-black text-stone-900 tracking-tight">Direct Wholesale Checkout</h1>
+              <h1 className="text-3xl font-black text-stone-900 tracking-tight">
+                {t('consumer.checkout.wholesaleCheckout')}
+              </h1>
               <p className="text-xs text-stone-500 mt-0.5">
-                Ordering harvest directly from <strong className="text-emerald-900">{activeFarmName || 'Direct Farm Producer'}</strong>
+                {t('consumer.checkout.orderingDirect', {
+                  farm: activeFarmName || t('consumer.checkout.directFarmProducer'),
+                })}
               </p>
             </div>
           </div>
@@ -286,7 +282,7 @@ export default function CheckoutPage() {
             <div className="lg:col-span-2 space-y-4">
               <div className="bg-white rounded-3xl border border-stone-200 p-6 shadow-xs space-y-4">
                 <h2 className="text-sm font-black uppercase tracking-wider text-stone-500">
-                  Harvest Manifest ({items.length} items)
+                  {t('consumer.checkout.manifest', { count: formatNumber(items.length) })}
                 </h2>
 
                 <div className="divide-y divide-stone-100">
@@ -301,7 +297,7 @@ export default function CheckoutPage() {
                           <div>
                             <h3 className="font-bold text-stone-900 text-sm">{item.title}</h3>
                             <p className="text-xs text-stone-500">
-                              ₹{item.farmerPrice} / {(item.priceUnit || 'PER_KG').replace('PER_', '').toLowerCase()}
+                              {formatCurrency(Number(item.farmerPrice) || 0, { maximumFractionDigits: 0 })} / {(item.priceUnit || 'PER_KG').replace('PER_', '').toLowerCase()}
                             </p>
                           </div>
                         </div>
@@ -328,14 +324,17 @@ export default function CheckoutPage() {
                           </div>
 
                           <span className="font-black text-stone-900 text-sm w-20 text-right">
-                            ₹{(Number(item.farmerPrice || 0) * Number(item.quantity || 1)).toLocaleString('en-IN')}
+                            {formatCurrency(
+                              Number(item.farmerPrice || 0) * Number(item.quantity || 1),
+                              { maximumFractionDigits: 0 }
+                            )}
                           </span>
 
                           <button
                             type="button"
                             onClick={() => removeFromCart(itemKey)}
                             className="p-1.5 text-stone-400 hover:text-red-600 rounded-lg transition-colors"
-                            title="Remove produce"
+                            title={t('consumer.checkout.removeProduce')}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -348,14 +347,14 @@ export default function CheckoutPage() {
 
               <div className="bg-white rounded-3xl border border-stone-200 p-6 shadow-xs space-y-3">
                 <h2 className="text-sm font-black uppercase tracking-wider text-stone-500 flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-emerald-700" /> Delivery Address
+                  <MapPin className="w-4 h-4 text-emerald-700" /> {t('consumer.checkout.deliveryAddress')}
                 </h2>
                 <textarea
                   required
                   rows={3}
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Enter comprehensive delivery address (Street, Village, Landmark, District, PIN)..."
+                  placeholder={t('consumer.checkout.addressPlaceholder')}
                   className="w-full p-4 rounded-2xl border border-stone-200 text-xs font-semibold text-stone-900 outline-none focus:ring-2 focus:ring-emerald-700 bg-stone-50/50 focus:bg-white transition-all"
                 />
               </div>
@@ -364,25 +363,33 @@ export default function CheckoutPage() {
             <div className="space-y-4">
               <div className="bg-white rounded-3xl border border-stone-200 p-6 shadow-xs space-y-4">
                 <h2 className="text-sm font-black uppercase tracking-wider text-stone-500">
-                  Settlement Breakdown
+                  {t('consumer.checkout.settlement')}
                 </h2>
 
                 <div className="space-y-2 text-xs text-stone-600">
                   <div className="flex justify-between">
-                    <span>Produce Subtotal:</span>
-                    <span className="font-bold text-stone-900">₹{Number(totalItemsCost || 0).toLocaleString('en-IN')}</span>
+                    <span>{t('consumer.checkout.produceSubtotal')}</span>
+                    <span className="font-bold text-stone-900">
+                      {formatCurrency(Number(totalItemsCost || 0), { maximumFractionDigits: 0 })}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Standardized Crate Deposit:</span>
-                    <span className="font-bold text-stone-900">₹{Number(containerCost || 0).toLocaleString('en-IN')}</span>
+                    <span>{t('consumer.checkout.crateDeposit')}</span>
+                    <span className="font-bold text-stone-900">
+                      {formatCurrency(Number(containerCost || 0), { maximumFractionDigits: 0 })}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Inter-District Freight:</span>
-                    <span className="font-bold text-stone-900">₹{Number(transportCost || 0).toLocaleString('en-IN')}</span>
+                    <span>{t('consumer.checkout.freight')}</span>
+                    <span className="font-bold text-stone-900">
+                      {formatCurrency(Number(transportCost || 0), { maximumFractionDigits: 0 })}
+                    </span>
                   </div>
                   <div className="pt-3 border-t border-stone-100 flex justify-between text-base font-black text-stone-900">
-                    <span>Total Amount:</span>
-                    <span className="text-emerald-900">₹{Number(grandTotal || 0).toLocaleString('en-IN')}</span>
+                    <span>{t('consumer.checkout.totalAmount')}</span>
+                    <span className="text-emerald-900">
+                      {formatCurrency(Number(grandTotal || 0), { maximumFractionDigits: 0 })}
+                    </span>
                   </div>
                 </div>
 
@@ -393,16 +400,16 @@ export default function CheckoutPage() {
                   className="w-full py-4 bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
                 >
                   {submitting ? (
-                    <><Loader2 className="w-4 h-4 animate-spin text-white" /> Verifying Order...</>
+                    <><Loader2 className="w-4 h-4 animate-spin text-white" /> {t('consumer.checkout.verifyingOrder')}</>
                   ) : (
-                    <>Confirm & Dispatch Order <ArrowRight className="w-4 h-4" /></>
+                    <>{t('consumer.checkout.confirmDispatch')} <ArrowRight className="w-4 h-4" /></>
                   )}
                 </button>
               </div>
 
               <div className="p-4 bg-stone-50 border border-stone-200 rounded-2xl flex items-center gap-2.5 text-stone-500 text-xs">
                 <ShieldCheck className="w-5 h-5 text-emerald-700 shrink-0" />
-                <span>Direct-from-farm escrow: Payment released upon verified physical inspection.</span>
+                <span>{t('consumer.checkout.escrow')}</span>
               </div>
             </div>
           </div>

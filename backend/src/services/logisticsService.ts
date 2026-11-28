@@ -1,12 +1,28 @@
-// Fallback Haversine formula calculation if geo utility is unavailable
-const haversineFallback = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+// Fallback Haversine formula calculation if geo utility is unavailable.
+//
+// The fallback also refuses an unknown position: `Number(null)` is 0, so a
+// cleared coordinate would otherwise place the farm on the point 0 / 0 and
+// produce a fabricated distance.
+const haversineFallback = (
+  lat1: number | string | null | undefined,
+  lon1: number | string | null | undefined,
+  lat2: number | string | null | undefined,
+  lon2: number | string | null | undefined
+): number | null => {
+  if (![lat1, lon1, lat2, lon2].every((value) => Number.isFinite(Number(value)))) {
+    return null;
+  }
+  const nLat1 = Number(lat1);
+  const nLon1 = Number(lon1);
+  const nLat2 = Number(lat2);
+  const nLon2 = Number(lon2);
   const R = 6371; // Earth's mean radius in kilometers
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const dLat = ((nLat2 - nLat1) * Math.PI) / 180;
+  const dLon = ((nLon2 - nLon1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
+    Math.cos((nLat1 * Math.PI) / 180) *
+      Math.cos((nLat2 * Math.PI) / 180) *
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
@@ -14,7 +30,12 @@ const haversineFallback = (lat1: number, lon1: number, lat2: number, lon2: numbe
 };
 
 // Safe resolution of calculateDistanceKm from utils/geo
-let calculateDistanceKm: (lat1: number, lon1: number, lat2: number, lon2: number) => number = haversineFallback;
+let calculateDistanceKm: (
+  lat1: number | string | null | undefined,
+  lon1: number | string | null | undefined,
+  lat2: number | string | null | undefined,
+  lon2: number | string | null | undefined
+) => number | null = haversineFallback;
 try {
   const geoUtils = require('../utils/geo');
   if (typeof geoUtils.calculateDistanceKm === 'function') {
@@ -69,11 +90,18 @@ export interface LogisticsBreakdown {
 }
 
 export interface ProfitAssessment {
-  apmcBenchmarkRatePerKg: number;
-  expectedApmcValue: number;
-  approxNetProfit: number;
-  profitMarginPercent: string;
-  isProfitable: boolean;
+  /**
+   * The **published** APMC benchmark in ₹ per kg, or `null` when no benchmark
+   * was supplied. It is never derived from the farmer's own price — an
+   * invented benchmark would be a fake number.
+   */
+  apmcBenchmarkRatePerKg: number | null;
+  expectedApmcValue: number | null;
+  approxNetProfit: number | null;
+  profitMarginPercent: string | null;
+  isProfitable: boolean | null;
+  /** True when a real APMC benchmark was part of the calculation. */
+  hasApmcBenchmark: boolean;
 }
 
 export interface LogisticsQuoteResult {
@@ -86,20 +114,43 @@ export interface LogisticsQuoteResult {
 const MINIMUM_BASE_DISPATCH_FEE = 150.0; // Flat minimum flag-drop fee (₹)
 const BASE_RATE_PER_KM = 14.0; // ₹14/km standard rural transport tempo rate
 
+/**
+ * Computes the freight and the APMC parity of a load.
+ *
+ * Every input has to be a **real** value: the quantity, the farmer's price
+ * and the four coordinates are mandatory, and the APMC benchmark is optional.
+ * When no benchmark was published the profit assessment is reported as
+ * "unknown" (`null`) instead of being derived from the farmer's own price.
+ */
 export function computeLogisticsAndProfit(params: LogisticsQuoteInput): LogisticsQuoteResult {
   const cropQuantityKg = Math.max(0, parseFloat(String(params?.cropQuantityKg)) || 0);
   const farmerPricePerKg = Math.max(0, parseFloat(String(params?.farmerPricePerKg)) || 0);
-  const originLat = parseFloat(String(params?.originLat)) || 12.5218;
-  const originLon = parseFloat(String(params?.originLon)) || 76.8951;
-  const destLat = parseFloat(String(params?.destLat)) || 12.9716;
-  const destLon = parseFloat(String(params?.destLon)) || 77.5946;
+
+  // The coordinates are mandatory — a fabricated position would produce a
+  // fabricated distance and a fabricated freight cost.
+  const originLat = parseFloat(String(params?.originLat));
+  const originLon = parseFloat(String(params?.originLon));
+  const destLat = parseFloat(String(params?.destLat));
+  const destLon = parseFloat(String(params?.destLon));
+
   const apmcModalPricePerQuintal = Math.max(0, parseFloat(String(params?.apmcModalPricePerQuintal)) || 0);
 
   // 1. Calculate Great-Circle Distance
-  let rawDistance = calculateDistanceKm(originLat, originLon, destLat, destLon);
-  if (isNaN(rawDistance) || rawDistance < 0) {
-    rawDistance = haversineFallback(originLat, originLon, destLat, destLon);
+  //
+  //    An unknown position means the route is unknown — it is never reported
+  //    as zero kilometres, because that would be a fabricated freight cost.
+  const computedDistance = calculateDistanceKm(originLat, originLon, destLat, destLon);
+  const rawDistance =
+    computedDistance === null || !Number.isFinite(computedDistance) || computedDistance < 0
+      ? haversineFallback(originLat, originLon, destLat, destLon)
+      : computedDistance;
+
+  if (rawDistance === null || !Number.isFinite(rawDistance) || rawDistance < 0) {
+    throw new Error(
+      'The route could not be computed from the supplied positions.',
+    );
   }
+
   const distanceKm = Math.max(0.5, rawDistance);
 
   // 2. Freight Pricing (Distance * Rate with minimum dispatch tariff guarantee)
@@ -121,13 +172,17 @@ export function computeLogisticsAndProfit(params: LogisticsQuoteInput): Logistic
   const totalLandedCost = farmerProduceCost + totalTransportCost;
 
   // 5. APMC Market Parity & Profitability (1 Quintal = 100 KG)
-  const apmcRatePerKg = apmcModalPricePerQuintal > 0 ? apmcModalPricePerQuintal / 100 : farmerPricePerKg * 1.25;
-  const expectedApmcMarketValue = cropQuantityKg * apmcRatePerKg;
-  const approxNetProfit = expectedApmcMarketValue - totalLandedCost;
+  //
+  //    Without a published benchmark there is no honest profit statement:
+  //    the assessment stays unknown instead of borrowing the farmer's price.
+  const hasApmcBenchmark = apmcModalPricePerQuintal > 0;
+  const apmcRatePerKg = hasApmcBenchmark ? apmcModalPricePerQuintal / 100 : null;
+  const expectedApmcMarketValue = apmcRatePerKg === null ? null : cropQuantityKg * apmcRatePerKg;
+  const approxNetProfit =
+    expectedApmcMarketValue === null ? null : expectedApmcMarketValue - totalLandedCost;
 
-  const rawMargin = totalLandedCost > 0
-    ? (approxNetProfit / totalLandedCost) * 100
-    : 0.0;
+  const rawMargin =
+    approxNetProfit === null || totalLandedCost <= 0 ? null : (approxNetProfit / totalLandedCost) * 100;
 
   return {
     distanceKm: parseFloat(distanceKm.toFixed(1)),
@@ -140,11 +195,13 @@ export function computeLogisticsAndProfit(params: LogisticsQuoteInput): Logistic
       totalLandedCost: parseFloat(totalLandedCost.toFixed(2)),
     },
     profitAssessment: {
-      apmcBenchmarkRatePerKg: parseFloat(apmcRatePerKg.toFixed(2)),
-      expectedApmcValue: parseFloat(expectedApmcMarketValue.toFixed(2)),
-      approxNetProfit: parseFloat(approxNetProfit.toFixed(2)),
-      profitMarginPercent: `${rawMargin.toFixed(1)}%`,
-      isProfitable: approxNetProfit > 0,
+      apmcBenchmarkRatePerKg: apmcRatePerKg === null ? null : parseFloat(apmcRatePerKg.toFixed(2)),
+      expectedApmcValue:
+        expectedApmcMarketValue === null ? null : parseFloat(expectedApmcMarketValue.toFixed(2)),
+      approxNetProfit: approxNetProfit === null ? null : parseFloat(approxNetProfit.toFixed(2)),
+      profitMarginPercent: rawMargin === null ? null : `${rawMargin.toFixed(1)}%`,
+      isProfitable: approxNetProfit === null ? null : approxNetProfit > 0,
+      hasApmcBenchmark,
     },
   };
 }

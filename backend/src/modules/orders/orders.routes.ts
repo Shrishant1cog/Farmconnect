@@ -68,6 +68,7 @@ const ctrl = (ordersController as any).default || ordersController;
 const createOrder = resolveHandler(ctrl.createOrder || ctrl.create || ctrl.placeOrder, 'createOrder');
 const getMyOrders = resolveHandler(ctrl.getMyOrders || ctrl.myOrders || ctrl.getUserOrders, 'getMyOrders');
 const getFarmerOrders = resolveHandler(ctrl.getFarmerOrders || ctrl.farmerOrders || ctrl.getByFarmer, 'getFarmerOrders');
+const getOrderById = resolveHandler(ctrl.getOrderById || ctrl.getById || ctrl.getOrder, 'getOrderById');
 const updateOrderStatus = resolveHandler(ctrl.updateOrderStatus || ctrl.updateStatus || ctrl.patchStatus, 'updateOrderStatus');
 const confirmOrderDelivery = resolveHandler(ctrl.confirmOrderDelivery || ctrl.confirmOrderReceived || ctrl.confirmDelivery, 'confirmOrderDelivery');
 
@@ -81,5 +82,8 @@ router.patch('/:id/status', authenticateToken, requireRole(['FARMER']), updateOr
 
 // Confirm receipt
 router.patch('/:id/received', authenticateToken, requireRole(['CONSUMER', 'FARMER']), confirmOrderDelivery);
+
+// Single order record (consumer / farmer / admin) — used by the order tracking screens
+router.get('/:id', authenticateToken, requireRole(['CONSUMER', 'FARMER', 'ADMIN']), getOrderById);
 
 export default router;

@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { ShoppingBag, Sprout, MapPin, Sparkles, ShieldCheck } from 'lucide-react';
 import { useSocket } from '../../hooks/useSocket';
+import { useI18n } from '../../hooks/useI18n';
 
 // ============================================================================
 // CATEGORY FALLBACK REGISTRY
@@ -41,6 +42,8 @@ export interface ProductCardProps {
     quantityUnit: string;
     isOrganic: boolean;
     imageUrl?: string;
+    cropName?: string;
+    variety?: string;
     farmerId?: string;
     farmer: {
       id?: string;
@@ -52,6 +55,7 @@ export interface ProductCardProps {
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product: initialData }) => {
+  const { t, formatNumber, formatCurrency } = useI18n();
   const [product, setProduct] = useState(initialData);
   const [priceFlash, setPriceFlash] = useState(false);
   const socket = useSocket();
@@ -118,7 +122,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product: initialData }
           {product.isOrganic && (
             <span className="absolute top-3 left-3 bg-emerald-800/90 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full shadow-md flex items-center gap-1">
               <Sparkles className="w-3 h-3 text-emerald-300" />
-              100% Organic
+              {t('consumer.card.organic')}
             </span>
           )}
 
@@ -126,7 +130,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product: initialData }
           {product.distanceKm !== undefined && product.distanceKm !== null && (
             <span className="absolute bottom-3 right-3 bg-stone-950/80 backdrop-blur-md text-white text-[11px] font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow-md">
               <MapPin className="w-3 h-3 text-emerald-400" />
-              {product.distanceKm} km away
+              {t('consumer.card.distanceAway', { distance: formatNumber(product.distanceKm) })}
             </span>
           )}
         </div>
@@ -142,11 +146,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product: initialData }
             {product.title}
           </h3>
 
+          {product.cropName && (
+            <p className="text-[11px] font-semibold text-emerald-700">
+              {t('common.crop')}: {product.cropName}
+              {product.variety && (
+                <> · {t('common.variety')}: {product.variety}</>
+              )}
+            </p>
+          )}
+
           <div className="pt-2">
             <div className="flex items-baseline justify-between bg-stone-50/80 border border-stone-200/70 p-3.5 rounded-2xl">
               <div>
                 <span className="text-[10px] uppercase font-black text-stone-400 block tracking-wider">
-                  Farmer Listed Price
+                  {t('consumer.card.farmerPrice')}
                 </span>
                 <div className="flex items-baseline gap-1">
                   <span
@@ -154,7 +167,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product: initialData }
                       priceFlash ? 'text-amber-600 animate-pulse' : 'text-stone-900'
                     }`}
                   >
-                    ₹{Number(product.farmerPrice)}
+                    {formatCurrency(Number(product.farmerPrice) || 0, { maximumFractionDigits: 0 })}
                   </span>
                   <span className="text-xs text-stone-500 font-bold">
                     /{product.priceUnit.replace('PER_', '').toLowerCase()}
@@ -164,10 +177,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product: initialData }
 
               <div className="text-right">
                 <span className="text-[10px] uppercase font-black text-stone-400 block tracking-wider">
-                  Stock Available
+                  {t('consumer.card.stockAvailable')}
                 </span>
                 <span className="text-sm font-black text-emerald-800">
-                  {Number(product.quantityAvailable)} {product.quantityUnit.toLowerCase()}
+                  {formatNumber(Number(product.quantityAvailable) || 0)} {product.quantityUnit.toLowerCase()}
                 </span>
               </div>
             </div>
@@ -182,7 +195,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product: initialData }
           className="w-full py-3.5 bg-emerald-800 hover:bg-emerald-900 active:bg-emerald-950 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 group-hover:shadow-emerald-950/10 group-hover:shadow-md"
         >
           <ShoppingBag className="w-4 h-4" />
-          Buy Wholesale Lot
+          {t('consumer.card.buyWholesale')}
         </Link>
       </div>
     </div>

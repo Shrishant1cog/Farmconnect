@@ -2,11 +2,52 @@ import { Response } from 'express';
 import { z } from 'zod';
 import { db } from '../../config/db';
 import { AuthenticatedRequest } from '../../middleware/auth.middleware';
+import { getIO } from '../../socket';
+import {
+  normalizeLanguage,
+  resolveSupportedLanguage,
+  SUPPORTED_LANGUAGES,
+} from '../../utils/language';
+import { latitudeSchema, longitudeSchema } from '../../utils/coordinate';
 
+/**
+ * The interface language shared between the website and the Android app.
+ *
+ * Regional (`kn-IN`) and alias (`kannada`) forms are accepted and stored as
+ * the canonical code, while a genuinely unsupported language (`de`) is
+ * rejected with HTTP 400 instead of silently becoming English.
+ */
+const preferredLanguageSchema = z
+  .string()
+  .trim()
+  .min(1, 'Language code must not be empty')
+  .refine(
+    (value) => resolveSupportedLanguage(value) !== null,
+    `Language must be one of: ${SUPPORTED_LANGUAGES.join(', ')}`
+  )
+  .transform((value) => normalizeLanguage(value));
+
+/**
+ * A geographic coordinate that the account really shares.
+ *
+ * Three states have to stay distinguishable:
+ *
+ *   * **absent** (`undefined`) — the client did not mention the position, so
+ *     the stored value is left untouched.
+ *   * **`null`** — the client explicitly clears the position. The farm or
+ *     the delivery address then simply has no coordinates.
+ *   * **a number** — the real position.
+ *
+ * `z.coerce.number()` cannot express this: `Number(null)` is `0`, so a
+ * cleared position would be stored as the point `0 / 0` in the Gulf of
+ * Guinea.
+ */
 const updateProfileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').optional(),
   phone: z.string().min(10, 'Phone must be at least 10 digits').optional(),
   email: z.string().email('Invalid email address').optional(),
+  // Interface language shared between the website and the Android app.
+  preferredLanguage: preferredLanguageSchema.optional(),
   // Location & Regional fields
   state: z.string().optional(),
   district: z.string().optional(),
@@ -17,8 +58,9 @@ const updateProfileSchema = z.object({
   addressLine: z.string().optional(),
   // Farmer specific fields
   farmName: z.string().optional(),
-  latitude: z.coerce.number().optional(),
-  longitude: z.coerce.number().optional(),
+  // The farm / delivery position — only stored when it is really shared.
+  latitude: latitudeSchema,
+  longitude: longitudeSchema,
 });
 
 // Helper to safely extract user ID
@@ -43,6 +85,7 @@ export const getCurrentProfile = async (req: AuthenticatedRequest, res: Response
         phone: true,
         role: true,
         isActive: true,
+        preferredLanguage: true,
         createdAt: true,
         farmerProfile: true,
         consumerProfile: true,
@@ -79,6 +122,16 @@ export const updateCurrentProfile = async (req: AuthenticatedRequest, res: Respo
 
     const body = updateProfileSchema.parse(req.body);
     const userRole = String(req.user?.role || '').toUpperCase();
+    const nextLanguage = body.preferredLanguage
+      ? normalizeLanguage(body.preferredLanguage)
+      : undefined;
+
+    // A position always consists of **both** coordinates. When one of them
+    // is cleared, the other one is cleared as well — otherwise the account
+    // would keep half of a position that does not exist any more.
+    const positionCleared = body.latitude === null || body.longitude === null;
+    const nextLatitude = positionCleared ? null : body.latitude;
+    const nextLongitude = positionCleared ? null : body.longitude;
 
     const updatedUser = await db.$transaction(async (tx) => {
       // Step A: Update primary user fields
@@ -86,6 +139,7 @@ export const updateCurrentProfile = async (req: AuthenticatedRequest, res: Respo
       if (body.name) userUpdateData.name = body.name.trim();
       if (body.phone) userUpdateData.phone = body.phone.replace(/\D/g, '').slice(-10);
       if (body.email) userUpdateData.email = body.email.trim().toLowerCase();
+      if (nextLanguage) userUpdateData.preferredLanguage = nextLanguage;
 
       if (Object.keys(userUpdateData).length > 0) {
         await tx.user.update({
@@ -101,8 +155,8 @@ export const updateCurrentProfile = async (req: AuthenticatedRequest, res: Respo
         if (body.district) farmerData.district = body.district.trim();
         if (body.state) farmerData.state = body.state.trim();
         if (body.addressLine || body.address) farmerData.addressLine = (body.addressLine || body.address)!.trim();
-        if (body.latitude !== undefined) farmerData.latitude = body.latitude;
-        if (body.longitude !== undefined) farmerData.longitude = body.longitude;
+        if (nextLatitude !== undefined) farmerData.latitude = nextLatitude;
+        if (nextLongitude !== undefined) farmerData.longitude = nextLongitude;
 
         await tx.farmerProfile.upsert({
           where: { userId },
@@ -112,8 +166,9 @@ export const updateCurrentProfile = async (req: AuthenticatedRequest, res: Respo
             district: body.district?.trim() || 'Mandya',
             state: body.state?.trim() || 'Karnataka',
             addressLine: (body.addressLine || body.address || '').trim(),
-            latitude: body.latitude !== undefined ? body.latitude : 12.5218,
-            longitude: body.longitude !== undefined ? body.longitude : 76.8951,
+            // The position is stored only when it was really shared.
+            latitude: nextLatitude !== undefined ? nextLatitude : null,
+            longitude: nextLongitude !== undefined ? nextLongitude : null,
             isVerified: true,
           },
           update: farmerData,
@@ -125,21 +180,24 @@ export const updateCurrentProfile = async (req: AuthenticatedRequest, res: Respo
         const resolvedAddress = (body.deliveryAddress || body.address || body.addressLine || '').trim();
         const consumerData: any = {};
         if (body.district) consumerData.district = body.district.trim();
-        if (resolvedAddress) consumerData.address = resolvedAddress;
+        // NOTE: the Prisma model exposes `deliveryAddress` (not `address`).
+        if (resolvedAddress) consumerData.deliveryAddress = resolvedAddress;
+        // The delivery position is stored only when it is really shared — a
+        // placeholder would put the delivery somewhere the buyer never chose.
+        if (nextLatitude !== undefined) consumerData.latitude = nextLatitude;
+        if (nextLongitude !== undefined) consumerData.longitude = nextLongitude;
 
-        try {
-          await (tx as any).consumerProfile.upsert({
-            where: { userId },
-            create: {
-              userId,
-              district: body.district?.trim() || 'Bengaluru Urban',
-              address: resolvedAddress || 'Karnataka',
-            },
-            update: consumerData,
-          });
-        } catch {
-          // Fallback if schema variants differ
-        }
+        await (tx as any).consumerProfile.upsert({
+          where: { userId },
+          create: {
+            userId,
+            district: body.district?.trim() || 'Bengaluru Urban',
+            deliveryAddress: resolvedAddress || 'Karnataka',
+            latitude: nextLatitude !== undefined ? nextLatitude : null,
+            longitude: nextLongitude !== undefined ? nextLongitude : null,
+          },
+          update: consumerData,
+        });
       }
 
       return tx.user.findUnique({
@@ -151,6 +209,7 @@ export const updateCurrentProfile = async (req: AuthenticatedRequest, res: Respo
           phone: true,
           role: true,
           isActive: true,
+          preferredLanguage: true,
           createdAt: true,
           farmerProfile: true,
           consumerProfile: true,
@@ -158,17 +217,83 @@ export const updateCurrentProfile = async (req: AuthenticatedRequest, res: Respo
       });
     });
 
+    // 4. Tell the other client (website <-> Android) about the new language
+    //    straight away so both interfaces follow the account preference.
+    if (nextLanguage) {
+      try {
+        const io = getIO();
+        io?.to(`user_${userId}`).emit('language_preference_updated', {
+          userId,
+          preferredLanguage: nextLanguage,
+        });
+      } catch (socketError) {
+        console.warn('[Language Preference] Socket broadcast failed:', socketError);
+      }
+    }
+
     return res.json({
       success: true,
       message: 'Profile updated successfully',
       data: updatedUser,
       user: updatedUser,
+      preferredLanguage: updatedUser?.preferredLanguage ?? nextLanguage ?? 'en',
     });
   } catch (err: any) {
     return res.status(400).json({
       success: false,
       message: err.message || 'Failed to update user profile',
     });
+  }
+};
+
+// 3. Public farmer directory (used by the consumer map and farmer discovery)
+export const listPublicFarmers = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { district, search } = req.query as Record<string, string | undefined>;
+
+    const where: any = {};
+    if (district && district.trim()) {
+      where.district = { contains: district.trim(), mode: 'insensitive' };
+    }
+    if (search && search.trim()) {
+      where.OR = [
+        { farmName: { contains: search.trim(), mode: 'insensitive' } },
+        { district: { contains: search.trim(), mode: 'insensitive' } },
+        { user: { name: { contains: search.trim(), mode: 'insensitive' } } },
+      ];
+    }
+
+    const farmers = await db.farmerProfile.findMany({
+      where,
+      include: {
+        user: { select: { id: true, name: true, phone: true, email: true } },
+        products: {
+          where: { isAvailable: true },
+          select: { id: true, title: true, farmerPrice: true, priceUnit: true, imageUrl: true, isOrganic: true },
+        },
+      },
+      orderBy: { isVerified: 'desc' },
+      take: 200,
+    });
+
+    const data = farmers.map((farmer: any) => ({
+      id: farmer.id,
+      farmName: farmer.farmName,
+      farmerName: farmer.user?.name,
+      phone: farmer.user?.phone,
+      district: farmer.district,
+      state: farmer.state,
+      address: farmer.addressLine,
+      latitude: farmer.latitude,
+      longitude: farmer.longitude,
+      isVerified: farmer.isVerified,
+      profileViews: farmer.profileViews,
+      availableProducts: farmer.products,
+    }));
+
+    return res.json({ success: true, data, farmers: data });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -189,4 +314,5 @@ export default {
   updateProfile,
   updateMe,
   editProfile,
+  listPublicFarmers,
 };

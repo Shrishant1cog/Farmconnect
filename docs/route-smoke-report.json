@@ -1,0 +1,523 @@
+{
+  "generatedAt": "2026-11-28T13:10:26.365Z",
+  "web": "https://farmconnect-web.onrender.com",
+  "api": [
+    {
+      "route": "/health",
+      "auth": false,
+      "note": "liveness + database probe",
+      "authenticated": false,
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 86,
+      "body": "{\"status\":\"UP\",\"service\":\"FarmConnect Engine\",\"database\":\"UP\",\"uptime\":74,\"timestamp\":\"2026-11-28T13:10:29.891Z\"}"
+    },
+    {
+      "route": "/catalog/categories",
+      "auth": false,
+      "note": "crop categories with counts",
+      "authenticated": false,
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 69,
+      "body": "{\"success\":true,\"data\":[{\"id\":\"f7e224a1-1bf1-47f5-a1a9-f679051d1659\",\"name\":\"Cash Crops\",\"nameKn\":\"ನಗದ ಬೆಳೆಗಳು\",\"nameHi\":\"नकदी फसलें\",\"slug\":\"cash-crops\",\"description\":\"Sugarcane, raw cotton, and commercial agricultural produce.\",\"productCount\":0},{\"id\":\"44167217-1c35-4e22-9369-43e29b8cf1c9\",\"name\":\"Flowers & Floriculture\",\"nameKn\":\"ಹೂವುಗಳು ಮತ್ತು ಹೂವಿನ ಕೃಷಿ\",\"nameHi\":\"फूल और फूलों की खेती\",\"slug\":"
+    },
+    {
+      "route": "/catalog/crops",
+      "auth": false,
+      "note": "crop catalogue",
+      "authenticated": false,
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 65,
+      "body": "{\"success\":true,\"data\":[{\"name\":\"Tomato\",\"nameKn\":\"ಟೊಮೇಟೊ\",\"nameHi\":\"टमाटर\",\"category\":\"vegetables\",\"categoryKey\":\"vegetables\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"categoryName\":\"Vegetables\",\"categoryNameKn\":\"ತರೆಕೆಕ್ಕೆಕ್ಕೆ\",\"categoryNameHi\":\"सब्ज़ियाँ\",\"aliases\":[\"tomatoes\",\"ಟೊಮೇಟೊ\",\"टमाटर\"]},{\"name\":\"Potato\",\"nameKn\":\"ಆಲೂಗಡ್ಡೆ\",\"nameHi\":\"आलू\",\"category\":\"vegetables\",\"categoryKey\":"
+    },
+    {
+      "route": "/catalog/crops?search=Tomato",
+      "auth": false,
+      "note": "crop catalogue search (en)",
+      "authenticated": false,
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 92,
+      "body": "{\"success\":true,\"data\":[{\"name\":\"Tomato\",\"nameKn\":\"ಟೊಮೇಟೊ\",\"nameHi\":\"टमाटर\",\"category\":\"vegetables\",\"categoryKey\":\"vegetables\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"categoryName\":\"Vegetables\",\"categoryNameKn\":\"ತರೆಕೆಕ್ಕೆಕ್ಕೆ\",\"categoryNameHi\":\"सब्ज़ियाँ\",\"aliases\":[\"tomatoes\",\"ಟೊಮೇಟೊ\",\"टमाटर\"]}],\"crops\":[{\"name\":\"Tomato\",\"nameKn\":\"ಟೊಮೇಟೊ\",\"nameHi\":\"टमाटर\",\"category\":\"vegetables\",\"cat"
+    },
+    {
+      "route": "/catalog/crops?search=ಟೊಮೇಟೊ",
+      "auth": false,
+      "note": "crop catalogue search (kn)",
+      "authenticated": false,
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 86,
+      "body": "{\"success\":true,\"data\":[{\"name\":\"Tomato\",\"nameKn\":\"ಟೊಮೇಟೊ\",\"nameHi\":\"टमाटर\",\"category\":\"vegetables\",\"categoryKey\":\"vegetables\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"categoryName\":\"Vegetables\",\"categoryNameKn\":\"ತರೆಕೆಕ್ಕೆಕ್ಕೆ\",\"categoryNameHi\":\"सब्ज़ियाँ\",\"aliases\":[\"tomatoes\",\"ಟೊಮೇಟೊ\",\"टमाटर\"]}],\"crops\":[{\"name\":\"Tomato\",\"nameKn\":\"ಟೊಮೇಟೊ\",\"nameHi\":\"टमाटर\",\"category\":\"vegetables\",\"cat"
+    },
+    {
+      "route": "/catalog/crops?search=टमाटर",
+      "auth": false,
+      "note": "crop catalogue search (hi)",
+      "authenticated": false,
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 71,
+      "body": "{\"success\":true,\"data\":[{\"name\":\"Tomato\",\"nameKn\":\"ಟೊಮೇಟೊ\",\"nameHi\":\"टमाटर\",\"category\":\"vegetables\",\"categoryKey\":\"vegetables\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"categoryName\":\"Vegetables\",\"categoryNameKn\":\"ತರೆಕೆಕ್ಕೆಕ್ಕೆ\",\"categoryNameHi\":\"सब्ज़ियाँ\",\"aliases\":[\"tomatoes\",\"ಟೊಮೇಟೊ\",\"टमाटर\"]}],\"crops\":[{\"name\":\"Tomato\",\"nameKn\":\"ಟೊಮೇಟೊ\",\"nameHi\":\"टमाटर\",\"category\":\"vegetables\",\"cat"
+    },
+    {
+      "route": "/catalog/crops?category=vegetables",
+      "auth": false,
+      "note": "crop catalogue by category",
+      "authenticated": false,
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 79,
+      "body": "{\"success\":true,\"data\":[{\"name\":\"Tomato\",\"nameKn\":\"ಟೊಮೇಟೊ\",\"nameHi\":\"टमाटर\",\"category\":\"vegetables\",\"categoryKey\":\"vegetables\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"categoryName\":\"Vegetables\",\"categoryNameKn\":\"ತರೆಕೆಕ್ಕೆಕ್ಕೆ\",\"categoryNameHi\":\"सब्ज़ियाँ\",\"aliases\":[\"tomatoes\",\"ಟೊಮೇಟೊ\",\"टमाटर\"]},{\"name\":\"Potato\",\"nameKn\":\"ಆಲೂಗಡ್ಡೆ\",\"nameHi\":\"आलू\",\"category\":\"vegetables\",\"categoryKey\":"
+    },
+    {
+      "route": "/products",
+      "auth": false,
+      "note": "public catalogue",
+      "authenticated": false,
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 124,
+      "body": "{\"success\":true,\"data\":[{\"id\":\"a2633ff8-1506-4a4a-a9ee-f47696c8b610\",\"farmerId\":\"8d6ff32c-4804-4f63-95e6-4dc3c8c2cea3\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"title\":\"API-Smoke-Tomato-1795871408179\",\"description\":\"API smoke verification listing.\",\"cropName\":\"Tomato\",\"variety\":\"Hybrid\",\"farmerPrice\":26,\"priceUnit\":\"PER_KG\",\"quantityAvailable\":80,\"quantityUnit\":\"KG\",\"minOrderKg\":10,\"gra"
+    },
+    {
+      "route": "/products?crop=Tomato",
+      "auth": false,
+      "note": "catalogue filtered by crop",
+      "authenticated": false,
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 107,
+      "body": "{\"success\":true,\"data\":[{\"id\":\"a2633ff8-1506-4a4a-a9ee-f47696c8b610\",\"farmerId\":\"8d6ff32c-4804-4f63-95e6-4dc3c8c2cea3\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"title\":\"API-Smoke-Tomato-1795871408179\",\"description\":\"API smoke verification listing.\",\"cropName\":\"Tomato\",\"variety\":\"Hybrid\",\"farmerPrice\":26,\"priceUnit\":\"PER_KG\",\"quantityAvailable\":80,\"quantityUnit\":\"KG\",\"minOrderKg\":10,\"gra"
+    },
+    {
+      "route": "/products?category=vegetables",
+      "auth": false,
+      "note": "catalogue filtered by category",
+      "authenticated": false,
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 93,
+      "body": "{\"success\":true,\"data\":[{\"id\":\"a2633ff8-1506-4a4a-a9ee-f47696c8b610\",\"farmerId\":\"8d6ff32c-4804-4f63-95e6-4dc3c8c2cea3\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"title\":\"API-Smoke-Tomato-1795871408179\",\"description\":\"API smoke verification listing.\",\"cropName\":\"Tomato\",\"variety\":\"Hybrid\",\"farmerPrice\":26,\"priceUnit\":\"PER_KG\",\"quantityAvailable\":80,\"quantityUnit\":\"KG\",\"minOrderKg\":10,\"gra"
+    },
+    {
+      "route": "/products?search=QA",
+      "auth": false,
+      "note": "catalogue filtered by search",
+      "authenticated": false,
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 89,
+      "body": "{\"success\":true,\"data\":[{\"id\":\"90b7a542-7fff-437a-87e2-6085a7e9a17d\",\"farmerId\":\"21b4955d-2b4f-420c-affb-02cf9dc1bf82\",\"categoryId\":\"31eb9927-f8ec-468c-9ba9-fdb660a70a11\",\"title\":\"QA Route Coverage Lot 1795870955640\",\"description\":\"A QA lot used by the route coverage test.\",\"cropName\":\"Tomato\",\"variety\":\"Hybrid\",\"farmerPrice\":21.5,\"priceUnit\":\"PER_KG\",\"quantityAvailable\":140,\"quantityUnit\":\"KG\",\"m"
+    },
+    {
+      "route": "/users/farmers",
+      "auth": false,
+      "note": "public farmer directory",
+      "authenticated": false,
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 72,
+      "body": "{\"success\":true,\"data\":[{\"id\":\"21b4955d-2b4f-420c-affb-02cf9dc1bf82\",\"farmName\":\"Routes QA Fields\",\"farmerName\":\"Routes QA Farmer\",\"phone\":\"9955640001\",\"district\":\"Mandya\",\"state\":\"Karnataka\",\"address\":null,\"latitude\":null,\"longitude\":null,\"isVerified\":true,\"profileViews\":1,\"availableProducts\":[{\"id\":\"90b7a542-7fff-437a-87e2-6085a7e9a17d\",\"title\":\"QA Route Coverage Lot 1795870955640\",\"farmerPrice\""
+    },
+    {
+      "route": "/apmc/rates",
+      "auth": false,
+      "note": "published APMC benchmark rates",
+      "authenticated": false,
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 77,
+      "body": "{\"success\":true,\"data\":[],\"rates\":[],\"total\":0}"
+    },
+    {
+      "route": "/logistics/quote",
+      "auth": false,
+      "method": "POST",
+      "body": "{\"success\":true,\"data\":{\"distanceKm\":90.9,\"containerTypeSelected\":\"Standard Plastic Crates / Sacks\",\"breakdown\":{\"baseFreightCost\":1272.18,\"specialContainerCost\":50,\"totalTransportAndLogistics\":1322.18,\"farmerProduceCost\":2000,\"totalLandedCost\":3322.18},\"profitAssessment\":{\"apmcBenchmarkRatePerKg\":32,\"expectedApmcValue\":3200,\"approxNetProfit\":-122.18,\"profitMarginPercent\":\"-3.7%\",\"isProfitable\":fa",
+      "note": "logistics + profit quote",
+      "authenticated": false,
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 93
+    },
+    {
+      "route": "/auth/me",
+      "auth": true,
+      "note": "profile of the signed-in account",
+      "authenticated": false,
+      "status": 401,
+      "ok": false,
+      "location": null,
+      "ms": 66,
+      "body": "{\"success\":false,\"message\":\"Access denied: No authentication token provided.\"}"
+    },
+    {
+      "route": "/users/me",
+      "auth": true,
+      "note": "profile incl. preferredLanguage",
+      "authenticated": false,
+      "status": 401,
+      "ok": false,
+      "location": null,
+      "ms": 78,
+      "body": "{\"success\":false,\"message\":\"Access denied: No authentication token provided.\"}"
+    },
+    {
+      "route": "/products/my-products",
+      "auth": true,
+      "note": "farmer inventory",
+      "authenticated": false,
+      "status": 401,
+      "ok": false,
+      "location": null,
+      "ms": 74,
+      "body": "{\"success\":false,\"message\":\"Access denied: No authentication token provided.\"}"
+    },
+    {
+      "route": "/orders/my",
+      "auth": true,
+      "note": "consumer orders",
+      "authenticated": false,
+      "status": 401,
+      "ok": false,
+      "location": null,
+      "ms": 61,
+      "body": "{\"success\":false,\"message\":\"Access denied: No authentication token provided.\"}"
+    },
+    {
+      "route": "/orders/farmer",
+      "auth": true,
+      "note": "farmer orders",
+      "authenticated": false,
+      "status": 401,
+      "ok": false,
+      "location": null,
+      "ms": 67,
+      "body": "{\"success\":false,\"message\":\"Access denied: No authentication token provided.\"}"
+    },
+    {
+      "route": "/enquiries/my",
+      "auth": true,
+      "note": "consumer enquiries",
+      "authenticated": false,
+      "status": 401,
+      "ok": false,
+      "location": null,
+      "ms": 82,
+      "body": "{\"success\":false,\"message\":\"Access denied: No authentication token provided.\"}"
+    },
+    {
+      "route": "/enquiries/farmer",
+      "auth": true,
+      "note": "farmer enquiries",
+      "authenticated": false,
+      "status": 401,
+      "ok": false,
+      "location": null,
+      "ms": 60,
+      "body": "{\"success\":false,\"message\":\"Access denied: No authentication token provided.\"}"
+    },
+    {
+      "route": "/favorites/",
+      "auth": true,
+      "note": "favourites",
+      "authenticated": false,
+      "status": 401,
+      "ok": false,
+      "location": null,
+      "ms": 60,
+      "body": "{\"success\":false,\"message\":\"Access denied: No authentication token provided.\"}"
+    },
+    {
+      "route": "/notifications/",
+      "auth": true,
+      "note": "notification inbox",
+      "authenticated": false,
+      "status": 401,
+      "ok": false,
+      "location": null,
+      "ms": 88,
+      "body": "{\"success\":false,\"message\":\"Access denied: No authentication token provided.\"}"
+    },
+    {
+      "route": "/complaints/mine",
+      "auth": true,
+      "note": "own complaints",
+      "authenticated": false,
+      "status": 401,
+      "ok": false,
+      "location": null,
+      "ms": 66,
+      "body": "{\"success\":false,\"message\":\"Access denied: No authentication token provided.\"}"
+    }
+  ],
+  "website": [
+    {
+      "route": "/",
+      "entry": "Navbar — FarmConnect logo",
+      "role": "public",
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 408,
+      "body": "<!DOCTYPE html><!--0YM4joelgJ9sGrK652192--><html lang=\"en\" class=\"__variable_60680a scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/be6419ffe34f1ed7-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/f7d60101fcce5ae3.css\""
+    },
+    {
+      "route": "/login",
+      "entry": "Navbar — Sign In",
+      "role": "public",
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 75,
+      "body": "<!DOCTYPE html><!--0YM4joelgJ9sGrK652192--><html lang=\"en\" class=\"__variable_60680a scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/be6419ffe34f1ed7-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/f7d60101fcce5ae3.css\""
+    },
+    {
+      "route": "/register",
+      "entry": "Navbar — Register",
+      "role": "public",
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 80,
+      "body": "<!DOCTYPE html><!--0YM4joelgJ9sGrK652192--><html lang=\"en\" class=\"__variable_60680a scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/be6419ffe34f1ed7-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/f7d60101fcce5ae3.css\""
+    },
+    {
+      "route": "/consumer/explore",
+      "entry": "Navbar — Marketplace",
+      "role": "public",
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 77,
+      "body": "<!DOCTYPE html><!--0YM4joelgJ9sGrK652192--><html lang=\"en\" class=\"__variable_60680a scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/be6419ffe34f1ed7-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/f7d60101fcce5ae3.css\""
+    },
+    {
+      "route": "/mandi-rates",
+      "entry": "Navbar — Mandi Rates",
+      "role": "public",
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 89,
+      "body": "<!DOCTYPE html><!--0YM4joelgJ9sGrK652192--><html lang=\"en\" class=\"__variable_60680a scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/be6419ffe34f1ed7-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/f7d60101fcce5ae3.css\""
+    },
+    {
+      "route": "/consumer/map",
+      "entry": "Navbar — Farm Map",
+      "role": "public",
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 71,
+      "body": "<!DOCTYPE html><!--0YM4joelgJ9sGrK652192--><html lang=\"en\" class=\"__variable_60680a scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/be6419ffe34f1ed7-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/f7d60101fcce5ae3.css\""
+    },
+    {
+      "route": "/buy",
+      "entry": "Home — browse lots",
+      "role": "public",
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 83,
+      "body": "<!DOCTYPE html><!--0YM4joelgJ9sGrK652192--><html lang=\"en\" class=\"__variable_60680a scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/be6419ffe34f1ed7-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/f7d60101fcce5ae3.css\""
+    },
+    {
+      "route": "/checkout",
+      "entry": "Explore — add to cart",
+      "role": "CONSUMER",
+      "status": 307,
+      "ok": false,
+      "location": "/login?redirect=%2Fcheckout",
+      "ms": 71,
+      "body": "/login?redirect=%2Fcheckout"
+    },
+    {
+      "route": "/products/unknown-id",
+      "entry": "Explore — listing card",
+      "role": "public",
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 567,
+      "body": "<!DOCTYPE html><html lang=\"en\" class=\"__variable_60680a scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"stylesheet\" href=\"/_next/static/css/f7d60101fcce5ae3.css\" data-precedence=\"next\"/><link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/webpack-e308e030227988ab.js\"/><script src="
+    },
+    {
+      "route": "/consumer/orders",
+      "entry": "Navbar — My Orders",
+      "role": "CONSUMER",
+      "status": 307,
+      "ok": false,
+      "location": "/login?redirect=%2Fconsumer%2Forders",
+      "ms": 78,
+      "body": "/login?redirect=%2Fconsumer%2Forders"
+    },
+    {
+      "route": "/consumer/favorites",
+      "entry": "Navbar — My favourites",
+      "role": "CONSUMER",
+      "status": 307,
+      "ok": false,
+      "location": "/login?redirect=%2Fconsumer%2Ffavorites",
+      "ms": 55,
+      "body": "/login?redirect=%2Fconsumer%2Ffavorites"
+    },
+    {
+      "route": "/notifications",
+      "entry": "Navbar — Notifications",
+      "role": "CONSUMER",
+      "status": 307,
+      "ok": false,
+      "location": "/login?redirect=%2Fnotifications",
+      "ms": 69,
+      "body": "/login?redirect=%2Fnotifications"
+    },
+    {
+      "route": "/profile",
+      "entry": "Navbar — Profile",
+      "role": "CONSUMER",
+      "status": 307,
+      "ok": false,
+      "location": "/login?redirect=%2Fprofile",
+      "ms": 73,
+      "body": "/login?redirect=%2Fprofile"
+    },
+    {
+      "route": "/consumer/chats",
+      "entry": "Home shell — Chat",
+      "role": "CONSUMER",
+      "status": 307,
+      "ok": false,
+      "location": "/consumer/enquiries",
+      "ms": 71,
+      "body": "/consumer/enquiries"
+    },
+    {
+      "route": "/consumer/enquiries",
+      "entry": "Home shell — Enquiries",
+      "role": "CONSUMER",
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 64,
+      "body": "<!DOCTYPE html><!--0YM4joelgJ9sGrK652192--><html lang=\"en\" class=\"__variable_60680a scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/be6419ffe34f1ed7-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/f7d60101fcce5ae3.css\""
+    },
+    {
+      "route": "/consumer/enquiries/unknown-id",
+      "entry": "Enquiries list — row",
+      "role": "CONSUMER",
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 188,
+      "body": "<!DOCTYPE html><html lang=\"en\" class=\"__variable_60680a scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"stylesheet\" href=\"/_next/static/css/f7d60101fcce5ae3.css\" data-precedence=\"next\"/><link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/webpack-e308e030227988ab.js\"/><script src="
+    },
+    {
+      "route": "/consumer/farmer/unknown-id",
+      "entry": "Listing — farmer name",
+      "role": "public",
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 199,
+      "body": "<!DOCTYPE html><html lang=\"en\" class=\"__variable_60680a scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"stylesheet\" href=\"/_next/static/css/f7d60101fcce5ae3.css\" data-precedence=\"next\"/><link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/webpack-e308e030227988ab.js\"/><script src="
+    },
+    {
+      "route": "/chat/unknown-id",
+      "entry": "Enquiry — open chat",
+      "role": "CONSUMER",
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 109,
+      "body": "<!DOCTYPE html><html lang=\"en\" class=\"__variable_60680a scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"stylesheet\" href=\"/_next/static/css/f7d60101fcce5ae3.css\" data-precedence=\"next\"/><link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/webpack-e308e030227988ab.js\"/><script src="
+    },
+    {
+      "route": "/farmer/dashboard",
+      "entry": "Navbar — Farmer Hub",
+      "role": "FARMER",
+      "status": 307,
+      "ok": false,
+      "location": "/login?redirect=%2Ffarmer%2Fdashboard",
+      "ms": 95,
+      "body": "/login?redirect=%2Ffarmer%2Fdashboard"
+    },
+    {
+      "route": "/farmer/products",
+      "entry": "Farmer dashboard — Lots",
+      "role": "FARMER",
+      "status": 307,
+      "ok": false,
+      "location": "/login?redirect=%2Ffarmer%2Fproducts",
+      "ms": 72,
+      "body": "/login?redirect=%2Ffarmer%2Fproducts"
+    },
+    {
+      "route": "/farmer/orders",
+      "entry": "Farmer dashboard — Orders",
+      "role": "FARMER",
+      "status": 307,
+      "ok": false,
+      "location": "/login?redirect=%2Ffarmer%2Forders",
+      "ms": 58,
+      "body": "/login?redirect=%2Ffarmer%2Forders"
+    },
+    {
+      "route": "/farmer/inquiries",
+      "entry": "Farmer dashboard — Enquiries",
+      "role": "FARMER",
+      "status": 307,
+      "ok": false,
+      "location": "/login?redirect=%2Ffarmer%2Finquiries",
+      "ms": 69,
+      "body": "/login?redirect=%2Ffarmer%2Finquiries"
+    },
+    {
+      "route": "/seller",
+      "entry": "Home — seller entry",
+      "role": "FARMER",
+      "status": 307,
+      "ok": false,
+      "location": "/farmer/dashboard",
+      "ms": 65,
+      "body": "/farmer/dashboard"
+    },
+    {
+      "route": "/seller/orders",
+      "entry": "Seller workspace — Orders",
+      "role": "FARMER",
+      "status": 307,
+      "ok": false,
+      "location": "/farmer/orders",
+      "ms": 75,
+      "body": "/farmer/orders"
+    },
+    {
+      "route": "/admin/dashboard",
+      "entry": "Admin entry",
+      "role": "ADMIN",
+      "status": 200,
+      "ok": true,
+      "location": null,
+      "ms": 65,
+      "body": "<!DOCTYPE html><!--0YM4joelgJ9sGrK652192--><html lang=\"en\" class=\"__variable_60680a scroll-smooth\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5\"/><link rel=\"preload\" href=\"/_next/static/media/be6419ffe34f1ed7-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/css/f7d60101fcce5ae3.css\""
+    }
+  ]
+}

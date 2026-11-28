@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 import { fetchApi } from '../../../lib/api';
+import { useI18n } from '../../../hooks/useI18n';
 import { Send, Sprout, ArrowLeft, Loader2, CheckCheck, AlertCircle } from 'lucide-react';
 
 interface Message {
@@ -18,6 +19,7 @@ interface Message {
 export default function ChatThread() {
   const params = useParams();
   const router = useRouter();
+  const { t, formatDateTime } = useI18n();
   const enquiryId = params.id as string;
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -79,7 +81,7 @@ export default function ChatThread() {
 
     const token = getAuthToken();
     if (!token) {
-      setErrorMessage('Please log in to view and send messages.');
+      setErrorMessage(t('misc.chat.loginRequired'));
       setIsLoading(false);
       return;
     }
@@ -95,13 +97,13 @@ export default function ChatThread() {
           setMessages(messageList);
         }
         setEnquiryDetails({
-          subject: res?.data?.subject || res?.subject || 'Direct Produce Negotiation',
-          crop: res?.data?.product?.title || res?.product?.title || 'Harvest Crop',
+          subject: res?.data?.subject || res?.subject || t('misc.chat.defaultSubject'),
+          crop: res?.data?.product?.title || res?.product?.title || t('misc.chat.defaultCrop'),
         });
       })
       .catch((err) => {
         console.error('Failed to load conversation history:', err);
-        setErrorMessage('Unable to load prior conversation messages.');
+        setErrorMessage(t('misc.chat.loadError'));
       })
       .finally(() => {
         setIsLoading(false);
@@ -142,7 +144,7 @@ export default function ChatThread() {
       socket.off('new_chat_message');
       socket.disconnect();
     };
-  }, [enquiryId, getAuthToken, resolveCurrentUserId]);
+  }, [enquiryId, getAuthToken, resolveCurrentUserId, t]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,7 +153,7 @@ export default function ChatThread() {
 
     const token = getAuthToken();
     if (!token) {
-      setErrorMessage('Session expired. Please log in again to send messages.');
+      setErrorMessage(t('misc.chat.sessionExpired'));
       return;
     }
 
@@ -166,7 +168,7 @@ export default function ChatThread() {
       content: trimmed,
       senderId: currentUserId || 'me',
       createdAt: new Date().toISOString(),
-      sender: { name: 'You', role: 'PARTICIPANT' },
+      sender: { name: t('misc.chat.you'), role: 'PARTICIPANT' },
     };
 
     setMessages((prev) => [...prev, optimisticMsg]);
@@ -189,7 +191,7 @@ export default function ChatThread() {
       // Roll back optimistic message on failure
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setNewMessage(trimmed);
-      setErrorMessage(err?.message || 'Failed to dispatch message. Please try again.');
+      setErrorMessage(t('misc.chat.dispatchError'));
     } finally {
       setIsSending(false);
     }
@@ -212,22 +214,22 @@ export default function ChatThread() {
             type="button"
             onClick={handleBackNavigation}
             className="p-2 hover:bg-stone-100 rounded-full transition-colors text-stone-500"
-            title="Go back"
+            title={t('misc.chat.backTooltip')}
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-emerald-900">
-                Active Thread
+                {t('misc.chat.activeThread')}
               </span>
               <h2 className="text-lg font-black text-stone-900">
-                {enquiryDetails?.subject || 'Direct Negotiation'}
+                {enquiryDetails?.subject || t('misc.chat.defaultNegotiation')}
               </h2>
             </div>
             <p className="text-xs font-bold text-stone-500 mt-0.5 flex items-center gap-1">
               <Sprout className="w-3 h-3 text-emerald-600" />
-              Regarding: {enquiryDetails?.crop || 'Harvest Produce'}
+              {t('misc.chat.regarding')} {enquiryDetails?.crop || t('misc.chat.defaultHarvestProduce')}
             </p>
           </div>
         </div>
@@ -246,17 +248,17 @@ export default function ChatThread() {
         {isLoading ? (
           <div className="flex-1 flex flex-col items-center justify-center text-stone-400 gap-2">
             <Loader2 className="w-6 h-6 animate-spin text-emerald-700" />
-            <p className="text-xs font-bold">Loading conversation thread...</p>
+            <p className="text-xs font-bold">{t('misc.chat.loadingThread')}</p>
           </div>
         ) : messages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-stone-400">
-            <p className="text-sm font-bold">No messages yet.</p>
-            <p className="text-xs mt-1">Send a message below to discuss lot pricing and delivery logistics.</p>
+            <p className="text-sm font-bold">{t('misc.chat.noMessages')}</p>
+            <p className="text-xs mt-1">{t('misc.chat.noMessagesHint')}</p>
           </div>
         ) : (
           messages.map((msg, index) => {
             const isMe = currentUserId ? msg.senderId === currentUserId : false;
-            const senderDisplayName = msg.sender?.name || (isMe ? 'You' : 'Participant');
+            const senderDisplayName = msg.sender?.name || (isMe ? t('misc.chat.you') : t('misc.chat.participant'));
 
             return (
               <div
@@ -278,10 +280,7 @@ export default function ChatThread() {
                   <p className="text-sm font-medium whitespace-pre-wrap break-words">{msg.content}</p>
                 </div>
                 <span className="text-[10px] font-bold text-stone-400 mt-1 flex items-center gap-1">
-                  {new Date(msg.createdAt || Date.now()).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  {formatDateTime(msg.createdAt || Date.now())}
                   {isMe && <CheckCheck className="w-3 h-3 text-emerald-600" />}
                 </span>
               </div>
@@ -297,7 +296,7 @@ export default function ChatThread() {
           <textarea
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type your message here..."
+            placeholder={t('misc.chat.messagePlaceholder')}
             className="flex-1 max-h-32 min-h-[50px] px-5 py-3.5 bg-stone-100 border-transparent focus:bg-white rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-600 resize-none transition-all"
             rows={1}
             onKeyDown={(e) => {

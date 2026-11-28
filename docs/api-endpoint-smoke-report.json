@@ -1,0 +1,442 @@
+{
+  "generatedAt": "2026-11-28T13:10:17.454Z",
+  "api": "https://farmconnect-api-sn98.onrender.com/api",
+  "accounts": {
+    "farmer": "api.smoke.farmer.1795871408179@farmconnect.test",
+    "consumer": "api.smoke.consumer.1795871408179@farmconnect.test"
+  },
+  "endpoints": [
+    {
+      "name": "register farmer",
+      "route": "/auth/register",
+      "method": "POST",
+      "status": 201,
+      "expectation": "201",
+      "ms": 1272
+    },
+    {
+      "name": "register consumer",
+      "route": "/auth/register",
+      "method": "POST",
+      "status": 201,
+      "expectation": "201",
+      "ms": 596
+    },
+    {
+      "name": "login (email + password)",
+      "route": "/auth/login",
+      "method": "POST",
+      "status": 200,
+      "expectation": "200",
+      "ms": 518
+    },
+    {
+      "name": "login (phone without a password is refused)",
+      "route": "/auth/login-phone",
+      "method": "POST",
+      "status": 400,
+      "expectation": "400 (the number alone must never open a session)",
+      "ms": 66
+    },
+    {
+      "name": "login (phone + password)",
+      "route": "/auth/login-phone",
+      "method": "POST",
+      "status": 200,
+      "expectation": "200 (the same account as the email sign-in)",
+      "ms": 629
+    },
+    {
+      "name": "login (legacy phone alias)",
+      "route": "/auth/phone-login",
+      "method": "POST",
+      "status": 200,
+      "expectation": "200 (same handler)",
+      "ms": 607
+    },
+    {
+      "name": "login (legacy phone alias without a password is refused)",
+      "route": "/auth/phone-login",
+      "method": "POST",
+      "status": 400,
+      "expectation": "400 (the number alone must never open a session)",
+      "ms": 77
+    },
+    {
+      "name": "firebase phone OTP",
+      "route": "/auth/firebase-phone",
+      "method": "POST",
+      "status": 401,
+      "expectation": "401/503 (Firebase is not configured)",
+      "ms": 1416
+    },
+    {
+      "name": "verify Aadhaar",
+      "route": "/auth/verify-aadhaar",
+      "method": "POST",
+      "status": 200,
+      "expectation": "200",
+      "ms": 78
+    },
+    {
+      "name": "current account",
+      "route": "/auth/me",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 75
+    },
+    {
+      "name": "liveness + database probe",
+      "route": "/health",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 70
+    },
+    {
+      "name": "crop categories",
+      "route": "/catalog/categories",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 121
+    },
+    {
+      "name": "crop catalogue",
+      "route": "/catalog/crops",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 72
+    },
+    {
+      "name": "crop catalogue search (en)",
+      "route": "/catalog/crops?search=Tomato",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 67
+    },
+    {
+      "name": "crop catalogue search (kn)",
+      "route": "/catalog/crops?search=ಟೊಮೇಟೊ",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 82
+    },
+    {
+      "name": "crop catalogue search (hi)",
+      "route": "/catalog/crops?search=टमाटर",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 77
+    },
+    {
+      "name": "public catalogue feed",
+      "route": "/products",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 130
+    },
+    {
+      "name": "create crop listing",
+      "route": "/products",
+      "method": "POST",
+      "status": 201,
+      "expectation": "201",
+      "ms": 94
+    },
+    {
+      "name": "one listing",
+      "route": "/products/[id]",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 82
+    },
+    {
+      "name": "edit one listing",
+      "route": "/products/[id]",
+      "method": "PATCH",
+      "status": 200,
+      "expectation": "200",
+      "ms": 89
+    },
+    {
+      "name": "farmer inventory",
+      "route": "/products/my-products",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 91
+    },
+    {
+      "name": "listings of the signed-in farmer",
+      "route": "/products/farmer",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 67
+    },
+    {
+      "name": "profile incl. preferredLanguage",
+      "route": "/users/me",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 76
+    },
+    {
+      "name": "update profile + language",
+      "route": "/users/me",
+      "method": "PATCH",
+      "status": 200,
+      "expectation": "200 (kn-IN normalised to kn)",
+      "ms": 119
+    },
+    {
+      "name": "public farmer directory",
+      "route": "/users/farmers",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 90
+    },
+    {
+      "name": "favourite a listing",
+      "route": "/favorites/products/[id]",
+      "method": "POST",
+      "status": 201,
+      "expectation": "201",
+      "ms": 91
+    },
+    {
+      "name": "favourite a farmer",
+      "route": "/favorites/farmers/[id]",
+      "method": "POST",
+      "status": 201,
+      "expectation": "201",
+      "ms": 80
+    },
+    {
+      "name": "favourites",
+      "route": "/favorites",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 140
+    },
+    {
+      "name": "favourites (as a cultivator)",
+      "route": "/favorites",
+      "method": "GET",
+      "status": 403,
+      "expectation": "403 (the favourites belong to a buyer)",
+      "ms": 81
+    },
+    {
+      "name": "favourite a listing (as a cultivator)",
+      "route": "/favorites/products/[id]",
+      "method": "POST",
+      "status": 403,
+      "expectation": "403 (the favourites belong to a buyer)",
+      "ms": 76
+    },
+    {
+      "name": "create an enquiry",
+      "route": "/enquiries",
+      "method": "POST",
+      "status": 201,
+      "expectation": "201",
+      "ms": 88
+    },
+    {
+      "name": "consumer enquiries",
+      "route": "/enquiries/my",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 74
+    },
+    {
+      "name": "farmer enquiries",
+      "route": "/enquiries/farmer",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 128
+    },
+    {
+      "name": "enquiry messages",
+      "route": "/enquiries/[id]/messages",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 83
+    },
+    {
+      "name": "reply to an enquiry",
+      "route": "/enquiries/[id]/messages",
+      "method": "POST",
+      "status": 201,
+      "expectation": "201",
+      "ms": 81
+    },
+    {
+      "name": "place an order",
+      "route": "/orders",
+      "method": "POST",
+      "status": 201,
+      "expectation": "201",
+      "ms": 85
+    },
+    {
+      "name": "consumer orders",
+      "route": "/orders/my",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 79
+    },
+    {
+      "name": "farmer orders",
+      "route": "/orders/farmer",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 78
+    },
+    {
+      "name": "one order",
+      "route": "/orders/[id]",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 76
+    },
+    {
+      "name": "order status",
+      "route": "/orders/[id]/status",
+      "method": "PATCH",
+      "status": 200,
+      "expectation": "200",
+      "ms": 86
+    },
+    {
+      "name": "delivery confirmation",
+      "route": "/orders/[id]/received",
+      "method": "PATCH",
+      "status": 200,
+      "expectation": "200",
+      "ms": 75
+    },
+    {
+      "name": "notification inbox",
+      "route": "/notifications",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 70
+    },
+    {
+      "name": "notification inbox (consumer)",
+      "route": "/notifications",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 78
+    },
+    {
+      "name": "mark one notification read",
+      "route": "/notifications/[id]/read",
+      "method": "PATCH",
+      "status": 200,
+      "expectation": "200",
+      "ms": 67
+    },
+    {
+      "name": "mark all notifications read",
+      "route": "/notifications/read-all",
+      "method": "PATCH",
+      "status": 200,
+      "expectation": "200",
+      "ms": 70
+    },
+    {
+      "name": "own complaints",
+      "route": "/complaints/mine",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200",
+      "ms": 84
+    },
+    {
+      "name": "file a complaint",
+      "route": "/complaints",
+      "method": "POST",
+      "status": 201,
+      "expectation": "201",
+      "ms": 76
+    },
+    {
+      "name": "user administration (as a non-admin)",
+      "route": "/admin/users",
+      "method": "GET",
+      "status": 403,
+      "expectation": "403 (route exists, admin guard active)",
+      "ms": 73
+    },
+    {
+      "name": "platform metrics (as a non-admin)",
+      "route": "/admin/metrics",
+      "method": "GET",
+      "status": 403,
+      "expectation": "403 (route exists, admin guard active)",
+      "ms": 66
+    },
+    {
+      "name": "complaint queue (as a non-admin)",
+      "route": "/admin/complaints",
+      "method": "GET",
+      "status": 403,
+      "expectation": "403 (route exists, admin guard active)",
+      "ms": 61
+    },
+    {
+      "name": "delete a listing that carries an order",
+      "route": "/products/[id]",
+      "method": "DELETE",
+      "status": 409,
+      "expectation": "409 (refused, order history is protected)",
+      "ms": 91
+    },
+    {
+      "name": "the refused listing is still present",
+      "route": "/products/[id]",
+      "method": "GET",
+      "status": 200,
+      "expectation": "200 (nothing was deleted)",
+      "ms": 67
+    },
+    {
+      "name": "delete a listing without an order",
+      "route": "/products/[id]",
+      "method": "DELETE",
+      "status": 200,
+      "expectation": "200",
+      "ms": 80
+    },
+    {
+      "name": "the deleted listing is gone",
+      "route": "/products/[id]",
+      "method": "GET",
+      "status": 404,
+      "expectation": "404",
+      "ms": 67
+    }
+  ]
+}

@@ -234,6 +234,20 @@ uses `next/font/local`.
 | `@font-face` rules in the built CSS | 2 (the family + its size-adjusted fallback) |
 | Build without a network call to Google Fonts | PASS — `npm run build` exit code 0, 21 routes |
 
+The font was also **not being used at all**: the layout published it as
+the `--font-sans` variable and gave the body the `font-sans` utility
+class, but the Tailwind config never mapped that utility to the
+variable — so `font-sans` resolved to Tailwind's default
+(`ui-sans-serif, system-ui, sans-serif, …`) and the site rendered in the
+system UI font while the webfont was served unused. The config now maps
+it:
+
+```js
+fontFamily: { sans: ['var(--font-sans)'] }
+```
+
+and the built CSS reads `.font-sans{font-family:var(--font-sans)}`.
+
 ---
 
 ## 1.4 Mock data and fabricated states

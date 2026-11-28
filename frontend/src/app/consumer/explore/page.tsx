@@ -19,6 +19,7 @@ import { useModal } from '../../../context/ModalContext';
 import { fetchApi } from '../../../lib/api';
 import { localizedName, LocalizedName } from '../../../lib/localized';
 import { useI18n } from '../../../hooks/useI18n';
+import Link from 'next/link';
 
 interface CatalogueCategory extends LocalizedName {
   id: string;
@@ -228,6 +229,15 @@ export default function ConsumerExplorePage() {
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          {/* The live trade hub: the interactive farm map with the
+              negotiation chat and the logistics profit drawer. */}
+          <Link
+            href="/buy"
+            className="px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-900 hover:bg-emerald-100"
+          >
+            <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+            {t('nav.liveTrade')}
+          </Link>
           <button
             type="button"
             onClick={() => setOrganicOnly((prev) => !prev)}

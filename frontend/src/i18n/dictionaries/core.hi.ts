@@ -12,6 +12,7 @@ export const coreHi: TranslationMap = {
   'nav.marketplace': 'मार्केटप्लेस',
   'nav.mandiRates': 'मंडी भाव',
   'nav.farmMap': 'फार्म मैप',
+  'nav.liveTrade': 'लाइव ट्रेड',
   'nav.signIn': 'साइन इन',
   'nav.register': 'रजिस्टर',
   'nav.signOut': 'साइन आउट',

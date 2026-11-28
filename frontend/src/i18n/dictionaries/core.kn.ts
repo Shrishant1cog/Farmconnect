@@ -12,6 +12,7 @@ export const coreKn: TranslationMap = {
   'nav.marketplace': 'ಮಾರುಕಟ್ಟೆ',
   'nav.mandiRates': 'ಮಂಡಿ ದರ',
   'nav.farmMap': 'ಸರ್ವೇ ನಕ್ಷೆ',
+  'nav.liveTrade': 'ಜೀವಂತ ವರ್ತನೆ',
   'nav.signIn': 'ಸೈನ್ ಇನ್',
   'nav.register': 'ನೋಂದಣಿ',
   'nav.signOut': 'ಸೈನ್ ಔಟ್',

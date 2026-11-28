@@ -75,17 +75,12 @@ export default function FarmerOrdersPage() {
 
     try {
       let data: any;
-      try {
-        const res = await fetchApi('/orders/farmer');
-        data = res?.data || res?.orders || res;
-      } catch {
-        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
-        const res = await fetch(`${baseUrl}/orders/farmer`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const json = await res.json();
-        data = json?.data || json?.orders || json;
-      }
+      // `fetchApi` resolves the shared backend and attaches the bearer
+      // token. A **failed** request must reach the error handler below —
+      // a second, direct `fetch` used to swallow the HTTP status and
+      // report an error body as if it were an empty order list.
+      const res = await fetchApi('/orders/farmer');
+      data = res?.data || res?.orders || res;
 
       // Only the real shared orders are shown. An empty response renders the
       // translated empty state instead of demo records.
@@ -124,24 +119,10 @@ export default function FarmerOrdersPage() {
 
     try {
       const payload = { status: nextStatus };
-      let json: any;
-      try {
-        json = await fetchApi(`/orders/${orderId}/status`, {
-          method: 'PATCH',
-          body: JSON.stringify(payload),
-        });
-      } catch {
-        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
-        const res = await fetch(`${baseUrl}/orders/${orderId}/status`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify(payload),
-        });
-        json = await res.json();
-      }
+      const json: any = await fetchApi(`/orders/${orderId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
 
       if (json?.success || json?.data?.status || json?.status) {
         // The shared backend confirmed the new status — only now is the

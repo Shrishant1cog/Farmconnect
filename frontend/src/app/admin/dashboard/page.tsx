@@ -3,6 +3,17 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Users, ShieldAlert, Activity, CheckCircle, Ban, Power, RefreshCw, AlertCircle } from 'lucide-react';
 import { fetchApi } from '../../../lib/api';
+import {
+  errorKeyForStatus,
+  extractComplaintList,
+  extractMetrics,
+  extractUserList,
+  failedState,
+  firstFailure,
+  loadedState,
+  type AdminResource,
+  type AdminResourceState,
+} from '../../../lib/adminResources';
 import { useI18n } from '../../../hooks/useI18n';
 
 export default function AdminDashboard() {
@@ -14,79 +25,93 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const getAuthToken = () => {
-    if (typeof window === 'undefined') return '';
-    return localStorage.getItem('farmconnect_token') || localStorage.getItem('fc_token') || '';
-  };
+  /**
+   * What actually happened to every resource.
+   *
+   * `loaded` is **false** until the shared backend answered with the data.
+   * That distinction matters: an empty list means "there is nothing", while
+   * a failed request means "nothing is known". The dashboard used to treat
+   * a failed request as an empty list and an empty metric set, so a
+   * visitor without administrator rights saw a plausible looking
+   * dashboard full of zeros — a statement about the platform that nobody
+   * had verified.
+   */
+  const [resources, setResources] = useState<Record<AdminResource, AdminResourceState>>({
+    metrics: failedState(null),
+    users: failedState(null),
+    complaints: failedState(null),
+  });
 
+  /**
+   * Every call goes through `fetchApi`, which **throws** on a non-2xx
+   * answer and carries the HTTP status on the error.
+   *
+   * The old code had a second, direct `fetch` in the `catch` branch that
+   * ignored the status code and returned the error body as if it were the
+   * requested data — so a 403 became "zero users, zero complaints". The
+   * second call was also made against a possibly empty base URL, which
+   * left the page waiting for an answer that never came.
+   */
   const executeApiCall = async (endpoint: string, options: RequestInit = {}) => {
-    try {
-      return await fetchApi(endpoint, options);
-    } catch {
-      // Fallback direct fetch if helper handles URL formatting differently
-      const token = getAuthToken();
-      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
-      const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-      const res = await fetch(`${baseUrl}${cleanEndpoint}`, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-          ...options.headers,
-        },
-      });
-      return await res.json();
-    }
+    return fetchApi(endpoint, options);
   };
 
   const fetchAdminData = useCallback(async () => {
     setLoading(true);
     setErrorMessage(null);
 
-    try {
-      // Corrected route: /admin/metrics (previously /dashboard/admin)
-      const [statsRes, usersRes, complaintsRes] = await Promise.all([
-        executeApiCall('/admin/metrics').catch((err) => {
-          console.warn('Metrics endpoint error:', err);
-          return null;
-        }),
-        executeApiCall('/admin/users').catch((err) => {
-          console.warn('Users endpoint error:', err);
-          return null;
-        }),
-        executeApiCall('/admin/complaints').catch((err) => {
-          console.warn('Complaints endpoint error:', err);
-          return null;
-        }),
-      ]);
-
-      if (statsRes) {
-        const statsPayload = statsRes?.data?.stats || statsRes?.data || statsRes?.stats || statsRes;
-        if (statsPayload && typeof statsPayload === 'object') {
-          setStats(statsPayload);
-        }
+    const load = async (
+      resource: AdminResource,
+      endpoint: string,
+      apply: (payload: any) => void
+    ) => {
+      try {
+        const res = await executeApiCall(endpoint);
+        apply(res);
+        setResources((prev) => ({ ...prev, [resource]: loadedState }));
+        return loadedState;
+      } catch (err: any) {
+        console.warn(`Admin resource "${resource}" could not be loaded:`, err);
+        const state = failedState(err?.status);
+        setResources((prev) => ({ ...prev, [resource]: state }));
+        return state;
       }
+    };
 
-      if (usersRes) {
-        const userList = usersRes?.data?.users || usersRes?.data || usersRes?.users || (Array.isArray(usersRes) ? usersRes : []);
-        if (Array.isArray(userList)) {
-          setUsers(userList);
+    const results = await Promise.all([
+      load('metrics', '/admin/metrics', (res) => {
+        const payload = extractMetrics(res);
+        if (payload) {
+          setStats(payload);
         }
-      }
+      }),
+      load('users', '/admin/users', (res) => {
+        const list = extractUserList(res);
+        if (list) {
+          setUsers(list);
+        }
+      }),
+      load('complaints', '/admin/complaints', (res) => {
+        const list = extractComplaintList(res);
+        if (list) {
+          setComplaints(list);
+        }
+      }),
+    ]);
 
-      if (complaintsRes) {
-        const complaintList = complaintsRes?.data?.complaints || complaintsRes?.data || complaintsRes?.complaints || (Array.isArray(complaintsRes) ? complaintsRes : []);
-        if (Array.isArray(complaintList)) {
-          setComplaints(complaintList);
-        }
-      }
-    } catch (err: any) {
-      console.error('Failed to load admin data:', err);
-      // Store the translation key so the message follows the active locale.
-      setErrorMessage('misc.admin.loadError');
-    } finally {
-      setLoading(false);
+    // The banner reports the **first** failure. The status decides the
+    // wording: a 403 means the account may not read the data at all, any
+    // other status means the platform could not answer.
+    const failure = firstFailure({
+      metrics: results[0],
+      users: results[1],
+      complaints: results[2],
+    });
+    if (failure) {
+      setErrorMessage(failure.state.errorKey ?? errorKeyForStatus(failure.state.status));
     }
+
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -173,7 +198,7 @@ export default function AdminDashboard() {
 
       {/* TAB 1: OVERVIEW */}
       {activeTab === 'overview' && (
-        stats ? (
+        resources.metrics.loaded && stats ? (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm">
               <p className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">{t('misc.admin.totalUsers')}</p>
@@ -200,9 +225,15 @@ export default function AdminDashboard() {
               <p className="text-4xl font-black text-rose-900">{formatNumber(stats.pendingComplaints ?? 0)}</p>
             </div>
           </div>
-        ) : (
+        ) : resources.metrics.loaded ? (
           <div className="p-8 text-center bg-stone-50 rounded-2xl border border-stone-200 text-stone-500 text-sm font-semibold">
             {t('misc.admin.noStats')}
+          </div>
+        ) : (
+          // The metrics were **not** read. Saying "0 users" here would be
+          // a statement about the platform that nobody has verified.
+          <div className="p-8 text-center bg-stone-50 rounded-2xl border border-stone-200 text-stone-500 text-sm font-semibold">
+            {t(resources.metrics.errorKey ?? 'misc.admin.loadError')}
           </div>
         )
       )}
@@ -220,13 +251,13 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-200">
-              {users.length === 0 ? (
+              {resources.users.loaded && users.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="p-8 text-center text-stone-500 font-semibold">
                     {t('misc.admin.noUsers')}
                   </td>
                 </tr>
-              ) : (
+              ) : resources.users.loaded ? (
                 users.map((user) => (
                   <tr key={user.id} className="hover:bg-stone-50 transition-colors">
                     <td className="px-6 py-4">
@@ -275,6 +306,12 @@ export default function AdminDashboard() {
                     </td>
                   </tr>
                 ))
+              ) : (
+                <tr>
+                  <td colSpan={4} className="p-8 text-center text-stone-500 font-semibold">
+                    {t(resources.users.errorKey ?? 'misc.admin.loadError')}
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
@@ -284,9 +321,9 @@ export default function AdminDashboard() {
       {/* TAB 3: COMPLAINTS / REPORTS */}
       {activeTab === 'complaints' && (
         <div className="space-y-4">
-          {complaints.length === 0 ? (
+          {resources.complaints.loaded && complaints.length === 0 ? (
             <p className="text-stone-500 font-bold p-8 text-center bg-stone-50 rounded-2xl">{t('misc.admin.noComplaints')}</p>
-          ) : (
+          ) : resources.complaints.loaded ? (
             complaints.map((complaint) => (
               <div
                 key={complaint.id}
@@ -329,6 +366,10 @@ export default function AdminDashboard() {
                 )}
               </div>
             ))
+          ) : (
+            <p className="text-stone-500 font-bold p-8 text-center bg-stone-50 rounded-2xl">
+              {t(resources.complaints.errorKey ?? 'misc.admin.loadError')}
+            </p>
           )}
         </div>
       )}

@@ -48,6 +48,7 @@ export default function Navbar() {
   const navLinks = [
     { name: t('nav.home'), href: '/', icon: Home },
     { name: t('nav.marketplace'), href: '/consumer/explore', icon: ShoppingBag },
+    { name: t('nav.liveTrade'), href: '/buy', icon: MessageSquare },
     { name: t('nav.mandiRates'), href: '/mandi-rates', icon: TrendingUp },
     { name: t('nav.farmMap'), href: '/consumer/map', icon: MapPin },
   ];

@@ -198,6 +198,8 @@ export const miscEn: TranslationMap = {
   'misc.admin.refresh': 'Refresh Data',
   'misc.admin.loading': 'Loading Command Center...',
   'misc.admin.loadError': 'Failed to load command center data.',
+  'misc.admin.forbidden':
+    'Administrator access is required to read this data. The numbers of the platform are not shown because they were not read.',
   'misc.admin.tabOverview': 'Overview',
   'misc.admin.tabUsers': 'Users',
   'misc.admin.tabComplaints': 'Complaints',

@@ -72,17 +72,12 @@ export default function ConsumerOrdersPage() {
 
     try {
       let data: any;
-      try {
-        const res = await fetchApi('/orders/my');
-        data = res?.data || res?.orders || res;
-      } catch {
-        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
-        const res = await fetch(`${baseUrl}/orders/my`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const json = await res.json();
-        data = json?.data || json?.orders || json;
-      }
+      // `fetchApi` resolves the shared backend and attaches the bearer
+      // token. A **failed** request must reach the error handler below —
+      // a second, direct `fetch` used to swallow the HTTP status and
+      // report an error body as if it were an empty order list.
+      const res = await fetchApi('/orders/my');
+      data = res?.data || res?.orders || res;
 
       // Only the real shared orders are shown. An empty response renders the
       // empty state instead of demo records.
@@ -129,22 +124,9 @@ export default function ConsumerOrdersPage() {
     setModalError(null);
 
     try {
-      let json: any;
-      try {
-        json = await fetchApi(`/orders/${orderId}/received`, {
-          method: 'PATCH'
-        });
-      } catch {
-        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
-        const res = await fetch(`${baseUrl}/orders/${orderId}/received`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-          }
-        });
-        json = await res.json();
-      }
+      const json: any = await fetchApi(`/orders/${orderId}/received`, {
+        method: 'PATCH'
+      });
 
       if (json?.success || json?.id || json?.data || json?.status === 200) {
         setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'DELIVERED' } : o));

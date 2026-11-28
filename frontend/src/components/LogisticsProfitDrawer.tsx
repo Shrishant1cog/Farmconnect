@@ -167,21 +167,10 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
     };
 
     try {
-      let json: any;
-      try {
-        json = await fetchApi('/logistics/quote', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
-      } catch {
-        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
-        const res = await fetch(`${baseUrl}/logistics/quote`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        json = await res.json();
-      }
+      const json: any = await fetchApi('/logistics/quote', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
 
       const quoteData = json?.data || json?.quote || json;
       if (quoteData && (quoteData.breakdown || quoteData.distanceKm !== undefined)) {
@@ -222,24 +211,10 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
     };
 
     try {
-      let json: any;
-      try {
-        json = await fetchApi('/enquiries', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
-      } catch {
-        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
-        const res = await fetch(`${baseUrl}/enquiries`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
-        });
-        json = await res.json();
-      }
+      const json: any = await fetchApi('/enquiries', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
 
       const enquiryId = json?.data?.id || json?.id || json?.enquiry?.id;
       if (enquiryId) {

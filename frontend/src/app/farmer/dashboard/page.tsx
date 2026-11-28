@@ -408,7 +408,10 @@ export default function FarmerDashboardPage() {
         minOrderKg: Number(p.minOrderKg) || 0,
         isAvailable: p.isAvailable !== undefined ? Boolean(p.isAvailable) : true,
         grade: p.grade || t('farmer.common.gradeAExport'),
-        location: p.location || t('farmer.dashboard.defaultLocation'),
+        // The place of a lot is read from the shared backend. A lot without
+        // a location has **no** location — it used to become "Mandya,
+        // Karnataka" for every one of them, which is a made-up place.
+        location: p.location || '',
         imageUrl: p.imageUrl || '',
       }));
 
@@ -534,9 +537,18 @@ export default function FarmerDashboardPage() {
     };
   }, [products, leads, formatNumber]);
 
-  const farmerName = currentUser?.name || authUser?.name || t('farmer.dashboard.defaultFarmerName', { name: 'Ramesh Kumar' });
-  const farmerDistrict = currentUser?.district || authUser?.district || 'Mandya';
-  const farmerTaluk = currentUser?.taluk || authUser?.taluk || 'Pandavapura';
+  // The greeting uses the **real** account. When the profile could not be
+  // read yet, a neutral role label is shown — the dashboard used to fall
+  // back to the hard-coded name "Ramesh Kumar", which belongs to the demo
+  // cultivator and made every other cultivator look like somebody else.
+  const farmerName = currentUser?.name || authUser?.name || t('farmer.dashboard.cultivatorLabel');
+
+  // The location is read from the shared account. It is never invented:
+  // an unknown place stays unknown instead of becoming "Pandavapura,
+  // Mandya" for everybody.
+  const farmerDistrict = currentUser?.district || authUser?.district || '';
+  const farmerTaluk = currentUser?.taluk || authUser?.taluk || '';
+  const farmerPlace = [farmerTaluk, farmerDistrict].filter(Boolean).join(', ');
 
   const getCategoryLabel = (categoryName?: string, categoryId?: string) => {
     const matched = categories.find((category) => category.id === categoryId);
@@ -616,9 +628,11 @@ export default function FarmerDashboardPage() {
             <span className="px-3 py-0.5 rounded-full bg-emerald-100 text-emerald-950 border border-emerald-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
               <Sprout className="w-3.5 h-3.5 text-emerald-700" /> {t('farmer.dashboard.commandCenter')}
             </span>
-            <span className="px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-600 text-[10px] font-bold flex items-center gap-1">
-              <MapPin className="w-3 h-3 text-emerald-700" /> {farmerTaluk}, {farmerDistrict}
-            </span>
+            {farmerPlace ? (
+              <span className="px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-600 text-[10px] font-bold flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-emerald-700" /> {farmerPlace}
+              </span>
+            ) : null}
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight">
@@ -859,9 +873,11 @@ export default function FarmerDashboardPage() {
 
                         <div className="flex justify-between items-center text-xs text-stone-600 pt-1">
                           <span>{t('farmer.dashboard.stock', { quantity: formatNumber(prod.quantityAvailable), unit: prod.quantityUnit })}</span>
-                          <span className="flex items-center gap-1 text-[11px] text-stone-500">
-                            <MapPin className="w-3 h-3 text-emerald-700" /> {prod.location}
-                          </span>
+                          {prod.location ? (
+                            <span className="flex items-center gap-1 text-[11px] text-stone-500">
+                              <MapPin className="w-3 h-3 text-emerald-700" /> {prod.location}
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                     </div>

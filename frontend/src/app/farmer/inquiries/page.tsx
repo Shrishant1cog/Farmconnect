@@ -111,18 +111,14 @@ export default function FarmerInquiriesPage() {
 
     try {
       let json: any;
+      // `fetchApi` resolves the shared backend and attaches the bearer
+      // token. A **failed** request must reach the error handler below —
+      // a second, direct `fetch` used to swallow the HTTP status and
+      // report an error body as if it were an empty enquiry list.
       try {
         json = await fetchApi('/enquiries/farmer');
       } catch {
-        try {
-          json = await fetchApi('/farmer/enquiries');
-        } catch {
-          const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
-          const res = await fetch(`${baseUrl}/enquiries/farmer`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          json = await res.json();
-        }
+        json = await fetchApi('/farmer/enquiries');
       }
 
       const inquiryList = json?.data || json?.enquiries || (Array.isArray(json) ? json : []);
@@ -249,24 +245,10 @@ export default function FarmerInquiriesPage() {
 
     try {
       const payload = { content: cleanContent };
-      let json: any;
-      try {
-        json = await fetchApi(`/enquiries/${activeInquiry.id}/messages`, {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
-      } catch {
-        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
-        const res = await fetch(`${baseUrl}/enquiries/${activeInquiry.id}/messages`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify(payload),
-        });
-        json = await res.json();
-      }
+      const json: any = await fetchApi(`/enquiries/${activeInquiry.id}/messages`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
 
       if (json?.success && json?.data) {
         const confirmedMsg = json.data;

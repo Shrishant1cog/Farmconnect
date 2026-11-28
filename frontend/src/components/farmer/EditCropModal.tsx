@@ -247,25 +247,15 @@ export default function EditCropModal({ crop, isOpen, onClose, onSuccess }: Edit
         imageUrl: formData.imageUrl || '',
       };
 
-      // 2. Perform update using fetchApi with resilient fallback
-      let json: any;
-      try {
-        json = await fetchApi(`/products/${crop.id}`, {
-          method: 'PUT',
-          body: JSON.stringify(payload),
-        });
-      } catch {
-        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
-        const res = await fetch(`${baseUrl}/products/${crop.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify(payload),
-        });
-        json = await res.json();
-      }
+      // 2. Perform the update through the centralized `fetchApi`, which
+      //    resolves the shared backend and attaches the bearer token. A
+      //    failed request throws — a second, direct `fetch` used to
+      //    swallow the HTTP status and hand the error body to the code
+      //    below as if it were an updated listing.
+      const json: any = await fetchApi(`/products/${crop.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
 
       if (json?.success || json?.id || json?.data) {
         const updatedData = {

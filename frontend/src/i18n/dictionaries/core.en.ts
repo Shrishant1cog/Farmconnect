@@ -12,6 +12,7 @@ export const coreEn: TranslationMap = {
   'nav.marketplace': 'Marketplace',
   'nav.mandiRates': 'Mandi Rates',
   'nav.farmMap': 'Farm Map',
+  'nav.liveTrade': 'Live Trade',
   'nav.signIn': 'Sign In',
   'nav.register': 'Register',
   'nav.signOut': 'Sign Out',

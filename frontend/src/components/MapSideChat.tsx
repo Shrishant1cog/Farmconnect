@@ -164,24 +164,10 @@ export default function MapSideChat({ activeNode }: MapSideChatProps) {
           }),
         };
 
-        let json: any;
-        try {
-          json = await fetchApi('/enquiries', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-          });
-        } catch {
-          const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
-          const res = await fetch(`${baseUrl}/enquiries`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(payload),
-          });
-          json = await res.json();
-        }
+        const json: any = await fetchApi('/enquiries', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
 
         const enqId = json?.data?.id || json?.id || json?.enquiry?.id;
         if (enqId) {
@@ -190,16 +176,7 @@ export default function MapSideChat({ activeNode }: MapSideChatProps) {
 
           // Fetch previous messages for this enquiry
           try {
-            let historyJson: any;
-            try {
-              historyJson = await fetchApi(`/enquiries/${enqId}/messages`);
-            } catch {
-              const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
-              const historyRes = await fetch(`${baseUrl}/enquiries/${enqId}/messages`, {
-                headers: { Authorization: `Bearer ${token}` },
-              });
-              historyJson = await historyRes.json();
-            }
+            const historyJson: any = await fetchApi(`/enquiries/${enqId}/messages`);
 
             const rawList =
               historyJson?.data?.messages || historyJson?.messages || historyJson?.data || [];
@@ -264,24 +241,10 @@ export default function MapSideChat({ activeNode }: MapSideChatProps) {
     try {
       const payload = { content: cleanText };
 
-      let json: any;
-      try {
-        json = await fetchApi(`/enquiries/${activeEnquiryId}/messages`, {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
-      } catch {
-        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
-        const res = await fetch(`${baseUrl}/enquiries/${activeEnquiryId}/messages`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
-        });
-        json = await res.json();
-      }
+      const json: any = await fetchApi(`/enquiries/${activeEnquiryId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
 
       // If backend returned the created message, reconcile optimistic placeholder
       if (json?.data?.id || json?.id) {

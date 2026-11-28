@@ -191,9 +191,8 @@ export const farmerHi: TranslationMap = {
   'farmer.dashboard.updatedSuccess': 'कटाई का विवरण सफलतापूर्वक बदला गया!',
   'farmer.dashboard.removedSuccess': 'उपज की लिस्टिंग हटा दी गई।',
   'farmer.dashboard.availabilityUpdate': 'लॉट को {status} चिह्नित किया गया।',
-  'farmer.dashboard.defaultFarmerName': '{name} (किसान)',
+  'farmer.dashboard.cultivatorLabel': 'किसान',
   'farmer.dashboard.defaultProductTitle': 'ताज़ा उपज लॉट',
-  'farmer.dashboard.defaultLocation': 'मांड्या, कर्नाटक',
 
   // Products
   'farmer.products.inventoryControl': 'किसान स्टॉक नियंत्रण',

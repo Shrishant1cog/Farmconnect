@@ -194,9 +194,8 @@ export const farmerEn: TranslationMap = {
   'farmer.dashboard.updatedSuccess': 'Harvest details updated successfully!',
   'farmer.dashboard.removedSuccess': 'Produce listing removed.',
   'farmer.dashboard.availabilityUpdate': 'Lot marked as {status}.',
-  'farmer.dashboard.defaultFarmerName': '{name} (cultivator)',
+  'farmer.dashboard.cultivatorLabel': 'Cultivator',
   'farmer.dashboard.defaultProductTitle': 'Fresh produce lot',
-  'farmer.dashboard.defaultLocation': 'Mandya, Karnataka',
 
   // Products
   'farmer.products.inventoryControl': 'Cultivator inventory control',

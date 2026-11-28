@@ -778,6 +778,46 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
     expect(metrics.body.data.totalUsers).toBeGreaterThan(0);
   });
 
+  it('ADMIN: every figure of the command center is really counted', async () => {
+    // The command center shows a "Total Enquiries" figure. The backend
+    // never sent that field, so the card showed a permanent zero — a
+    // number that was never measured. Every figure must now be the real
+    // count of the shared database.
+    const metrics = await agent
+      .get('/api/admin/metrics')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(metrics.status).toBe(200);
+
+    const data = metrics.body.data;
+
+    for (const field of [
+      'totalUsers',
+      'totalFarmers',
+      'totalConsumers',
+      'activeProducts',
+      'activeOrders',
+      'pendingComplaints',
+      'totalEnquiries',
+    ]) {
+      expect(typeof data[field]).toBe('number');
+      expect(Number.isFinite(data[field])).toBe(true);
+      expect(data[field]).toBeGreaterThanOrEqual(0);
+    }
+
+    // The figures must agree with the database itself.
+    const users = await prisma.user.count();
+    const farmers = await prisma.user.count({ where: { role: 'FARMER' as any } });
+    const consumers = await prisma.user.count({ where: { role: 'CONSUMER' as any } });
+    const products = await prisma.product.count({ where: { isAvailable: true } });
+    const enquiries = await prisma.enquiry.count();
+
+    expect(data.totalUsers).toBe(users);
+    expect(data.totalFarmers).toBe(farmers);
+    expect(data.totalConsumers).toBe(consumers);
+    expect(data.activeProducts).toBe(products);
+    expect(data.totalEnquiries).toBe(enquiries);
+  });
+
   it('ADMIN: the administrator sees the user list and can filter it', async () => {
     const res = await agent
       .get('/api/admin/users')

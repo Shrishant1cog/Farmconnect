@@ -191,9 +191,8 @@ export const farmerKn: TranslationMap = {
   'farmer.dashboard.updatedSuccess': 'ಕೊಯ್ಲಿನ ವಿವರಗಳನ್ನು ಯಶವಾಗಿ ನವೀಕರಿಸಲಾಗಿದೆ!',
   'farmer.dashboard.removedSuccess': 'ಉತ್ಪನ್ನ ಪಟ್ಟಿಯನ್ನು ತೆಗೆದುಹಾಕಲಾಗಿದೆ.',
   'farmer.dashboard.availabilityUpdate': 'ಮೊದಿಯನ್ನು {status} ಎಂದು ಗುರುತಿಸಲಾಗಿದೆ.',
-  'farmer.dashboard.defaultFarmerName': '{name} (ರೈತ)',
+  'farmer.dashboard.cultivatorLabel': 'ರೈತ',
   'farmer.dashboard.defaultProductTitle': 'ಹೊಸ ಉತ್ಪನ್ನ ಮೊದಿ',
-  'farmer.dashboard.defaultLocation': 'ಮಂಡ್ಯ, ಕರ್ನಾಟಕ',
 
   // Products
   'farmer.products.inventoryControl': 'ರೈತ ದಾಸ್ತಾನು ನಿರ್ವಹಣಾ',

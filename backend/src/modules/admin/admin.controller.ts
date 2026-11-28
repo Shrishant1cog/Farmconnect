@@ -23,6 +23,7 @@ export const getPlatformMetrics = async (_req: AuthenticatedRequest, res: Respon
       totalProducts,
       activeOrders,
       pendingComplaints,
+      totalEnquiries,
     ] = await Promise.all([
       db.user.count().catch(() => 0),
       db.user.count({ where: { role: 'FARMER' as any } }).catch(() => 0),
@@ -30,6 +31,11 @@ export const getPlatformMetrics = async (_req: AuthenticatedRequest, res: Respon
       db.product.count({ where: { isAvailable: true } }).catch(() => 0),
       db.order.count({ where: { status: { in: ['PENDING', 'CONFIRMED', 'DISPATCHED'] as any } } }).catch(() => 0),
       (db as any).complaint ? (db as any).complaint.count({ where: { status: 'PENDING' } }).catch(() => 0) : 0,
+      // The command center shows a "Total Enquiries" figure. It used to be
+      // read from a field the backend never sent, so the card showed a
+      // permanent zero — a number that was never measured. The real count
+      // comes from the shared database now.
+      db.enquiry.count().catch(() => 0),
     ]);
 
     return res.json({
@@ -41,6 +47,7 @@ export const getPlatformMetrics = async (_req: AuthenticatedRequest, res: Respon
         activeProducts: totalProducts,
         activeOrders,
         pendingComplaints,
+        totalEnquiries,
       },
     });
   } catch (err: any) {

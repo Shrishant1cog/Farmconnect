@@ -95,6 +95,10 @@ jobs:
           NEXT_PUBLIC_APP_URL: http://localhost:3000
         run: npx tsc --noEmit
 
+      - name: Frontend regression tests
+        working-directory: frontend
+        run: npm test
+
       - name: Frontend production build
         working-directory: frontend
         env:
@@ -157,3 +161,36 @@ jobs:
           path: verification-output/farmconnect-verified-source.zip
           if-no-files-found: error
           retention-days: 7
+
+  android:
+    # The Android client has its own contract with the shared backend — the
+    # phone sign-in is the clearest example. It is verified here so that a
+    # change of the mobile code can never pass unnoticed.
+    name: Android client (static analysis and unit tests)
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout latest repaired branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+          cache: true
+
+      - name: Resolve the packages of the Android client
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Flutter static analysis
+        working-directory: mobile
+        run: flutter analyze --no-fatal-infos
+
+      - name: Flutter unit tests
+        working-directory: mobile
+        run: flutter test

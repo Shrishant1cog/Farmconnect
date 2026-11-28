@@ -1364,6 +1364,28 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
     expect(guest.status).toBe(401);
   });
 
+  it('FAVOURITES: a leftover buyer row does not give a cultivator the buyer interface', async () => {
+    // An earlier version of the endpoint created a buyer profile for every
+    // signed-in account, so a cultivator may carry such a row in the
+    // shared database. The role of the live account decides — the row
+    // must not give the buyer interface back.
+    const leftover = await prisma.consumerProfile.create({
+      data: {
+        userId: farmerUserId,
+        district: 'Bengaluru Urban',
+        deliveryAddress: 'Left over from the old behaviour',
+      },
+    });
+
+    const list = await agent
+      .get('/api/favorites')
+      .set('Authorization', `Bearer ${farmerToken}`);
+    expect(list.status).toBe(403);
+    expect(list.body.success).toBe(false);
+
+    await prisma.consumerProfile.delete({ where: { id: leftover.id } });
+  });
+
   it('FAVOURITES: the heart of the buyer really stores the lot', async () => {
     const consumerProfile = await prisma.consumerProfile.findUnique({
       where: { userId: consumerUserId },

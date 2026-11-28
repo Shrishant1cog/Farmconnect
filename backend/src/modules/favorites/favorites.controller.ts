@@ -16,13 +16,13 @@ const getUserId = (req: AuthenticatedRequest): string | null => {
  * wrong kind for an account of the wrong role, and a list that the buyer
  * interface of the platform can never show. A cultivator is refused
  * instead.
+ *
+ * The role of the **live account** decides first. A row that an earlier
+ * version of this endpoint left behind for a cultivator must not give
+ * that cultivator the buyer interface back — the account is refused even
+ * when the row exists.
  */
 const resolveConsumerProfileId = async (userId: string): Promise<string | null> => {
-  const existing = await db.consumerProfile.findUnique({ where: { userId } });
-  if (existing) {
-    return existing.id;
-  }
-
   const user = await db.user.findUnique({ where: { id: userId } });
   if (!user) {
     return null;
@@ -31,6 +31,11 @@ const resolveConsumerProfileId = async (userId: string): Promise<string | null> 
   if (String(user.role).toUpperCase() !== 'CONSUMER') {
     // The favourites belong to a buyer.
     return null;
+  }
+
+  const existing = await db.consumerProfile.findUnique({ where: { userId } });
+  if (existing) {
+    return existing.id;
   }
 
   const created = await db.consumerProfile.create({

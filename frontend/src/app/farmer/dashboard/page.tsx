@@ -6,7 +6,7 @@ import {
   Sprout, Package, MessageSquare, Plus, 
   MapPin, IndianRupee, Scale, Edit3, Trash2, 
   Search, X, ArrowUpRight, ArrowRight, CheckCircle2,
-  Loader2, RefreshCw, AlertCircle, Sparkles
+  Loader2, RefreshCw, AlertCircle, Sparkles, ShoppingBag
 } from 'lucide-react';
 import { fetchApi } from '../../../lib/api';
 import { useAuth } from '../../../hooks/useAuth';
@@ -203,6 +203,17 @@ export default function FarmerDashboardPage() {
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [farmLatitude, setFarmLatitude] = useState<number | null>(null);
   const [farmLongitude, setFarmLongitude] = useState<number | null>(null);
+
+  /**
+   * The number of **real** incoming orders.
+   *
+   * It is read from the shared backend (`GET /orders/farmer` — the very same
+   * endpoint the orders page uses), so the button never carries an invented
+   * number. `null` means "not known": the read failed or has not finished
+   * yet, and the button then shows **no** figure at all rather than a
+   * fabricated zero.
+   */
+  const [incomingOrderCount, setIncomingOrderCount] = useState<number | null>(null);
 
   // Auto-dismiss notification
   useEffect(() => {
@@ -463,6 +474,31 @@ export default function FarmerDashboardPage() {
     fetchBuyerLeads();
   }, [fetchBuyerLeads]);
 
+  /**
+   * Reads the real incoming orders of the account from the shared backend.
+   *
+   * The same endpoint the orders page uses — so the button and the page can
+   * never disagree. A failed read leaves the count unknown (`null`); it is
+   * never turned into a zero, because "no orders" and "could not read the
+   * orders" are two different truths.
+   */
+  const fetchIncomingOrderCount = useCallback(async () => {
+    try {
+      const res = await fetchApi('/orders/farmer');
+      const data = res?.data || res?.orders || (Array.isArray(res) ? res : []);
+      if (!Array.isArray(data)) {
+        throw new Error('Invalid orders response');
+      }
+      setIncomingOrderCount(data.length);
+    } catch {
+      setIncomingOrderCount(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchIncomingOrderCount();
+  }, [fetchIncomingOrderCount]);
+
   // Persist local changes
   const syncProducts = (updated: Product[]) => {
     setProducts(updated);
@@ -620,6 +656,38 @@ export default function FarmerDashboardPage() {
           <span>{notification.text}</span>
         </div>
       )}
+
+      {/*
+        Orders — the first element of the Farmer Hub, directly under the white
+        navigation tab. It opens the incoming orders of the account, and the
+        figure it carries is the **real** number the shared backend reported
+        (`GET /orders/farmer` — the same endpoint the orders page uses).
+        Nothing is invented: an unreadable list leaves the figure away
+        instead of showing a fabricated zero.
+      */}
+      <Link
+        href="/farmer/orders"
+        title={t('farmer.orders.pageTitle')}
+        aria-label={
+          incomingOrderCount === null
+            ? t('farmer.orders.pageTitle')
+            : `${t('farmer.orders.pageTitle')} — ${t('farmer.dashboard.incomingOrdersCount', {
+                count: incomingOrderCount,
+              })}`
+        }
+        className="block w-full sm:w-auto px-6 py-3.5 bg-white/95 backdrop-blur-md border border-stone-200/90 rounded-3xl shadow-2xs flex items-center justify-center gap-3 text-stone-700 hover:text-emerald-800 hover:border-emerald-300 hover:bg-emerald-50/50 transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+      >
+        <ShoppingBag className="w-5 h-5 text-emerald-700 shrink-0" />
+        <span className="font-black text-xs sm:text-sm uppercase tracking-wider whitespace-nowrap">
+          {t('farmer.orders.pageTitle')}
+        </span>
+        {incomingOrderCount !== null && (
+          <span className="px-2.5 py-1 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-950 text-[10px] font-black uppercase tracking-wider whitespace-nowrap">
+            {t('farmer.dashboard.incomingOrdersCount', { count: incomingOrderCount })}
+          </span>
+        )}
+        <ArrowRight className="w-4 h-4 text-stone-400 shrink-0" />
+      </Link>
 
       {/* 1. Header Banner */}
       <div className="bg-white/95 backdrop-blur-md rounded-3xl p-6 sm:p-8 border border-stone-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-200">

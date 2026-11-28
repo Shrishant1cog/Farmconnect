@@ -9,12 +9,21 @@ import {
   ChevronRight, Sparkles, Sprout
 } from 'lucide-react';
 import { fetchApi } from '../../../lib/api';
+import { orderDisplayTotal, orderLineTotal, orderUnitPrice } from '../../../lib/orderAmounts';
 import { useI18n } from '../../../hooks/useI18n';
 
 export interface OrderItem {
   id: string;
   quantity: number;
-  price: number;
+  /**
+   * The price of one unit of the lot.
+   *
+   * The shared backend calls it `unitPrice`; `price` is accepted as a
+   * fallback so that an older response still shows a number.
+   */
+  unitPrice?: number;
+  price?: number;
+  farmerPrice?: number;
   product?: {
     id: string;
     title: string;
@@ -27,7 +36,15 @@ export interface FarmerOrder {
   id: string;
   createdAt: string;
   status: 'PENDING' | 'CONFIRMED' | 'PACKED' | 'DISPATCHED' | 'DELIVERED' | 'CANCELLED';
-  totalAmount: number;
+  /**
+   * The total of the order.
+   *
+   * The shared backend calls it `grandTotal`; `totalAmount` is accepted as
+   * a fallback so that an older response still shows a number.
+   */
+  grandTotal?: number;
+  totalAmount?: number;
+  totalItemsCost?: number;
   transportCost?: number;
   containerCost?: number;
   deliveryAddress?: string;
@@ -365,26 +382,36 @@ export default function FarmerOrdersPage() {
 
                 {/* Items List */}
                 <div className="divide-y divide-stone-100">
-                  {order.items.map((item, idx) => (
-                    <div key={item.id || idx} className="py-2.5 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200/60 flex items-center justify-center font-bold shadow-2xs">
-                          <Sprout className="w-4 h-4 text-emerald-700" />
+                  {order.items.map((item, idx) => {
+                    // The shared backend stores the price of a lot in
+                    // `unitPrice` and the total of an order in `grandTotal`.
+                    // Reading `price` / `totalAmount` instead showed every
+                    // incoming order to the farmer as ₹0 — the settlement
+                    // value was simply invisible.
+                    const unitRate = orderUnitPrice(item);
+                    const lineTotal = orderLineTotal(item);
+
+                    return (
+                      <div key={item.id || idx} className="py-2.5 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200/60 flex items-center justify-center font-bold shadow-2xs">
+                            <Sprout className="w-4 h-4 text-emerald-700" />
+                          </div>
+                          <div>
+                            <p className="font-bold text-stone-900">
+                              {item.product?.title || t('farmer.orders.harvestProduce')}
+                            </p>
+                            <p className="text-stone-400 text-[11px]">
+                              {formatNumber(Number(item.quantity) || 0)} kg @ ₹{formatNumber(unitRate)}/kg
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-bold text-stone-900">
-                            {item.product?.title || t('farmer.orders.harvestProduce')}
-                          </p>
-                          <p className="text-stone-400 text-[11px]">
-                            {formatNumber(Number(item.quantity) || 0)} kg @ ₹{formatNumber(Number(item.price) || 0)}/kg
-                          </p>
-                        </div>
+                        <span className="font-black text-stone-900 text-sm">
+                          ₹{formatNumber(lineTotal)}
+                        </span>
                       </div>
-                      <span className="font-black text-stone-900 text-sm">
-                        ₹{formatNumber(Number(item.quantity || 0) * Number(item.price || 0))}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Cost Breakdown & Total */}
@@ -407,7 +434,7 @@ export default function FarmerOrdersPage() {
                   <div className="flex items-baseline gap-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-stone-400">{t('farmer.orders.totalLotValue')}:</span>
                     <span className="text-2xl font-black text-emerald-800">
-                      ₹{formatNumber(Number(order.totalAmount || 0))}
+                      ₹{formatNumber(orderDisplayTotal(order))}
                     </span>
                   </div>
 

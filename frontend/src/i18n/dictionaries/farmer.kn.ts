@@ -143,6 +143,11 @@ export const farmerKn: TranslationMap = {
   'farmer.dashboard.zeroBrokerValue': 'ವಿತರಕಾರಿ ಕಪ್ಪಾಟವಿಲ್ಲದ ಅಂದಾಜು ಮೌಲ್ಯ',
   'farmer.dashboard.tradeInquiries': 'ವ್ಯಾಪಾರ ವಿಚಾರಗಳು',
   'farmer.dashboard.inquiryCount': '{count} ವಿಚಾರಗಳು',
+  // The real number of incoming orders, read from the shared backend. The
+  // two forms keep the count in the right grammar ("1 incoming order").
+  'farmer.dashboard.incomingOrdersCount': '{count} ಬರುವ ಆರ್ಡರ್‌ಗಳು',
+  'farmer.dashboard.incomingOrdersCount.one': '1 ಬರುವ ಆರ್ಡರ್',
+  'farmer.dashboard.incomingOrdersCount.other': '{count} ಬರುವ ಆರ್ಡರ್‌ಗಳು',
   'farmer.dashboard.unreadNegotiations': '{count} ಓದದ ಖರೀದಿದಾರ ಸಂಧಿಸುಗಳು',
   'farmer.dashboard.searchPlaceholder': 'ಬೆಳೆಯ ಹೆಸರು, ತಳಿ ಅಥವಾ ಹೊಲದ ಸ್ಥಳದಿಂದ ಹುಡುಕಿ…',
   'farmer.dashboard.filterAll': 'ಎಲ್ಲಾ ಬೆಳೆಗಳು',

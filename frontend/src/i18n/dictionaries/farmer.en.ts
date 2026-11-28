@@ -147,6 +147,11 @@ export const farmerEn: TranslationMap = {
   'farmer.dashboard.tradeInquiries': 'Trade inquiries',
   'farmer.dashboard.inquiryCount': '{count} inquiries',
   'farmer.dashboard.unreadNegotiations': '{count} unread buyer negotiations',
+  // The real number of incoming orders, read from the shared backend. The
+  // two forms keep the count in the right grammar ("1 incoming order").
+  'farmer.dashboard.incomingOrdersCount': '{count} incoming orders',
+  'farmer.dashboard.incomingOrdersCount.one': '1 incoming order',
+  'farmer.dashboard.incomingOrdersCount.other': '{count} incoming orders',
   'farmer.dashboard.searchPlaceholder': 'Search by crop name, variety or plot location…',
   'farmer.dashboard.filterAll': 'All crops',
   'farmer.dashboard.filterActive': 'Active',

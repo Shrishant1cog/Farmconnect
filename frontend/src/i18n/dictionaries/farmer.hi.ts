@@ -143,6 +143,11 @@ export const farmerHi: TranslationMap = {
   'farmer.dashboard.zeroBrokerValue': 'बिचौलिये की कटौती के बिना अनुमानित मूल्य',
   'farmer.dashboard.tradeInquiries': 'व्यापार पूछताछ',
   'farmer.dashboard.inquiryCount': '{count} पूछताछ',
+  // The real number of incoming orders, read from the shared backend. The
+  // two forms keep the count in the right grammar ("1 incoming order").
+  'farmer.dashboard.incomingOrdersCount': '{count} आने वाले ऑर्डर',
+  'farmer.dashboard.incomingOrdersCount.one': '1 आने वाला ऑर्डर',
+  'farmer.dashboard.incomingOrdersCount.other': '{count} आने वाले ऑर्डर',
   'farmer.dashboard.unreadNegotiations': '{count} अनदेखी खरीदार बातचीत',
   'farmer.dashboard.searchPlaceholder': 'फसल का नाम, किस्म या खेत के स्थान से खोजें…',
   'farmer.dashboard.filterAll': 'सभी फसलें',

@@ -47,6 +47,22 @@ export const consumerEn: TranslationMap = {
   'consumer.explore.genericFarm': 'Cultivator farm',
   'consumer.explore.karnatakaCultivator': 'Karnataka cultivator',
   'consumer.explore.loadError': 'We could not load the produce catalogue. Please try again.',
+
+  // Favourites — the shared backend owns the list of the account.
+  'consumer.favorites.title': 'My favourites',
+  'consumer.favorites.subtitle': 'The harvest lots and the cultivators you have kept.',
+  'consumer.favorites.refresh': 'Refresh favourites',
+  'consumer.favorites.loading': 'Reading your favourites…',
+  'consumer.favorites.loadError': 'We could not read your favourites. Please try again.',
+  'consumer.favorites.emptyTitle': 'No favourites yet',
+  'consumer.favorites.emptyBody':
+    'Keep a harvest lot or a cultivator with the heart on the marketplace and it will appear here.',
+  'consumer.favorites.exploreMarketplace': 'Explore marketplace',
+  'consumer.favorites.listingsTitle': 'Favourite harvest lots',
+  'consumer.favorites.farmersTitle': 'Favourite cultivators',
+  'consumer.favorites.activeLots': '{count} active lots',
+  'consumer.favorites.add': 'Add to favourites',
+  'consumer.favorites.remove': 'Remove from favourites',
   'consumer.explore.errorTitle': 'Unable to load produce',
   'consumer.explore.retry': 'Retry',
 

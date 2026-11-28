@@ -44,6 +44,22 @@ export const consumerHi: TranslationMap = {
   'consumer.explore.genericFarm': 'किसान का खेत',
   'consumer.explore.karnatakaCultivator': 'कर्नाटक किसान',
   'consumer.explore.loadError': 'उपज सूची लोड नहीं हो सकी। कृपया फिर कोशिश करें।',
+
+  // पसंदीदा — साझा बैकएंड ही खाते की सूची तय करता है।
+  'consumer.favorites.title': 'मेरे पसंदीदा',
+  'consumer.favorites.subtitle': 'आपके द्वारा सहेजी गई फसल की लॉट और किसान।',
+  'consumer.favorites.refresh': 'पसंदीदा ताज़ा करें',
+  'consumer.favorites.loading': 'आपके पसंदीदा पढ़े जा रहे हैं…',
+  'consumer.favorites.loadError': 'आपके पसंदीदा पढ़े नहीं जा सके। कृपया फिर कोशिश करें।',
+  'consumer.favorites.emptyTitle': 'अभी तक कोई पसंदीदा लॉट नहीं',
+  'consumer.favorites.emptyBody':
+    'मार्केटप्लेस पर दिल के निशान से फसल की लॉट या किसान को सहेजें, वह यहाँ दिखेगा।',
+  'consumer.favorites.exploreMarketplace': 'मार्केटप्लेस देखें',
+  'consumer.favorites.listingsTitle': 'पसंदीदा फसल की लॉट',
+  'consumer.favorites.farmersTitle': 'पसंदीदा किसान',
+  'consumer.favorites.activeLots': '{count} सक्रिय लॉट',
+  'consumer.favorites.add': 'पसंदीदा में जोड़ें',
+  'consumer.favorites.remove': 'पसंदीदा से हटाएँ',
   'consumer.explore.errorTitle': 'उपज लोड नहीं हो सकी',
   'consumer.explore.retry': 'पुनः प्रयास करें',
 

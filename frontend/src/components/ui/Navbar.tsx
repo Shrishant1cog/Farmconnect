@@ -15,11 +15,14 @@ import {
   LogOut, 
   User, 
   MessageSquare,
+  Bell,
+  Heart,
   Loader2 
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useI18n } from '../../hooks/useI18n';
 import { useCart } from '../../context/CartContext';
+import { useAccount } from '../../context/AccountContext';
 import LanguageSwitcher from './LanguageSwitcher';
 
 export default function Navbar() {
@@ -39,6 +42,18 @@ export default function Navbar() {
    */
   const cart = useCart();
   const cartCount = cart?.totalItemsCount ?? 0;
+
+  /**
+   * The notices of the platform and the favourites of the buyer.
+   *
+   * Both numbers are read from the shared backend by
+   * `AccountProvider` — the navbar never counts anything itself.
+   */
+  const account = useAccount();
+  const unreadCount = account?.unreadCount ?? null;
+  const favoriteCount =
+    (account?.favoriteProductIds?.length ?? 0) +
+    (account?.favoriteFarmerIds?.length ?? 0);
 
   const handleLogout = () => {
     if (typeof document !== 'undefined') {
@@ -130,6 +145,52 @@ export default function Navbar() {
                     {cartCount > 99 ? '99+' : cartCount}
                   </span>
                 )}
+              </Link>
+
+              {/*
+                The notices of the platform. The badge carries the number
+                that the **shared backend** counted — a number it did not
+                give is no badge at all, never a wrong one.
+              */}
+              <Link
+                href="/notifications"
+                className="relative p-2 rounded-xl text-stone-500 hover:text-emerald-800 hover:bg-emerald-50 transition-colors"
+                title={t('nav.notifications')}
+                aria-label={t('nav.notificationsWithCount', { count: unreadCount ?? 0 })}
+              >
+                <Bell className="w-4 h-4" />
+                {unreadCount !== null && unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-black flex items-center justify-center">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </Link>
+
+              {/* The favourites of a buyer. */}
+              {user.role === 'CONSUMER' && (
+                <Link
+                  href="/consumer/favorites"
+                  className="relative p-2 rounded-xl text-stone-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                  title={t('nav.favorites')}
+                  aria-label={t('nav.favoritesWithCount', { count: favoriteCount })}
+                >
+                  <Heart className="w-4 h-4" />
+                  {favoriteCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-black flex items-center justify-center">
+                      {favoriteCount > 99 ? '99+' : favoriteCount}
+                    </span>
+                  )}
+                </Link>
+              )}
+
+              {/* The account of the visitor. */}
+              <Link
+                href="/profile"
+                className="p-2 rounded-xl text-stone-500 hover:text-emerald-800 hover:bg-emerald-50 transition-colors"
+                title={t('nav.profile')}
+                aria-label={t('nav.profile')}
+              >
+                <User className="w-4 h-4" />
               </Link>
               {user.role === 'FARMER' && (
                 <Link

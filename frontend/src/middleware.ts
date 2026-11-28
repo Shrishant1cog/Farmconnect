@@ -42,6 +42,21 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // 4. PROTECTED ACCOUNT PAGES — the favourites, the inbox and the
+  //    account of the visitor. Without a session they have nothing to
+  //    show, so the visitor is sent to the sign-in page (and comes back
+  //    to the page he wanted).
+  if (
+    !token &&
+    (pathname.startsWith('/profile') ||
+      pathname.startsWith('/notifications') ||
+      pathname.startsWith('/consumer/favorites'))
+  ) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
   return NextResponse.next();
 }
 

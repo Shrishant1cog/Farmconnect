@@ -44,6 +44,22 @@ export const consumerKn: TranslationMap = {
   'consumer.explore.genericFarm': 'ರೈತರ ಸರ್ವೆ',
   'consumer.explore.karnatakaCultivator': 'ಕರ್ನಾಟಕ ರೈತ',
   'consumer.explore.loadError': 'ಉತ್ಪನ್ನದ ಪಟ್ಟಿ ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
+
+  // ಇಷ್ಟಪಟ್ಟಗಳು — ಪಟ್ಟಿಯನ್ನು ಹಂಚಿಕೊಂಡ ಬ್ಯಾಕ್‌ಎಂಡ್ ನಿರ್ಧರಿಸುತ್ತದೆ.
+  'consumer.favorites.title': 'ನನ್ನ ಇಷ್ಟಪಟ್ಟಗಳು',
+  'consumer.favorites.subtitle': 'ನೀವು ಉಂಟಿಸಿದ ಕೊಯ್ಲು ಪಟ್ಟಿಗಳು ಮತ್ತು ರೈತರು.',
+  'consumer.favorites.refresh': 'ಇಷ್ಟಪಟ್ಟಗಳನ್ನು ನವೀಕರಿಸಿ',
+  'consumer.favorites.loading': 'ನಿಮ್ಮ ಇಷ್ಟಪಟ್ಟಗಳನ್ನು ಓದುತ್ತಿದೆ…',
+  'consumer.favorites.loadError': 'ನಿಮ್ಮ ಇಷ್ಟಪಟ್ಟಗಳನ್ನು ಓದಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
+  'consumer.favorites.emptyTitle': 'ಇನ್ನೂ ಇಷ್ಟಪಟ್ಟ ಪಟ್ಟಿಗಳಿಲ್ಲ',
+  'consumer.favorites.emptyBody':
+    'ಮಾರುಕಟ್ಟೆಯಲ್ಲಿನ ಹೃದಯದ ಗುರುತಿನಿಂದ ಕೊಯ್ಲು ಪಟ್ಟಿ ಅಥವಾ ರೈತರನ್ನು ಉಂಟಿಸಿ, ಅವರು ಇಲ್ಲಿ ಕಾಣುತ್ತವೆ.',
+  'consumer.favorites.exploreMarketplace': 'ಮಾರುಕಟ್ಟೆ ಅನ್ವೇಷಿಸಿ',
+  'consumer.favorites.listingsTitle': 'ಇಷ್ಟಪಟ್ಟ ಕೊಯ್ಲು ಪಟ್ಟಿಗಳು',
+  'consumer.favorites.farmersTitle': 'ಇಷ್ಟಪಟ್ಟ ರೈತರು',
+  'consumer.favorites.activeLots': '{count} ಸಕ್ರಿಯ ಮೊದಿಗಳು',
+  'consumer.favorites.add': 'ಇಷ್ಟಪಟ್ಟಗಳಿಗೆ ಸೇರಿಸಿ',
+  'consumer.favorites.remove': 'ಇಷ್ಟಪಟ್ಟಗಳಿಂದ ತೆಗೆದುಹಾಕಿ',
   'consumer.explore.errorTitle': 'ಉತ್ಪನ್ನ ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ',
   'consumer.explore.retry': 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ',
 

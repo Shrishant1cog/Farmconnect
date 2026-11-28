@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useCart } from '../../../context/CartContext';
 import { useModal } from '../../../context/ModalContext';
+import FavoriteButton from '../../../components/consumer/FavoriteButton';
 import { fetchApi } from '../../../lib/api';
 import { localizedName, LocalizedName } from '../../../lib/localized';
 import { useI18n } from '../../../hooks/useI18n';
@@ -356,6 +357,11 @@ export default function ConsumerExplorePage() {
                         {t('consumer.explore.organic')}
                       </span>
                     )}
+
+                    {/* The heart keeps the lot — the shared backend owns it. */}
+                    <div className="absolute top-3 right-3">
+                      <FavoriteButton productId={product.id} />
+                    </div>
 
                     <span className="absolute bottom-3 left-3 bg-stone-900/80 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded-lg flex items-center gap-1">
                       <Scale className="w-3 h-3 text-emerald-400" />

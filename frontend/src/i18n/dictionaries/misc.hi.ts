@@ -190,6 +190,40 @@ export const miscHi: TranslationMap = {
   'misc.mandi.tradingHours': '{start} - {end}',
 
   // Admin dashboard
+  // सूचनाएँ
+  'misc.notifications.title': 'सूचनाएँ',
+  'misc.notifications.subtitle': 'आपके खाते के लिए प्लेटफ़ॉर्म के संदेश।',
+  'misc.notifications.subtitleWithCount': '{count} संदेश अभी तक नहीं पढ़े गए।',
+  'misc.notifications.refresh': 'ताज़ा करें',
+  'misc.notifications.loading': 'आपके संदेश पढ़े जा रहे हैं…',
+  'misc.notifications.loadError': 'आपकी सूचनाएँ पढ़ी नहीं जा सकीं। कृपया फिर कोशिश करें।',
+  'misc.notifications.markError': 'सूचना को पढ़ा हुआ चिह्नित नहीं किया जा सका।',
+  'misc.notifications.markRead': 'पढ़ा चिह्नित करें',
+  'misc.notifications.markAllRead': 'सभी को पढ़ा चिह्नित करें',
+  'misc.notifications.emptyTitle': 'अभी तक कोई सूचना नहीं',
+  'misc.notifications.emptyBody': 'प्लेटफ़ॉर्म आपके ऑर्डर और पूछताछ के बारे में यहाँ बताएगा।',
+  'misc.notifications.untitled': 'सूचना',
+
+  // खाता
+  'misc.profile.title': 'मेरा खाता',
+  'misc.profile.subtitle': 'आपका विवरण साझा प्लेटफ़ॉर्म पर संग्रहीत है।',
+  'misc.profile.loading': 'आपका खाता पढ़ा जा रहा है…',
+  'misc.profile.loadError': 'आपका खाता पढ़ा नहीं जा सका। कृपया फिर कोशिश करें।',
+  'misc.profile.saveError': 'आपका खाता सहेजा नहीं जा सका। कुछ भी नहीं बदला गया।',
+  'misc.profile.saved': 'आपका खाता सहेज लिया गया है।',
+  'misc.profile.accountSection': 'आपका विवरण',
+  'misc.profile.readOnlySection': 'खाता',
+  'misc.profile.name': 'नाम',
+  'misc.profile.phone': 'मोबाइल नंबर',
+  'misc.profile.district': 'ज़िला',
+  'misc.profile.language': 'इंटरफ़ेस की भाषा',
+  'misc.profile.farmName': 'खेत का नाम',
+  'misc.profile.farmAddress': 'खेत का पता',
+  'misc.profile.deliveryAddress': 'डिलीवरी पता',
+  'misc.profile.save': 'बदलाव सहेजें',
+  'misc.profile.roleLabel': 'प्लेटफ़ॉर्म पर भूमिका: {role}',
+
+  // एडमिन कमांड सेंटर
   'misc.admin.title': 'एडमिन कमांड सेंटर',
   'misc.admin.subtitle': 'प्लेटफ़ॉर्म नियंत्रण, उपयोगकर्ता प्रबंधन और टकराव समाधान।',
   'misc.admin.refresh': 'डेटा रीफ़्रेश करें',

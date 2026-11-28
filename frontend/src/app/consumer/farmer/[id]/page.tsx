@@ -26,6 +26,7 @@ import {
 import { useCart } from '../../../../context/CartContext';
 import { useAuth } from '../../../../hooks/useAuth';
 import { useI18n } from '../../../../hooks/useI18n';
+import FavoriteButton from '../../../../components/consumer/FavoriteButton';
 import { fetchApi } from '../../../../lib/api';
 
 interface ProductItem {
@@ -298,6 +299,8 @@ export default function FarmerProfilePage({ params }: { params: Promise<{ id: st
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" /> {t('consumer.farmer.verifiedCultivator')}
                 </span>
               )}
+              {/* The heart follows the cultivator — the shared backend owns it. */}
+              <FavoriteButton farmerId={farmer.id} />
             </div>
 
             <p className="text-stone-600 text-xs sm:text-sm font-medium">

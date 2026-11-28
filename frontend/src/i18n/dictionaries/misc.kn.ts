@@ -190,6 +190,40 @@ export const miscKn: TranslationMap = {
   'misc.mandi.tradingHours': '{start} - {end}',
 
   // Admin dashboard
+  // ಅಧಿಸೂಚನೆಗಳು
+  'misc.notifications.title': 'ಅಧಿಸೂಚನೆಗಳು',
+  'misc.notifications.subtitle': 'ನಿಮ್ಮ ಖಾತೆಗೆ ವೇದಿಕೆಯ ಸೂಚನೆಗಳು.',
+  'misc.notifications.subtitleWithCount': '{count} ಸೂಚನೆಗಳನ್ನು ಇನ್ನೂ ಓದಿಲ್ಲ.',
+  'misc.notifications.refresh': 'ನವೀಕರಿಸಿ',
+  'misc.notifications.loading': 'ನಿಮ್ಮ ಸೂಚನೆಗಳನ್ನು ಓದುತ್ತಿದೆ…',
+  'misc.notifications.loadError': 'ನಿಮ್ಮ ಅಧಿಸೂಚನೆಗಳನ್ನು ಓದಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
+  'misc.notifications.markError': 'ಅಧಿಸೂಚನೆಯನ್ನು ಓದಿದಂತೆ ಗುರುತಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.',
+  'misc.notifications.markRead': 'ಓದಿದಂತೆ ಗುರುತಿಸಿ',
+  'misc.notifications.markAllRead': 'ಎಲ್ಲವನ್ನೂ ಓದಿದಂತೆ ಗುರುತಿಸಿ',
+  'misc.notifications.emptyTitle': 'ಇನ್ನೂ ಯಾವುದೇ ಅಧಿಸೂಚನೆಗಳಿಲ್ಲ',
+  'misc.notifications.emptyBody': 'ನಿಮ್ಮ ಆರ್ಡರ್‌ಗಳು ಮತ್ತು ವಿಚಾರಗಳ ಬಗ್ಗೆ ವೇದಿಕೆ ಇಲ್ಲಿ ತಿಳಿಸುತ್ತದೆ.',
+  'misc.notifications.untitled': 'ಅಧಿಸೂಚನೆ',
+
+  // ಖಾತೆ
+  'misc.profile.title': 'ನನ್ನ ಖಾತೆ',
+  'misc.profile.subtitle': 'ನಿಮ್ಮ ವಿವರಗಳು ಹಂಚಿಕೊಂಡ ವೇದಿಕೆಯಲ್ಲಿ ಸಂಗ್ರಹವಾಗಿವೆ.',
+  'misc.profile.loading': 'ನಿಮ್ಮ ಖಾತೆಯನ್ನು ಓದುತ್ತಿದೆ…',
+  'misc.profile.loadError': 'ನಿಮ್ಮ ಖಾತೆಯನ್ನು ಓದಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
+  'misc.profile.saveError': 'ನಿಮ್ಮ ಖಾತೆಯನ್ನು ಉಳಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಏನೂ ಬದಲಾಗಿಲ್ಲ.',
+  'misc.profile.saved': 'ನಿಮ್ಮ ಖಾತೆ ಉಳಿಸಲಾಗಿದೆ.',
+  'misc.profile.accountSection': 'ನಿಮ್ಮ ವಿವರಗಳು',
+  'misc.profile.readOnlySection': 'ಖಾತೆ',
+  'misc.profile.name': 'ಹೆಸರು',
+  'misc.profile.phone': 'ಮೊಬೈಲ್ ಸಂಖ್ಯೆ',
+  'misc.profile.district': 'ಜಿಲ್ಲೆ',
+  'misc.profile.language': 'ಇಂಟರ್ಫೇಸ್ ಭಾಷೆ',
+  'misc.profile.farmName': 'ಜಮೀನಿನ ಹೆಸರು',
+  'misc.profile.farmAddress': 'ಜಮೀನಿನ ವಿಳಾಸ',
+  'misc.profile.deliveryAddress': 'ವಿತರಣಾ ವಿಳಾಸ',
+  'misc.profile.save': 'ಬದಲಾವಣೆಗಳನ್ನು ಉಳಿಸಿ',
+  'misc.profile.roleLabel': 'ವೇದಿಕೆಯಲ್ಲಿನ ಪಾತ್ರ: {role}',
+
+  // ಆಡ್ಮಿನ್ ಕಮಾಂಡ್ ಸೆಂಟರ್
   'misc.admin.title': 'ಆಡ್ಮಿನ್ ಕಮಾಂಡ್ ಸೆಂಟರ್',
   'misc.admin.subtitle': 'ಪ್ಲಾಟ್‌ಫಾರ್ಮ್ ನಿರ್ವಹಣೆ, ಬಳಕೆದಾರ ನಿರ್ವಹಣೆ ಮತ್ತು ಸಂಘರ್ಷ ನಿರ್ವಹಣೆ.',
   'misc.admin.refresh': 'ಡೇಟಾ ರಿಫ್ರೆಶ್ ಮಾಡಿ',

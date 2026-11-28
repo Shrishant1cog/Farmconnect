@@ -83,6 +83,9 @@ jobs:
       - name: Localisation completeness check (en / kn / hi)
         run: node scripts/verify-i18n.mjs
 
+      - name: Localisation usage check (every key the website asks for exists)
+        run: node scripts/verify-i18n-usage.mjs
+
       - name: Install frontend from lockfile
         working-directory: frontend
         run: npm ci

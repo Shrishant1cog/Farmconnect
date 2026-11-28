@@ -284,6 +284,7 @@ export const farmerEn: TranslationMap = {
   'farmer.orders.adjustFilters': 'Try adjusting your search or status filter.',
   'farmer.orders.ordersAppear': 'Customer orders placed for your harvest lots will appear here automatically.',
   'farmer.orders.placedOn': 'Placed on {date}',
+  'farmer.orders.orderNumber': 'Order #{id}',
   'farmer.orders.buyer': 'Buyer: {name}',
   'farmer.orders.wholesaleBuyer': 'Wholesale buyer',
   'farmer.orders.harvestProduce': 'Harvest produce',

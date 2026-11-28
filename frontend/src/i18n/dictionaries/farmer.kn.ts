@@ -281,6 +281,7 @@ export const farmerKn: TranslationMap = {
   'farmer.orders.adjustFilters': 'ನಿಮ್ಮ ಹುಡುಕಾಟ ಅಥವಾ ಸ್ಥಿತಿ ಫಿಲ್ಟರ್ ಬದಲಿಸಿ ನೋಡಿ.',
   'farmer.orders.ordersAppear': 'ನಿಮ್ಮ ಕೊಯ್ಲು ಮೊದಿಗಳಿಗೆ ಹಾಕಿದ ಗ್ರಾಹಕರ ಆರ್ಡರ್‌ಗಳು ಇಲ್ಲಿ ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಕಾಣಿಸುತ್ತವೆ.',
   'farmer.orders.placedOn': '{date} ರಂದು ಆರ್ಡರ್ ಮಾಡಲಾಗಿದೆ',
+  'farmer.orders.orderNumber': 'ಆರ್ಡರ್ #{id}',
   'farmer.orders.buyer': 'ಖರೀದಿದಾರ: {name}',
   'farmer.orders.wholesaleBuyer': 'ಸಗಾಳ ಖರೀದಿದಾರ',
   'farmer.orders.harvestProduce': 'ಕೊಯ್ಲು ಉತ್ಪನ್ನ',

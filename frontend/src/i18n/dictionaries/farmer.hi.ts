@@ -281,6 +281,7 @@ export const farmerHi: TranslationMap = {
   'farmer.orders.adjustFilters': 'अपनी खोज या स्थिति फ़िल्टर बदलकर देखें।',
   'farmer.orders.ordersAppear': 'आपके कटाई लॉट के लिए ग्राहकों के ऑर्डर यहाँ अपने आप दिखाई देंगे।',
   'farmer.orders.placedOn': '{date} को ऑर्डर किया गया',
+  'farmer.orders.orderNumber': 'ऑर्डर #{id}',
   'farmer.orders.buyer': 'खरीदार: {name}',
   'farmer.orders.wholesaleBuyer': 'थोक खरीदार',
   'farmer.orders.harvestProduce': 'कटाई की उपज',

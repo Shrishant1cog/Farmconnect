@@ -291,6 +291,14 @@ record('favourite a farmer', '/favorites/farmers/[id]', 'POST', favFarmers, '201
 const favList = await call('GET', '/favorites', { token: consumerToken });
 record('favourites', '/favorites', 'GET', favList, '200');
 
+// The favourites belong to a buyer. A cultivator is refused — the answer
+// must be the refusal, never an empty list that looks like "nothing kept".
+const favAsFarmer = await call('GET', '/favorites', { token: farmerToken });
+record('favourites (as a cultivator)', '/favorites', 'GET', favAsFarmer, '403 (the favourites belong to a buyer)');
+
+const favToggleAsFarmer = await call('POST', `/favorites/products/${createdProductId}`, { token: farmerToken });
+record('favourite a listing (as a cultivator)', '/favorites/products/[id]', 'POST', favToggleAsFarmer, '403 (the favourites belong to a buyer)');
+
 // ---------------------------------------------------------------------------
 // 5. Enquiries and chat
 // ---------------------------------------------------------------------------

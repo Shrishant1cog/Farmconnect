@@ -110,7 +110,8 @@ The evidence comes from `node scripts/smoke-api-endpoints.mjs`, which drives
 **every** endpoint with a real request — it registers its own QA accounts,
 creates a QA listing, runs an enquiry, an order, a favourite, a notification
 and a complaint against it, and finally removes the listing it created.
-**52 probes, 0 unexpected statuses** (2026-11-28).
+**54 probes, 0 unexpected statuses** (2026-11-28, against the deployment of
+the head commit `6fd8c88`).
 
 The two endpoints that live directly in `backend/src/app.ts` (and not in a
 module router) are covered by `node scripts/smoke-routes.mjs` — they are rows
@@ -461,7 +462,7 @@ unavailable instead.").
 | Localisation **usage** (every key the website asks for exists) | `node scripts/verify-i18n-usage.mjs` | PASS | 66 files scanned (the committed tree — 68 in the local working tree, which additionally holds two work-in-progress components), 1 209 known keys, 1 003 keys asked for, **0 missing**. The script says honestly that 12 calls in 7 files build their key at runtime and are therefore **not** checked statically. Wired into the CI workflow |
 | Hardcoded-English scan of the website JSX | `node C:\Users\user\AppData\Local\Temp\opencode\find-hardcoded-jsx.mjs` | PASS | 3 hits — all false positives (`Promise` type annotations in `CartContext.tsx` / `ModalContext.tsx`) |
 | Website route smoke (deployed) | `node scripts/smoke-routes.mjs` | PASS | **25 / 25** website routes + 24 / 24 API routes answered as expected |
-| API endpoint smoke (deployed) | `node scripts/smoke-api-endpoints.mjs` | PASS | **52** probes, 0 unexpected statuses |
+| API endpoint smoke (deployed) | `node scripts/smoke-api-endpoints.mjs` | PASS | **54** probes, 0 unexpected statuses — every endpoint of the shared backend was exercised with a real request, including the refusal of the favourites for a cultivator (HTTP 403) |
 | Live feature verification (deployed) | `node scripts/live-verify.mjs` | PASS | 61 / 61 checks green — 46 feature checks plus 15 that prove no fabricated benchmark, route, coordinate or success state reaches the deployed backend |
 | Android route coverage (emulator, deployed API) | `cd mobile && flutter test integration_test/route_coverage_test.dart -d emulator-5554 …` | PASS | 21 / 21 routes opened, no widget exception — `01:32 +1: All tests passed!`, exit code 0, re-run against the head commit `6fd8c88`. The only log line is the expected `[ApiClient] /admin/metrics -> 403` (the deployed database has no administrator account) |
 | Android auth journey (emulator, deployed API) | `cd mobile && flutter test integration_test/auth_journey_test.dart -d emulator-5554 …` | PASS | 5 / 5 tests green — `00:57 +5: All tests passed!`, exit code 0 |

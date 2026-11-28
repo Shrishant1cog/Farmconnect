@@ -16,7 +16,7 @@ carries the *map*.
 | --- | --- | --- | --- | --- | --- |
 | Website (Next.js page routes) | **25** | 25 | 9 | 16 | 0 |
 | Android (Flutter routes) | **21** | 21 | 0 (the shell guards them) | 21 | 0 |
-| API (paths under `/api`) | **57** | 52 probed live | 14 | 43 | 5 (admin, see below) |
+| API (paths under `/api`) | **57** | 54 probes against the live deployment | 14 | 43 | 5 (admin, see below) |
 
 * **Website** — every `page.tsx` below `frontend/src/app/` is one route. The
   count is produced by the file system, not by hand:
@@ -43,7 +43,7 @@ grep -n "app\.\(get\|post\|patch\|put\|delete\)(" backend/src/app.ts
 
 # The live evidence behind the status column
 node scripts/smoke-routes.mjs          # 25 website routes + 24 API routes
-node scripts/smoke-api-endpoints.mjs   # 52 endpoint probes
+node scripts/smoke-api-endpoints.mjs   # 54 endpoint probes
 ```
 
 The raw evidence of the last run (2026-11-28) is stored verbatim in
@@ -190,13 +190,15 @@ Mounted in `backend/src/app.ts` at `/api/auth`, `/api/products`,
 
 ### 3.3 The probe
 
-`node scripts/smoke-api-endpoints.mjs` drives **52 probes** over these paths
+`node scripts/smoke-api-endpoints.mjs` drives **54 probes** over these paths
 (some paths are probed twice — with and without a session). It registers its
 own QA accounts, creates a QA listing, runs an enquiry, an order, a favourite,
 a notification and a complaint against them, and removes the listing it
 created.
 
-**Result 2026-11-28: 52 probes, 0 unexpected statuses.**
+**Result 2026-11-28 (against the deployment of the head commit `6fd8c88`):
+54 probes, 0 unexpected statuses.** The raw evidence is in
+[`api-endpoint-smoke-report.json`](api-endpoint-smoke-report.json).
 
 | # | Probe | Expected | Result |
 | --- | --- | --- | --- |
@@ -212,7 +214,7 @@ created.
 | 10–17 | the eight catalogue, product and farmer paths | 2xx | PASS |
 | 18–23 | the six order paths (place, list, read, status, receipt) | 2xx | PASS — the status path stores `PACKED` and refuses an unknown state with 400 |
 | 24–25 | the five enquiry paths | 2xx | PASS |
-| 26–30 | the five favourite paths | 2xx (buyer) / 403 (cultivator) | PASS |
+| 26–30 | the five favourite paths | 2xx (buyer) / **403** (cultivator) | PASS — the cultivator is refused for the list and for the heart |
 | 31–33 | the three notification paths | 2xx | PASS |
 | 34–35 | the two complaint paths | 2xx | PASS |
 | 36–40 | the five admin paths | 403 for a non-admin | **NOT TESTED** with an administrator — the deployed database has no administrator account |

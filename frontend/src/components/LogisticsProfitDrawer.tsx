@@ -115,9 +115,22 @@ export default function LogisticsProfitDrawer({ cropData, onClose }: LogisticsPr
     // Every value has to be real: the farmer's own price and the real
     // coordinates of the listing. Nothing is replaced by a default, because
     // a fabricated coordinate or price would produce a fabricated quote.
+    //
+    // `Number(null)` is `0`, so a missing coordinate has to be rejected
+    // **before** the conversion — otherwise the farm would be placed at
+    // `0 / 0` and the quote would measure an invented route.
     const farmerPrice = Number(cropData?.farmerPrice ?? cropData?.price);
-    const originLat = Number(cropData?.farmer?.latitude ?? cropData?.latitude);
-    const originLon = Number(cropData?.farmer?.longitude ?? cropData?.longitude);
+
+    const rawOriginLat = cropData?.farmer?.latitude ?? cropData?.latitude;
+    const rawOriginLon = cropData?.farmer?.longitude ?? cropData?.longitude;
+    const hasRawOrigin =
+      rawOriginLat !== null &&
+      rawOriginLat !== undefined &&
+      rawOriginLon !== null &&
+      rawOriginLon !== undefined;
+
+    const originLat = hasRawOrigin ? Number(rawOriginLat) : NaN;
+    const originLon = hasRawOrigin ? Number(rawOriginLon) : NaN;
     const destLat = destination?.lat;
     const destLon = destination?.lon;
 

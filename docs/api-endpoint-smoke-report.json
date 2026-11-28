@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-11-27T22:36:07.114Z",
+  "generatedAt": "2026-11-28T00:01:39.896Z",
   "api": "https://farmconnect-api-sn98.onrender.com/api",
   "accounts": {
-    "farmer": "api.smoke.farmer.1795818959780@farmconnect.test",
-    "consumer": "api.smoke.consumer.1795818959780@farmconnect.test"
+    "farmer": "api.smoke.farmer.1795824091488@farmconnect.test",
+    "consumer": "api.smoke.consumer.1795824091488@farmconnect.test"
   },
   "endpoints": [
     {
@@ -12,7 +12,7 @@
       "method": "POST",
       "status": 201,
       "expectation": "201",
-      "ms": 815
+      "ms": 934
     },
     {
       "name": "register consumer",
@@ -20,7 +20,7 @@
       "method": "POST",
       "status": 201,
       "expectation": "201",
-      "ms": 501
+      "ms": 774
     },
     {
       "name": "login (email + password)",
@@ -28,7 +28,7 @@
       "method": "POST",
       "status": 200,
       "expectation": "200",
-      "ms": 498
+      "ms": 898
     },
     {
       "name": "login (phone)",
@@ -36,7 +36,7 @@
       "method": "POST",
       "status": 200,
       "expectation": "200 (documented weak path)",
-      "ms": 594
+      "ms": 597
     },
     {
       "name": "login (legacy phone alias)",
@@ -44,7 +44,7 @@
       "method": "POST",
       "status": 200,
       "expectation": "200 (same handler)",
-      "ms": 509
+      "ms": 508
     },
     {
       "name": "firebase phone OTP",
@@ -52,7 +52,7 @@
       "method": "POST",
       "status": 401,
       "expectation": "401/503 (Firebase is not configured)",
-      "ms": 900
+      "ms": 1106
     },
     {
       "name": "verify Aadhaar",
@@ -60,7 +60,7 @@
       "method": "POST",
       "status": 200,
       "expectation": "200",
-      "ms": 91
+      "ms": 92
     },
     {
       "name": "current account",
@@ -68,7 +68,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 74
+      "ms": 67
     },
     {
       "name": "liveness + database probe",
@@ -76,7 +76,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 75
+      "ms": 74
     },
     {
       "name": "crop categories",
@@ -84,7 +84,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 64
+      "ms": 80
     },
     {
       "name": "crop catalogue",
@@ -92,7 +92,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 64
+      "ms": 85
     },
     {
       "name": "crop catalogue search (en)",
@@ -100,7 +100,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 58
+      "ms": 57
     },
     {
       "name": "crop catalogue search (kn)",
@@ -108,7 +108,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 65
+      "ms": 77
     },
     {
       "name": "crop catalogue search (hi)",
@@ -116,7 +116,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 65
+      "ms": 57
     },
     {
       "name": "public catalogue feed",
@@ -124,7 +124,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 74
+      "ms": 101
     },
     {
       "name": "create crop listing",
@@ -132,7 +132,7 @@
       "method": "POST",
       "status": 201,
       "expectation": "201",
-      "ms": 80
+      "ms": 68
     },
     {
       "name": "one listing",
@@ -140,7 +140,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 66
+      "ms": 78
     },
     {
       "name": "edit one listing",
@@ -148,7 +148,7 @@
       "method": "PATCH",
       "status": 200,
       "expectation": "200",
-      "ms": 172
+      "ms": 73
     },
     {
       "name": "farmer inventory",
@@ -156,7 +156,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 78
+      "ms": 85
     },
     {
       "name": "listings of the signed-in farmer",
@@ -164,7 +164,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 63
+      "ms": 62
     },
     {
       "name": "profile incl. preferredLanguage",
@@ -172,7 +172,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 64
+      "ms": 79
     },
     {
       "name": "update profile + language",
@@ -180,7 +180,7 @@
       "method": "PATCH",
       "status": 200,
       "expectation": "200 (kn-IN normalised to kn)",
-      "ms": 75
+      "ms": 74
     },
     {
       "name": "public farmer directory",
@@ -188,7 +188,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 79
+      "ms": 64
     },
     {
       "name": "favourite a listing",
@@ -196,7 +196,7 @@
       "method": "POST",
       "status": 201,
       "expectation": "201",
-      "ms": 78
+      "ms": 91
     },
     {
       "name": "favourite a farmer",
@@ -204,7 +204,7 @@
       "method": "POST",
       "status": 201,
       "expectation": "201",
-      "ms": 77
+      "ms": 66
     },
     {
       "name": "favourites",
@@ -212,7 +212,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 79
+      "ms": 91
     },
     {
       "name": "create an enquiry",
@@ -220,7 +220,7 @@
       "method": "POST",
       "status": 201,
       "expectation": "201",
-      "ms": 98
+      "ms": 79
     },
     {
       "name": "consumer enquiries",
@@ -228,7 +228,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 71
+      "ms": 77
     },
     {
       "name": "farmer enquiries",
@@ -236,7 +236,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 69
+      "ms": 62
     },
     {
       "name": "enquiry messages",
@@ -244,7 +244,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 64
+      "ms": 79
     },
     {
       "name": "reply to an enquiry",
@@ -252,7 +252,7 @@
       "method": "POST",
       "status": 201,
       "expectation": "201",
-      "ms": 82
+      "ms": 69
     },
     {
       "name": "place an order",
@@ -260,7 +260,7 @@
       "method": "POST",
       "status": 201,
       "expectation": "201",
-      "ms": 91
+      "ms": 104
     },
     {
       "name": "consumer orders",
@@ -268,7 +268,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 65
+      "ms": 58
     },
     {
       "name": "farmer orders",
@@ -276,7 +276,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 97
+      "ms": 86
     },
     {
       "name": "one order",
@@ -284,7 +284,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 72
+      "ms": 64
     },
     {
       "name": "order status",
@@ -292,7 +292,7 @@
       "method": "PATCH",
       "status": 200,
       "expectation": "200",
-      "ms": 79
+      "ms": 82
     },
     {
       "name": "delivery confirmation",
@@ -300,7 +300,7 @@
       "method": "PATCH",
       "status": 200,
       "expectation": "200",
-      "ms": 81
+      "ms": 78
     },
     {
       "name": "notification inbox",
@@ -308,7 +308,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 69
+      "ms": 71
     },
     {
       "name": "notification inbox (consumer)",
@@ -316,7 +316,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 67
+      "ms": 63
     },
     {
       "name": "mark one notification read",
@@ -324,7 +324,7 @@
       "method": "PATCH",
       "status": 200,
       "expectation": "200",
-      "ms": 74
+      "ms": 76
     },
     {
       "name": "mark all notifications read",
@@ -332,7 +332,7 @@
       "method": "PATCH",
       "status": 200,
       "expectation": "200",
-      "ms": 60
+      "ms": 59
     },
     {
       "name": "own complaints",
@@ -340,7 +340,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200",
-      "ms": 62
+      "ms": 76
     },
     {
       "name": "file a complaint",
@@ -348,7 +348,7 @@
       "method": "POST",
       "status": 201,
       "expectation": "201",
-      "ms": 73
+      "ms": 75
     },
     {
       "name": "user administration (as a non-admin)",
@@ -364,7 +364,7 @@
       "method": "GET",
       "status": 403,
       "expectation": "403 (route exists, admin guard active)",
-      "ms": 61
+      "ms": 60
     },
     {
       "name": "complaint queue (as a non-admin)",
@@ -372,7 +372,7 @@
       "method": "GET",
       "status": 403,
       "expectation": "403 (route exists, admin guard active)",
-      "ms": 63
+      "ms": 81
     },
     {
       "name": "delete a listing that carries an order",
@@ -380,7 +380,7 @@
       "method": "DELETE",
       "status": 409,
       "expectation": "409 (refused, order history is protected)",
-      "ms": 68
+      "ms": 93
     },
     {
       "name": "the refused listing is still present",
@@ -388,7 +388,7 @@
       "method": "GET",
       "status": 200,
       "expectation": "200 (nothing was deleted)",
-      "ms": 73
+      "ms": 102
     },
     {
       "name": "delete a listing without an order",
@@ -396,7 +396,7 @@
       "method": "DELETE",
       "status": 200,
       "expectation": "200",
-      "ms": 87
+      "ms": 90
     },
     {
       "name": "the deleted listing is gone",
@@ -404,7 +404,7 @@
       "method": "GET",
       "status": 404,
       "expectation": "404",
-      "ms": 62
+      "ms": 58
     }
   ]
 }

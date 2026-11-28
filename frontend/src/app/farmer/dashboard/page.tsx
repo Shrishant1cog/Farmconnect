@@ -341,8 +341,16 @@ export default function FarmerDashboardPage() {
       });
 
       const profile = res?.data?.farmerProfile || res?.farmerProfile;
-      const storedLat = Number(profile?.latitude);
-      const storedLon = Number(profile?.longitude);
+      // `Number(null)` is `0`, so the echoed position has to be checked
+      // **before** the conversion — otherwise a profile without a position
+      // would look like a successful save at `0 / 0`.
+      const hasRawCoordinates =
+        profile?.latitude !== null &&
+        profile?.latitude !== undefined &&
+        profile?.longitude !== null &&
+        profile?.longitude !== undefined;
+      const storedLat = hasRawCoordinates ? Number(profile.latitude) : NaN;
+      const storedLon = hasRawCoordinates ? Number(profile.longitude) : NaN;
 
       if (Number.isFinite(storedLat) && Number.isFinite(storedLon)) {
         setFarmLatitude(storedLat);

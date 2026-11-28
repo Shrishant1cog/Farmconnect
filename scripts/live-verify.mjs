@@ -254,6 +254,146 @@ const backOnMarket = await call('GET', '/products?crop=Tomato');
 check('the lot returns to the public crop filter', (backOnMarket.json?.data || []).map((p) => p.id).includes(lotA.json?.data?.id));
 
 // ---------------------------------------------------------------------------
+console.log('\n--- 7b. no fabricated benchmark, route or success state ---');
+
+// The APMC table of the shared database is empty, so the benchmark of a
+// listing has to be `null` — never the farmer's own price times a factor.
+const catalogue = await call('GET', '/products?crop=Tomato');
+const tomatoLots = catalogue.json?.data || [];
+const benchmarksAreNull = tomatoLots.every(
+  (p) => p.mandiBenchmark === null || p.mandiBenchmark === undefined,
+);
+check(
+  'no listing carries a fabricated APMC benchmark',
+  benchmarksAreNull,
+  `${tomatoLots.length} lot(s), benchmark = ${tomatoLots[0]?.mandiBenchmark ?? 'null'}`,
+);
+
+// A logistics quote without the mandatory inputs has to be rejected — the
+// endpoint may not substitute a default quantity, price or coordinate.
+const quoteMissing = await call('POST', '/logistics/quote', {
+  body: { cropQuantityKg: 100 },
+});
+check(
+  'a logistics quote without the mandatory inputs is rejected',
+  quoteMissing.status === 400,
+  `HTTP ${quoteMissing.status}`,
+);
+check(
+  'the rejection names the missing fields',
+  Array.isArray(quoteMissing.json?.missing) && quoteMissing.json.missing.includes('farmerPricePerKg'),
+  JSON.stringify(quoteMissing.json?.missing || []),
+);
+
+// Half a position is not a position.
+const quoteHalf = await call('POST', '/logistics/quote', {
+  body: {
+    cropQuantityKg: 100,
+    farmerPricePerKg: 20,
+    originLat: 12.5218,
+    destLat: 12.9716,
+    destLon: 77.5946,
+  },
+});
+check(
+  'a logistics quote with half a position is rejected',
+  quoteHalf.status === 400,
+  `HTTP ${quoteHalf.status}`,
+);
+
+// With real inputs the quote is answered, but the profit against the mandi
+// stays unknown because no benchmark was published.
+const quoteReal = await call('POST', '/logistics/quote', {
+  body: {
+    cropQuantityKg: 100,
+    farmerPricePerKg: 20,
+    originLat: 12.5218,
+    originLon: 76.8951,
+    destLat: 12.9716,
+    destLon: 77.5946,
+    containerType: 'STANDARD_CRATE',
+  },
+});
+check('a logistics quote with real inputs is answered', quoteReal.status === 200, `HTTP ${quoteReal.status}`);
+const assessment = quoteReal.json?.data?.profitAssessment || {};
+check(
+  'the quote reports that no APMC benchmark was published',
+  assessment.hasApmcBenchmark === false,
+  `hasApmcBenchmark = ${assessment.hasApmcBenchmark}`,
+);
+check(
+  'the quote does not invent a benchmark rate',
+  assessment.apmcBenchmarkRatePerKg === null || assessment.apmcBenchmarkRatePerKg === undefined,
+  `apmcBenchmarkRatePerKg = ${assessment.apmcBenchmarkRatePerKg ?? 'null'}`,
+);
+check(
+  'the quote does not invent a profit',
+  assessment.approxNetProfit === null || assessment.approxNetProfit === undefined,
+  `approxNetProfit = ${assessment.approxNetProfit ?? 'null'}`,
+);
+check(
+  'the landed cost is computed from the real inputs',
+  Number(quoteReal.json?.data?.breakdown?.farmerProduceCost) === 2000,
+  `farmerProduceCost = ${quoteReal.json?.data?.breakdown?.farmerProduceCost}`,
+);
+
+// ---------------------------------------------------------------------------
+console.log('\n--- 7c. a position is stored only when it is really shared ---');
+
+// The QA account registered without a position, so the profile must not
+// carry one — in particular not the old placeholder.
+const profileBefore = await call('GET', '/users/me', { token });
+const farmBefore = profileBefore.json?.data?.farmerProfile || profileBefore.json?.farmerProfile || {};
+check(
+  'a farmer without a shared position has no coordinates',
+  farmBefore.latitude === null || farmBefore.latitude === undefined,
+  `latitude = ${farmBefore.latitude ?? 'null'}`,
+);
+
+// A real position is stored ...
+const patchPosition = await call('PATCH', '/users/me', {
+  token,
+  body: { latitude: 12.5231, longitude: 76.8962 },
+});
+const farmAfter = patchPosition.json?.data?.farmerProfile || patchPosition.json?.farmerProfile || {};
+check(
+  'a shared position is stored on the shared account',
+  Number(farmAfter.latitude) === 12.5231 && Number(farmAfter.longitude) === 76.8962,
+  `${farmAfter.latitude} / ${farmAfter.longitude}`,
+);
+
+// ... and a cleared position stays cleared instead of becoming the point 0/0.
+const clearPosition = await call('PATCH', '/users/me', {
+  token,
+  body: { latitude: null, longitude: null },
+});
+const farmCleared = clearPosition.json?.data?.farmerProfile || clearPosition.json?.farmerProfile || {};
+check(
+  'a cleared position stays null instead of becoming 0',
+  farmCleared.latitude === null || farmCleared.latitude === undefined,
+  `latitude = ${farmCleared.latitude ?? 'null'}`,
+);
+check(
+  'the cleared longitude stays null as well',
+  farmCleared.longitude === null || farmCleared.longitude === undefined,
+  `longitude = ${farmCleared.longitude ?? 'null'}`,
+);
+
+// A malformed coordinate is rejected instead of being stored.
+const badPosition = await call('PATCH', '/users/me', {
+  token,
+  body: { latitude: 'not-a-number', longitude: 76.8962 },
+});
+check('a malformed coordinate is rejected', badPosition.status === 400, `HTTP ${badPosition.status}`);
+
+// An out-of-range coordinate is rejected as well.
+const outOfRange = await call('PATCH', '/users/me', {
+  token,
+  body: { latitude: 999, longitude: 76.8962 },
+});
+check('an out-of-range coordinate is rejected', outOfRange.status === 400, `HTTP ${outOfRange.status}`);
+
+// ---------------------------------------------------------------------------
 console.log('\n--- 8. cleanup ---');
 for (const id of createdProductIds) {
   const del = await call('DELETE', `/products/${id}`, { token });

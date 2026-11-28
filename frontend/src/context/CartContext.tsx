@@ -148,9 +148,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (parsedDest && typeof parsedDest === 'object') {
             // The stored destination is only used when it really carries
             // coordinates — a fallback position would put the delivery
-            // somewhere the buyer never chose.
-            const latitude = Number(parsedDest.latitude);
-            const longitude = Number(parsedDest.longitude);
+            // somewhere the buyer never chose. `Number(null)` is `0`, so a
+            // missing value has to be rejected **before** the conversion.
+            const hasRawCoordinates =
+              parsedDest.latitude !== null &&
+              parsedDest.latitude !== undefined &&
+              parsedDest.longitude !== null &&
+              parsedDest.longitude !== undefined;
+            const latitude = hasRawCoordinates ? Number(parsedDest.latitude) : NaN;
+            const longitude = hasRawCoordinates ? Number(parsedDest.longitude) : NaN;
             if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
               setDestination({
                 latitude,
@@ -343,8 +349,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const setDeliveryDestination = useCallback((dest: DestinationCoords | null) => {
     if (dest) {
-      const latitude = Number(dest.latitude);
-      const longitude = Number(dest.longitude);
+      // `Number(null)` is `0`, so a missing coordinate has to be rejected
+      // **before** the conversion — otherwise the delivery would be placed
+      // at `0 / 0`.
+      const hasRawCoordinates =
+        dest.latitude !== null &&
+        dest.latitude !== undefined &&
+        dest.longitude !== null &&
+        dest.longitude !== undefined;
+      const latitude = hasRawCoordinates ? Number(dest.latitude) : NaN;
+      const longitude = hasRawCoordinates ? Number(dest.longitude) : NaN;
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
         // Without real coordinates the freight distance cannot be computed.
         setDestination(null);

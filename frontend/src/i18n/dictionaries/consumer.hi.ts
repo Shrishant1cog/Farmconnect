@@ -58,6 +58,8 @@ export const consumerHi: TranslationMap = {
   'consumer.favorites.listingsTitle': 'पसंदीदा फसल की लॉट',
   'consumer.favorites.farmersTitle': 'पसंदीदा किसान',
   'consumer.favorites.activeLots': '{count} सक्रिय लॉट',
+  'consumer.favorites.activeLots.one': '{count} सक्रिय लॉट',
+  'consumer.favorites.activeLots.other': '{count} सक्रिय लॉट',
   'consumer.favorites.add': 'पसंदीदा में जोड़ें',
   'consumer.favorites.remove': 'पसंदीदा से हटाएँ',
   'consumer.explore.errorTitle': 'उपज लोड नहीं हो सकी',

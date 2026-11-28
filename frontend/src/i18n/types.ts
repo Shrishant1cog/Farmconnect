@@ -58,3 +58,60 @@ export function interpolate(template: string, params?: Record<string, string | n
     return value === undefined || value === null ? match : String(value);
   });
 }
+
+/**
+ * Reads the count of a string out of the parameters.
+ *
+ * The count may be a number (`5`) or a number that was already formatted
+ * (`"5"`, `"5,000"`) — the interface formats the numbers of the active
+ * language before it hands them to the translator.
+ *
+ * `null` means that there is no count, and the plain form of the key is
+ * used then.
+ */
+export function readCount(params?: Record<string, string | number>): number | null {
+  const raw = params?.count;
+  if (typeof raw === 'number') {
+    return Number.isFinite(raw) ? raw : null;
+  }
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim().replace(/,/g, '');
+    if (trimmed === '') {
+      return null;
+    }
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+/**
+ * Picks the template of a key, honouring the singular and the plural form.
+ *
+ * A count of one must not read "1 entries" and "1 lots". When the
+ * dictionaries carry `key.one` and `key.other`, the form that fits the
+ * count is used; otherwise the plain `key` is used, so every existing
+ * string keeps working exactly as before.
+ *
+ * The English dictionary is the fallback, exactly like the translation
+ * helper itself: a language that has not been given the two forms yet
+ * still shows a sentence instead of an empty label.
+ */
+export function resolveTemplate(
+  table: TranslationMap,
+  fallback: TranslationMap,
+  key: string,
+  params?: Record<string, string | number>
+): string {
+  const count = readCount(params);
+
+  if (count !== null) {
+    const one = table[`${key}.one`] ?? fallback[`${key}.one`];
+    const other = table[`${key}.other`] ?? fallback[`${key}.other`];
+    if (one !== undefined || other !== undefined) {
+      return count === 1 ? (one ?? other!) : (other ?? one!);
+    }
+  }
+
+  return table[key] ?? fallback[key] ?? key;
+}

@@ -23,6 +23,15 @@ export interface AccountContextValue {
   favoriteProductIds: string[];
   /** The cultivators the account has marked as favourite. */
   favoriteFarmerIds: string[];
+  /**
+   * The favourite lots, exactly as the shared backend answered them.
+   *
+   * The list of the page and the badge of the navbar are read from the
+   * same answer, so they can never disagree.
+   */
+  favoriteProducts: any[];
+  /** The favourite cultivators, exactly as the backend answered them. */
+  favoriteFarmers: any[];
   /** The notifications of the account, newest first. */
   notifications: any[];
   /**
@@ -67,6 +76,8 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const { user, isAuthenticated } = useAuth();
   const [favoriteProductIds, setFavoriteProductIds] = useState<string[]>([]);
   const [favoriteFarmerIds, setFavoriteFarmerIds] = useState<string[]>([]);
+  const [favoriteProducts, setFavoriteProducts] = useState<any[]>([]);
+  const [favoriteFarmers, setFavoriteFarmers] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -77,6 +88,8 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (!isAuthenticated) {
       setFavoriteProductIds([]);
       setFavoriteFarmerIds([]);
+      setFavoriteProducts([]);
+      setFavoriteFarmers([]);
       setNotifications([]);
       setUnreadCount(null);
       return;
@@ -94,6 +107,8 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       if (favoritesResult.status === 'fulfilled') {
         const favorites = extractFavorites(favoritesResult.value);
+        setFavoriteProducts(favorites.products);
+        setFavoriteFarmers(favorites.farmers);
         setFavoriteProductIds(
           favorites.products
             .map((entry: any) => favoriteProductId(entry))
@@ -189,7 +204,11 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
         );
       } catch (err: any) {
         console.warn('[Account] The notification could not be marked:', err?.message);
+        // The state is read again from the shared backend, and the caller
+        // is told that the platform refused it — a notice that was not
+        // marked must not look marked.
         await refresh();
+        throw err;
       }
     },
     [refresh]
@@ -203,6 +222,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (err: any) {
       console.warn('[Account] The notifications could not be marked:', err?.message);
       await refresh();
+      throw err;
     }
   }, [refresh]);
 
@@ -210,6 +230,8 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     () => ({
       favoriteProductIds,
       favoriteFarmerIds,
+      favoriteProducts,
+      favoriteFarmers,
       notifications,
       unreadCount,
       loading,
@@ -223,6 +245,8 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     [
       favoriteProductIds,
       favoriteFarmerIds,
+      favoriteProducts,
+      favoriteFarmers,
       notifications,
       unreadCount,
       loading,

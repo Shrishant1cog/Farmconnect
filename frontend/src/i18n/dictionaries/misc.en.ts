@@ -196,6 +196,8 @@ export const miscEn: TranslationMap = {
   'misc.notifications.title': 'Notifications',
   'misc.notifications.subtitle': 'The notices of the platform for your account.',
   'misc.notifications.subtitleWithCount': '{count} notices were not read yet.',
+  'misc.notifications.subtitleWithCount.one': '{count} notice was not read yet.',
+  'misc.notifications.subtitleWithCount.other': '{count} notices were not read yet.',
   'misc.notifications.refresh': 'Refresh',
   'misc.notifications.loading': 'Reading your notices…',
   'misc.notifications.loadError': 'We could not read your notifications. Please try again.',

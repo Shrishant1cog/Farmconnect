@@ -194,6 +194,8 @@ export const miscKn: TranslationMap = {
   'misc.notifications.title': 'ಅಧಿಸೂಚನೆಗಳು',
   'misc.notifications.subtitle': 'ನಿಮ್ಮ ಖಾತೆಗೆ ವೇದಿಕೆಯ ಸೂಚನೆಗಳು.',
   'misc.notifications.subtitleWithCount': '{count} ಸೂಚನೆಗಳನ್ನು ಇನ್ನೂ ಓದಿಲ್ಲ.',
+  'misc.notifications.subtitleWithCount.one': '{count} ಸೂಚನೆಯನ್ನು ಇನ್ನೂ ಓದಿಲ್ಲ.',
+  'misc.notifications.subtitleWithCount.other': '{count} ಸೂಚನೆಗಳನ್ನು ಇನ್ನೂ ಓದಿಲ್ಲ.',
   'misc.notifications.refresh': 'ನವೀಕರಿಸಿ',
   'misc.notifications.loading': 'ನಿಮ್ಮ ಸೂಚನೆಗಳನ್ನು ಓದುತ್ತಿದೆ…',
   'misc.notifications.loadError': 'ನಿಮ್ಮ ಅಧಿಸೂಚನೆಗಳನ್ನು ಓದಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',

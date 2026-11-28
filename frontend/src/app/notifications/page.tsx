@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Bell, CheckCheck, RefreshCw, Loader2, AlertCircle } from 'lucide-react';
 import { fetchApi } from '../../lib/api';
-import { extractNotificationList, extractUnreadCount } from '../../lib/account';
+import { useAccount } from '../../context/AccountContext';
 import { useI18n } from '../../hooks/useI18n';
 
 /**
@@ -14,48 +14,46 @@ import { useI18n } from '../../hooks/useI18n';
  * `PATCH /api/notifications/read-all`). The page shows exactly what the
  * backend answers and never claims that a notice was read when the
  * platform refused it.
+ *
+ * The state comes from the shared `AccountContext`, so the number on the
+ * badge of the navbar and the list on this page can never disagree: one
+ * answer from the backend, one state, one truth.
  */
 export default function NotificationsPage() {
   const { t, formatDate } = useI18n();
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    refresh,
+    markRead,
+    markAllRead,
+  } = useAccount();
+
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const loadNotifications = useCallback(async () => {
-    setLoading(true);
     setErrorMessage(null);
     try {
-      const res = await fetchApi('/notifications');
-      setNotifications(extractNotificationList(res));
-      setUnreadCount(extractUnreadCount(res));
+      await refresh();
     } catch (err: any) {
       console.warn('Failed to load notifications:', err?.message);
       setErrorMessage(err?.message || t('misc.notifications.loadError'));
-      setNotifications([]);
-      setUnreadCount(null);
-    } finally {
-      setLoading(false);
     }
-  }, [t]);
+  }, [refresh, t]);
 
   useEffect(() => {
     loadNotifications();
   }, [loadNotifications]);
 
-  const markRead = async (notification: any) => {
+  const handleMarkRead = async (notification: any) => {
     const id = notification?.id;
     if (!id || notification?.isRead) return;
     setBusyId(id);
+    setErrorMessage(null);
     try {
-      await fetchApi(`/notifications/${id}/read`, { method: 'PATCH' });
-      setNotifications((previous) =>
-        previous.map((item: any) => (item?.id === id ? { ...item, isRead: true } : item))
-      );
-      setUnreadCount((previous) =>
-        previous === null ? null : Math.max(0, previous - 1)
-      );
+      await markRead(id);
     } catch (err: any) {
       console.warn('Failed to mark the notification as read:', err?.message);
       setErrorMessage(err?.message || t('misc.notifications.markError'));
@@ -64,11 +62,10 @@ export default function NotificationsPage() {
     }
   };
 
-  const markAllRead = async () => {
+  const handleMarkAllRead = async () => {
+    setErrorMessage(null);
     try {
-      await fetchApi('/notifications/read-all', { method: 'PATCH' });
-      setNotifications((previous) => previous.map((item: any) => ({ ...item, isRead: true })));
-      setUnreadCount(0);
+      await markAllRead();
     } catch (err: any) {
       console.warn('Failed to mark the notifications as read:', err?.message);
       setErrorMessage(err?.message || t('misc.notifications.markError'));
@@ -92,7 +89,7 @@ export default function NotificationsPage() {
         <div className="flex items-center gap-2 self-start">
           <button
             type="button"
-            onClick={markAllRead}
+            onClick={handleMarkAllRead}
             disabled={notifications.length === 0}
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold transition-colors disabled:opacity-50"
           >
@@ -160,7 +157,7 @@ export default function NotificationsPage() {
                 {!isRead && (
                   <button
                     type="button"
-                    onClick={() => markRead(notification)}
+                    onClick={() => handleMarkRead(notification)}
                     disabled={busyId === notification?.id}
                     className="self-center px-3 py-1.5 rounded-lg bg-white border border-stone-200 text-stone-600 text-[10px] font-black uppercase tracking-wider hover:border-emerald-400 hover:text-emerald-800 transition-colors disabled:opacity-50"
                   >

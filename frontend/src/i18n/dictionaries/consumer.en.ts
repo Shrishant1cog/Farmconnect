@@ -61,6 +61,8 @@ export const consumerEn: TranslationMap = {
   'consumer.favorites.listingsTitle': 'Favourite harvest lots',
   'consumer.favorites.farmersTitle': 'Favourite cultivators',
   'consumer.favorites.activeLots': '{count} active lots',
+  'consumer.favorites.activeLots.one': '{count} active lot',
+  'consumer.favorites.activeLots.other': '{count} active lots',
   'consumer.favorites.add': 'Add to favourites',
   'consumer.favorites.remove': 'Remove from favourites',
   'consumer.explore.errorTitle': 'Unable to load produce',

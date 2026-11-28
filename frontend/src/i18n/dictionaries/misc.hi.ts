@@ -194,6 +194,8 @@ export const miscHi: TranslationMap = {
   'misc.notifications.title': 'सूचनाएँ',
   'misc.notifications.subtitle': 'आपके खाते के लिए प्लेटफ़ॉर्म के संदेश।',
   'misc.notifications.subtitleWithCount': '{count} संदेश अभी तक नहीं पढ़े गए।',
+  'misc.notifications.subtitleWithCount.one': '{count} संदेश अभी तक नहीं पढ़ा गया।',
+  'misc.notifications.subtitleWithCount.other': '{count} संदेश अभी तक नहीं पढ़े गए।',
   'misc.notifications.refresh': 'ताज़ा करें',
   'misc.notifications.loading': 'आपके संदेश पढ़े जा रहे हैं…',
   'misc.notifications.loadError': 'आपकी सूचनाएँ पढ़ी नहीं जा सकीं। कृपया फिर कोशिश करें।',

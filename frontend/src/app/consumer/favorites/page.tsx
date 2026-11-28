@@ -3,8 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Heart, RefreshCw, Sprout, MapPin, Loader2, AlertCircle, Scale } from 'lucide-react';
-import { fetchApi } from '../../../lib/api';
-import { extractFavorites } from '../../../lib/account';
+import { useAccount } from '../../../context/AccountContext';
 import { useI18n } from '../../../hooks/useI18n';
 
 /**
@@ -14,31 +13,30 @@ import { useI18n } from '../../../hooks/useI18n';
  * shows exactly what the backend answers — a lot that was removed on the
  * phone disappears here as well, and an answer that could not be read
  * produces an honest error instead of an empty list.
+ *
+ * The state comes from the shared `AccountContext`, so the list of this
+ * page and the badge of the navbar are read from the same answer and can
+ * never disagree.
  */
 export default function ConsumerFavoritesPage() {
   const { t, formatNumber, formatCurrency } = useI18n();
-  const [products, setProducts] = useState<any[]>([]);
-  const [farmers, setFarmers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    favoriteProducts: products,
+    favoriteFarmers: farmers,
+    loading,
+    refresh,
+  } = useAccount();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const loadFavorites = useCallback(async () => {
-    setLoading(true);
     setErrorMessage(null);
     try {
-      const res = await fetchApi('/favorites');
-      const favorites = extractFavorites(res);
-      setProducts(favorites.products);
-      setFarmers(favorites.farmers);
+      await refresh();
     } catch (err: any) {
       console.warn('Failed to load favourites:', err?.message);
       setErrorMessage(err?.message || t('consumer.favorites.loadError'));
-      setProducts([]);
-      setFarmers([]);
-    } finally {
-      setLoading(false);
     }
-  }, [t]);
+  }, [refresh, t]);
 
   useEffect(() => {
     loadFavorites();

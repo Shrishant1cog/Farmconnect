@@ -20,6 +20,7 @@ import {
   LOCALE_META,
   Locale,
   normalizeLocale,
+  resolveTemplate,
 } from '../i18n/types';
 
 const STORAGE_KEY = 'farmconnect_locale';
@@ -250,7 +251,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
       locale,
       setLocale,
       t: (key: string, params?: Record<string, string | number>) => {
-        const template = table[key] ?? dictionaries.en[key] ?? key;
+        const template = resolveTemplate(table, dictionaries.en, key, params);
         return interpolate(template, params);
       },
       formatNumber: (input: number, options?: Intl.NumberFormatOptions) =>

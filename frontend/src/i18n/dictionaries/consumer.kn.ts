@@ -58,6 +58,8 @@ export const consumerKn: TranslationMap = {
   'consumer.favorites.listingsTitle': 'ಇಷ್ಟಪಟ್ಟ ಕೊಯ್ಲು ಪಟ್ಟಿಗಳು',
   'consumer.favorites.farmersTitle': 'ಇಷ್ಟಪಟ್ಟ ರೈತರು',
   'consumer.favorites.activeLots': '{count} ಸಕ್ರಿಯ ಮೊದಿಗಳು',
+  'consumer.favorites.activeLots.one': '{count} ಸಕ್ರಿಯ ಮೊದಿ',
+  'consumer.favorites.activeLots.other': '{count} ಸಕ್ರಿಯ ಮೊದಿಗಳು',
   'consumer.favorites.add': 'ಇಷ್ಟಪಟ್ಟಗಳಿಗೆ ಸೇರಿಸಿ',
   'consumer.favorites.remove': 'ಇಷ್ಟಪಟ್ಟಗಳಿಂದ ತೆಗೆದುಹಾಕಿ',
   'consumer.explore.errorTitle': 'ಉತ್ಪನ್ನ ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ',

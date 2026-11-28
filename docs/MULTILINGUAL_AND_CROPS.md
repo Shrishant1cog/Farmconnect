@@ -157,6 +157,23 @@ The language is stored in the encrypted keystore
 **ARB size:** 397 keys per language (`en`, `kn`, `hi`) — 0 missing / 0 extra,
 verified by `scripts/verify-i18n.mjs`.
 
+### 2.4.1 The position a farmer or a buyer shares
+
+Because the fabricated farm positions were removed (see §7.2), both clients
+offer a **real** way to share a position. It is stored on the shared account
+and therefore reaches the other client immediately:
+
+| Concern | Website | Android |
+| --- | --- | --- |
+| Capture | `frontend/src/app/farmer/dashboard/page.tsx` — **Share my farm position** (browser geolocation) | `mobile/lib/features/profile/profile_page.dart` — **Share my farm position** / **Share my delivery position** (`Geolocator`) |
+| Storage | `PATCH /api/users/me { latitude, longitude }` | `UserRepository.updatePosition(…)` / `UserRepository.clearPosition()` → the same endpoint |
+| Validation | `backend/src/utils/coordinate.ts` — a malformed or out-of-range value is rejected with HTTP 400 | the same shared endpoint |
+
+The three states of a position stay apart: **absent** leaves the stored value
+untouched, **`null`** clears it and **a number** stores it. A cleared position
+never becomes the number `0` (`Number(null)` is `0` in JavaScript), and a
+missing position is never replaced by a placeholder.
+
 ### 2.5 Scope rules
 
 * Only *interface* text is translated. Farmer- and customer-entered content
@@ -393,10 +410,10 @@ estimated. The live route and cross-platform matrices are kept separately in
 | Hardcoded-English scan of the website JSX | `node C:\Users\user\AppData\Local\Temp\opencode\find-hardcoded-jsx.mjs` | PASS | 3 hits — all false positives (`Promise` type annotations) |
 | Website + API route smoke (deployed) | `node scripts/smoke-routes.mjs` | PASS | 22 / 22 website routes + 24 / 24 API routes answered with the expected status (200, or the expected auth redirect) |
 | API endpoint smoke (deployed) | `node scripts/smoke-api-endpoints.mjs` | PASS | 50 probes, 0 unexpected statuses — every endpoint of the shared backend was exercised with a real request |
-| Live feature verification (deployed) | `node scripts/live-verify.mjs` | PASS | 46 / 46 checks green against the deployed API |
+| Live feature verification (deployed) | `node scripts/live-verify.mjs` | PASS | 61 / 61 checks green against the deployed API — 46 feature checks plus 15 that prove no fabricated benchmark, route, coordinate or success state reaches the backend |
 | Multilingual catalogue verification (deployed) | `node scripts/verify-localised-catalogue.mjs` | PASS | 12 / 12 checks green — every category and crop carries its Kannada and Hindi name, the catalogue and the product filter find a crop in English, Kannada and Hindi, and the APMC endpoint answers with the real rows |
 | Android route coverage (emulator, deployed API) | `cd mobile && flutter test integration_test/route_coverage_test.dart -d emulator-5554 …` | PASS | 21 / 21 routes opened, no widget exception — `00:15 +1: All tests passed!` |
-| Cross-platform workflow suite (emulator, deployed API) | `cd mobile && flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 …` | PASS | 8 / 8 tests green |
+| Cross-platform workflow suite (emulator, deployed API) | `cd mobile && flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 …` | PASS | 9 / 9 tests green — `00:54 +9: All tests passed!`, exit code 0 |
 | Backend database integration suite | `cd backend && npm run test:integration` | BLOCKED | no PostgreSQL/Docker in the local environment — the suite (language storage, catalogue endpoints, independent crop lots, edit isolation, crop filtering, listing authorisation, notification inbox) runs in pull-request CI with PostgreSQL 16 and is green there |
 
 ### What the unit tests actually cover

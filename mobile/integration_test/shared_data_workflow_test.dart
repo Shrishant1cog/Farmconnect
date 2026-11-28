@@ -751,5 +751,62 @@ void main() {
       final websiteUserProfile = await websiteFarmer.users.fetchProfile();
       expect(websiteUserProfile.preferredLanguage, 'hi');
     });
+
+    testWidgets('the farm and delivery positions are shared between the clients',
+        (tester) async {
+      // The farmer signs in on the **website** client and on the **Android**
+      // client, so the website client really owns a session of its own.
+      await registerFarmerAcrossBothClients(
+        tag: 'position',
+        farmName: 'Position QA Fields',
+        websiteClient: websiteFarmer,
+      );
+
+      // --- Neither client has a position yet --------------------------------
+      // The account was registered without a GPS position, so the shared
+      // backend must not hold one either — a placeholder would put the farm
+      // somewhere the farmer never chose.
+      final profileWithoutPosition = await websiteFarmer.users.fetchProfile();
+      expect(profileWithoutPosition.farmerProfile?.latitude, isNull,
+          reason: 'A farmer without a shared position must not have one');
+      expect(profileWithoutPosition.farmerProfile?.longitude, isNull);
+
+      // --- The Android app shares a real position ---------------------------
+      await androidFarmer.users.updatePosition(
+        latitude: 12.5231,
+        longitude: 76.8962,
+      );
+
+      final websiteProfile = await websiteFarmer.users.fetchProfile();
+      expect(websiteProfile.farmerProfile?.latitude, closeTo(12.5231, 0.0001),
+          reason: 'The website must read the position shared by the Android app');
+      expect(websiteProfile.farmerProfile?.longitude, closeTo(76.8962, 0.0001));
+
+      // --- The website clears it again --------------------------------------
+      // A cleared position must stay `null` and must never become the
+      // number `0` (`Number(null)` is `0` in JavaScript).
+      await websiteFarmer.users.clearPosition();
+
+      final clearedProfile = await androidFarmer.users.fetchProfile();
+      expect(clearedProfile.farmerProfile?.latitude, isNull,
+          reason: 'A cleared position must stay null instead of becoming 0');
+      expect(clearedProfile.farmerProfile?.longitude, isNull);
+
+      // --- The delivery position of a consumer is shared as well ------------
+      await registerConsumerAcrossBothClients(tag: 'position');
+
+      await androidConsumer.users.updatePosition(
+        latitude: 12.9716,
+        longitude: 77.5946,
+      );
+
+      final websiteConsumerProfile = await website.users.fetchProfile();
+      expect(websiteConsumerProfile.consumerProfile?.latitude,
+          closeTo(12.9716, 0.0001),
+          reason:
+              'The website must read the delivery position shared by the Android app');
+      expect(websiteConsumerProfile.consumerProfile?.longitude,
+          closeTo(77.5946, 0.0001));
+    });
   });
 }

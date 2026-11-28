@@ -121,8 +121,8 @@ flutter build appbundle --release \
 
 | Artefact | Path | Size |
 | --- | --- | --- |
-| Release APK | `mobile/build/app/outputs/flutter-apk/app-release.apk` | 57.6 MB (60,387,890 bytes) |
-| Release App Bundle | `mobile/build/app/outputs/bundle/release/app-release.aab` | 56.0 MB (58,706,569 bytes) |
+| Release APK | `mobile/build/app/outputs/flutter-apk/app-release.apk` | 57.8 MB (60,617,334 bytes) |
+| Release App Bundle | `mobile/build/app/outputs/bundle/release/app-release.aab` | 56.1 MB (58,780,964 bytes) |
 | Debug APK | `mobile/build/app/outputs/flutter-apk/app-debug.apk` | 157.6 MB (165,269,190 bytes) |
 
 `mobile/build/` is excluded by `mobile/.gitignore`, so these are build

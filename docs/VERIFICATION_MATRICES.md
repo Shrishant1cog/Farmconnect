@@ -290,6 +290,7 @@ was actually executed against the deployed backend from the stated direction.
 | 11 | Notifications arrive over Socket.IO on both clients | PASS | PASS | PASS | Integration test 6: the Socket.IO server delivers `new_order_received` to the authenticated Android socket (`expect(event['orderId'], isA<String>())`). `scripts/live-verify.mjs`: the durable inbox really contains the entries (`GET /notifications -> HTTP 200` with `NEW_ORDER` / `ORDER_STATUS`) |
 | 12 | Language change propagates in both directions | PASS | PASS | PASS | Integration test 8: the website sets `kn` and the Android profile reads `kn`; the Android app sets `hi` and the website profile reads `hi`. `scripts/live-verify.mjs`: `PATCH preferredLanguage=hi -> hi`, `GET /users/me returns preferredLanguage=kn -> kn`, `login response carries preferredLanguage=kn -> kn` |
 | 13 | Logout clears the session; the other client's session is isolated | PASS | PASS | PASS | Integration test 5: `logout` wipes the stored session (`restoreSession()` is `null`), the same account signs in again on the other client with the same id, and a second account never sees the first account's orders |
+| 14 | The farm / delivery position is shared | PASS | PASS | PASS | Integration test 9: a farmer registered **without** a position has none on the shared account (`latitude` and `longitude` are `null`); the **Android** app shares a real position and the **website** reads it (`closeTo(12.5231, 0.0001)`); the **website** clears it and the **Android** app reads `null` again — a cleared position never becomes the number `0`. The same holds for the delivery position of a consumer. `scripts/live-verify.mjs`: `a shared position is stored on the shared account -> 12.5231 / 76.8962`, `a cleared position stays null instead of becoming 0`, `a malformed coordinate is rejected -> HTTP 400`, `an out-of-range coordinate is rejected -> HTTP 400`. Browser: the farmer dashboard shows **"12.52310, 76.89620"** after the position was shared and **"अभी साझा नहीं किया गया"** (not shared yet) once it was cleared |
 
 ### 2.1 Automated evidence for the cross-platform workflows
 
@@ -304,9 +305,9 @@ flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 \
   --dart-define=TEST_SOCKET_URL=https://farmconnect-api-sn98.onrender.com
 ```
 
-**Result (2026-11-28, final run against the deployed head commit `8195523`):
-8 / 8 tests passed** on `emulator-5554` (Pixel_10a, Android 17 / API 37) —
-`00:47 +8: All tests passed!`, exit code 0. The only log lines are the two
+**Result (2026-11-28, final run against the deployed head commit `5654272`):
+9 / 9 tests passed** on `emulator-5554` (Pixel_10a, Android 17 / API 37) —
+`00:54 +9: All tests passed!`, exit code 0. The only log lines are the two
 expected `409` answers for deleting a listing that already carries an order
 ("This listing already has orders and can no longer be deleted. Mark it as
 unavailable instead.").
@@ -321,6 +322,7 @@ unavailable instead.").
 | 6 | the Socket.IO server broadcasts order events to the Android client | 10, 11 | PASS | `00:33 +6` — `new_order_received` arrives on the authenticated socket with the order id |
 | 7 | a farmer can manage several independent crop listings | 6, 7 | PASS | `00:40 +7` — two crops with their own price, quantity, availability, crop name and variety; editing one never touches the other; the website reads the edit; the crop and category filters keep the crops apart |
 | 8 | the interface language preference is shared between the clients | 12 | PASS | `00:43 +8` — the website sets `kn`, Android reads `kn`; Android sets `hi`, the website reads `hi` |
+| 9 | the farm and delivery positions are shared between the clients | 14 | PASS | `00:53 +9` — the account starts without a position (`null`), Android shares a real position and the website reads it, the website clears it and Android reads `null` again — a cleared position never becomes the number `0`. The delivery position of a consumer is shared the same way |
 
 ### 2.2 Build-time verification (already executed)
 
@@ -336,13 +338,14 @@ unavailable instead.").
 | Hardcoded-English scan of the website JSX | `node C:\Users\user\AppData\Local\Temp\opencode\find-hardcoded-jsx.mjs` | PASS | 3 hits — all false positives (`Promise` type annotations in `CartContext.tsx` / `ModalContext.tsx`) |
 | Website route smoke (deployed) | `node scripts/smoke-routes.mjs` | PASS | 22 / 22 website routes + 24 / 24 API routes answered as expected |
 | API endpoint smoke (deployed) | `node scripts/smoke-api-endpoints.mjs` | PASS | 50 probes, 0 unexpected statuses |
-| Live feature verification (deployed) | `node scripts/live-verify.mjs` | PASS | 46 / 46 checks green |
-| Android route coverage (emulator, deployed API) | `cd mobile && flutter test integration_test/route_coverage_test.dart -d emulator-5554 …` | PASS | 21 / 21 routes opened, no widget exception — `01:21 +1: All tests passed!`, exit code 0. The only log line is the expected `[ApiClient] /admin/metrics -> 403` (the deployed database has no administrator account) |
-| Cross-platform workflow suite (emulator, deployed API) | `cd mobile && flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 …` | PASS | 8 / 8 tests green — `00:47 +8: All tests passed!`, exit code 0 |
+| Live feature verification (deployed) | `node scripts/live-verify.mjs` | PASS | 61 / 61 checks green — 46 feature checks plus 15 that prove no fabricated benchmark, route, coordinate or success state reaches the deployed backend |
+| Android route coverage (emulator, deployed API) | `cd mobile && flutter test integration_test/route_coverage_test.dart -d emulator-5554 …` | PASS | 21 / 21 routes opened, no widget exception — `01:18 +1: All tests passed!`, exit code 0. The only log line is the expected `[ApiClient] /admin/metrics -> 403` (the deployed database has no administrator account) |
+| Cross-platform workflow suite (emulator, deployed API) | `cd mobile && flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 …` | PASS | 9 / 9 tests green — `00:54 +9: All tests passed!`, exit code 0 |
 | Backend database integration suite | `cd backend && npm run test:integration` | BLOCKED | no PostgreSQL/Docker in the local environment — the suite (language storage, catalogue endpoints, independent crop lots, edit isolation, crop filtering, listing authorisation, notification inbox) runs in pull-request CI with PostgreSQL 16 and is green there |
-| Pull-request CI | `gh run list --branch fix/local-updates` | PASS | `FarmConnect Verification` — the push and the pull-request runs are green, including the PostgreSQL 16 integration suite. **Final runs for the head commit `8195523`:** push run [`46076942706`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46076942706) (success, 1m31s) and pull-request run [`46076948674`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46076948674) (success, 1m29s). Both ran the localisation check, the frontend type check and production build, the backend type check, the migrations, the PostgreSQL 16 integration suite, the `start.bat` validation and the source packaging |
-| Release artefact build | `cd mobile && powershell -ExecutionPolicy Bypass -File .\tool\build_production.ps1 -Target all` | PASS | exit code 0 — `app-release.apk` 57.6 MB (60,387,890 bytes) and `app-release.aab` 56.0 MB (58,706,569 bytes), both against the live Render host |
+| Pull-request CI | `gh run list --branch fix/local-updates` | PASS | `FarmConnect Verification` — the push and the pull-request runs are green, including the PostgreSQL 16 integration suite. **Runs for the head commit `5654272`:** push run [`46085702742`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46085702742) and pull-request run [`46085708809`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46085708809). The previous head `60cf464` was green as well — push [`46085253025`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46085253025), pull request [`46085258349`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46085258349). Every run executes the localisation check, the frontend type check and production build, the backend type check, the migrations, the PostgreSQL 16 integration suite, the `start.bat` validation and the source packaging |
+| Release artefact build | `cd mobile && powershell -ExecutionPolicy Bypass -File .\tool\build_production.ps1 -Target all` | PASS | exit code 0 — `app-release.apk` 57.8 MB (60,617,334 bytes) and `app-release.aab` 56.1 MB (58,780,964 bytes), both against the live Render host |
 | Release artefact on a device | `adb -s emulator-5554 install -r mobile\build\app\outputs\flutter-apk\app-release.apk` | PASS | `Success`. `aapt2 dump badging` → package `in.farmconnect.farmconnect_mobile`, versionName `1.0.0`, label `FarmConnect`; `aapt2 dump permissions` → `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_COARSE_LOCATION`, `ACCESS_FINE_LOCATION`, `CAMERA`. `apksigner verify --print-certs` → `CN=Android Debug` — the artefact is **debug-signed**, so it is **not** Play Store ready (see [`docs/MULTILINGUAL_AND_CROPS.md`](MULTILINGUAL_AND_CROPS.md), limitation 3) |
+| Release artefact — embedded host | scan `libapp.so` of every ABI inside the APK | PASS | `farmconnect-api-sn98.onrender.com` appears **3×** in `arm64-v8a`, `armeabi-v7a` and `x86_64`; `10.0.2.2:5000` appears **0×** in all three |
 | Release artefact points at production | `unzip -p app-release.apk lib/arm64-v8a/libapp.so \| grep -c 'http://10.0.2.2:5000'` | PASS | The local development URL occurs **0** times in all three ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`), while `https://farmconnect-api-sn98.onrender.com/api` occurs once per ABI — the compile-time `--dart-define` resolved to the live host |
 
 ---
@@ -396,4 +399,9 @@ recorded observations:
 | `/consumer/explore` | `hi` | the category chips show the native names — नकदी फसलें, अनाज और मिलेट, सब्ज़ियाँ, … |
 | `/consumer/explore` | `hi` | `?search=ಟೊಮೇಟೊ` → **16** tomato lots, each labelled "फसल: Tomato · किस्म: Hybrid" |
 | `/farmer/dashboard` | `hi` | the **नई कटाई सूचीबद्ध करें** dialog: searching `टमाटर` offers the suggestion `टमाटर Tomato`, and selecting it writes **Tomato** (the canonical English name) into the crop-name field |
+| `/farmer/dashboard` | `hi` | the new **खेत का स्थान** card reads **"अभी साझा नहीं किया गया"** (not shared yet) — the honest state after the cleanup migration removed the placeholder — and offers **मेरे खेत का स्थान साझा करें**, which captures the device's own GPS. The card contains **no** `0.00000` and no placeholder coordinate |
+| `/farmer/dashboard` | `hi` | after a real position (`12.5231 / 76.8962`) was stored on the shared account, the card shows **"12.52310, 76.89620"**; clearing it again brings back **"अभी साझा नहीं किया गया"**. The QA account was restored to the cleared state afterwards |
+| `/consumer/map` | `hi` | the honest empty state "कर्नाटक के खेतों के निर्देशांक मानचित्र पर दर्ज किए जा रहे हैं…"; **0** map markers — no farm is plotted at a position it never shared, and no marker sits at `0 / 0` |
+| `/buy` | `kn` | the map and the chat panel show their honest empty state; **0** markers; the page contains **no** `₹3,100`, no `12.5218` and no `76.8951` |
+| `/api/users/farmers` | — | of the **63** farmer profiles of the production database **0** carry a position after the cleanup migration; while the QA farmer held a real position it was the **only** one that appeared — the map plots exactly the farms that shared a position |
 | — | — | **no console error** was raised on any of the pages above |

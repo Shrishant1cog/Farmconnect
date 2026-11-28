@@ -67,7 +67,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
       await ref
           .read(userRepositoryProvider)
-          .updateProfile(
+          .updatePosition(
             latitude: position.latitude,
             longitude: position.longitude,
           );

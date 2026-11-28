@@ -34,8 +34,6 @@ class UserRepository {
     String? deliveryAddress,
     String? addressLine,
     String? farmName,
-    double? latitude,
-    double? longitude,
   }) async {
     final payload = await _api.patch(ApiEndpoints.userMe, body: {
       if (name != null) 'name': name,
@@ -49,11 +47,47 @@ class UserRepository {
       if (deliveryAddress != null) 'deliveryAddress': deliveryAddress,
       if (addressLine != null) 'addressLine': addressLine,
       if (farmName != null) 'farmName': farmName,
-      if (latitude != null) 'latitude': latitude,
-      if (longitude != null) 'longitude': longitude,
     });
 
-    final map = payload is Map ? Map<String, dynamic>.from(payload) : <String, dynamic>{};
+    return _readUser(payload);
+  }
+
+  /// Shares the **real** position with the shared backend.
+  ///
+  /// The position is the farm position of a cultivator and the delivery
+  /// position of a buyer. It is stored only when it is really known — a
+  /// placeholder would put the farm somewhere it does not exist.
+  Future<AppUser> updatePosition({
+    required double latitude,
+    required double longitude,
+  }) async {
+    final payload = await _api.patch(ApiEndpoints.userMe, body: {
+      'latitude': latitude,
+      'longitude': longitude,
+    });
+
+    return _readUser(payload);
+  }
+
+  /// Clears the position of the account.
+  ///
+  /// The shared backend keeps the three states apart: an absent position is
+  /// left untouched, an explicit `null` clears it and a number stores it.
+  /// (`Number(null)` is `0` in JavaScript, so a cleared position must never
+  /// be sent as the number `0`.)
+  Future<AppUser> clearPosition() async {
+    final payload = await _api.patch(ApiEndpoints.userMe, body: {
+      'latitude': null,
+      'longitude': null,
+    });
+
+    return _readUser(payload);
+  }
+
+  /// Reads the account from a profile response.
+  AppUser _readUser(dynamic payload) {
+    final map =
+        payload is Map ? Map<String, dynamic>.from(payload) : <String, dynamic>{};
     final raw = map['data'] ?? map['user'] ?? map;
     if (raw is! Map) {
       throw StateError('The profile could not be updated.');

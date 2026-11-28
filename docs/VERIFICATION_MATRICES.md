@@ -244,6 +244,7 @@ shared backend.
 | 25 | The consumer profile never stored the delivery position, so the freight distance could never be computed | `backend/src/modules/users/users.controller.ts` | `ConsumerProfile.latitude` / `longitude` are written from the same shared endpoint as the farm position | DONE |
 | 26 | **All 53** farmer profiles of the production database still carried the old placeholder `12.5218 / 76.8951`, so the map stacked 53 markers on one invented point | `backend/prisma/migrations/20261128010000_clear_placeholder_farmer_coordinates/migration.sql` | The additive migration clears the rows that carry **exactly** the constant the old code wrote. No farm, listing or order is deleted — a farm without a position simply stays off the map | DONE |
 | 27 | No client offered a way to share a **real** position, so removing the placeholder would have left the map permanently empty | `frontend/src/app/farmer/dashboard/page.tsx`, `mobile/lib/features/profile/profile_page.dart` | Both clients capture the device's own GPS and store it on the shared account. The success message only appears after the backend confirmed the update | DONE |
+| 28 | There was **no way at all** to put a published APMC rate into the shared database — the only way to make the benchmark screens show a price would have been to invent rows | `backend/import-apmc-rates.ts`, `backend/src/utils/apmcRateCsv.ts` | An import path that accepts a **real** market bulletin: a row it cannot read is rejected with its reason, a missing value is never replaced by a default, and a file without a single usable row writes nothing. See [`docs/APMC_RATE_IMPORT.md`](APMC_RATE_IMPORT.md) | DONE |
 
 ### Current data gap — the APMC rate table is empty
 
@@ -263,9 +264,28 @@ Consequences (all of them honest and visible to the user):
   and live listings are required;
 * the Android **market rates** screen shows its own empty state.
 
-There is **no seed or import path** for APMC rates yet — filling the table
-with invented rows would reintroduce exactly the mock data that was removed
-here. Loading real benchmark rows into the shared database is the open item.
+The **import path now exists**
+(`npm run db:apmc-rates -- <file.csv>`, documented in
+[`docs/APMC_RATE_IMPORT.md`](APMC_RATE_IMPORT.md)) and it was verified with a
+dry run against a test bulletin:
+
+```
+read    : 2 usable rate row(s)
+mapped  : 1 commodity/commodities resolve to the crop catalogue
+unmapped: 1 row(s) — Not A Crop
+           (these rows are published, but they do not become a benchmark)
+⚠️  1 row(s) were rejected:
+   line 4: the price(s) modalPrice are not a number
+✅ Dry run finished — nothing was written to the database.
+```
+
+A missing file and a file without a single usable row both end with exit
+code **1** and write nothing.
+
+What is still open is the **data**, not the tool: the production table stays
+empty until a real market bulletin is handed to the importer. Inventing rows
+would reintroduce exactly the mock data that was removed here, so that is not
+done.
 
 ---
 
@@ -328,7 +348,7 @@ unavailable instead.").
 
 | Check | Command | Result | Evidence |
 | --- | --- | --- | --- |
-| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 57 / 57 tests green (6 suites: `language`, `productQuery`, `categoryResolver`, `apmcBenchmark`, `logisticsService`, `coordinate` — including the 8 tests of the APMC benchmark resolver, the 5 tests that prove the logistics quote never invents a benchmark or a route and the 9 tests of the coordinate schema, which prove that a cleared position never becomes the point `0 / 0`) |
+| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 70 / 70 tests green (7 suites: `language`, `productQuery`, `categoryResolver`, `apmcBenchmark`, `logisticsService`, `coordinate`, `apmcRateCsv` — including the 8 tests of the APMC benchmark resolver, the 5 tests that prove the logistics quote never invents a benchmark or a route, the 9 tests of the coordinate schema, which prove that a cleared position never becomes the point `0 / 0`, and the 13 tests of the APMC rate importer, which prove that a malformed bulletin row is rejected instead of being corrected) |
 | Backend type check | `cd backend && npx tsc --noEmit` | PASS | exit code 0 |
 | Website type check | `cd frontend && npx tsc --noEmit` | PASS | exit code 0 |
 | Website production build | `cd frontend && npm run build` | PASS | exit code 0 — 21 routes prerendered/built, no prerender errors |
@@ -340,10 +360,11 @@ unavailable instead.").
 | API endpoint smoke (deployed) | `node scripts/smoke-api-endpoints.mjs` | PASS | 50 probes, 0 unexpected statuses |
 | Live feature verification (deployed) | `node scripts/live-verify.mjs` | PASS | 61 / 61 checks green — 46 feature checks plus 15 that prove no fabricated benchmark, route, coordinate or success state reaches the deployed backend |
 | Android route coverage (emulator, deployed API) | `cd mobile && flutter test integration_test/route_coverage_test.dart -d emulator-5554 …` | PASS | 21 / 21 routes opened, no widget exception — `01:18 +1: All tests passed!`, exit code 0. The only log line is the expected `[ApiClient] /admin/metrics -> 403` (the deployed database has no administrator account) |
+| APMC rate importer (dry run, no database write) | `cd backend && npm run db:apmc-rates -- <test bulletin>.csv --dry-run` | PASS | 2 usable row(s), 1 commodity resolves to the crop catalogue, 1 published commodity does not (reported as such), 1 row rejected with the reason `the price(s) modalPrice are not a number` — **nothing was written**. A missing file and a file without a usable row both end with exit code 1 and write nothing. The 13 unit tests of `apmcRateCsv` cover the same rules |
 | Cross-platform workflow suite (emulator, deployed API) | `cd mobile && flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 …` | PASS | 9 / 9 tests green — `00:54 +9: All tests passed!`, exit code 0 |
 | Backend database integration suite | `cd backend && npm run test:integration` | BLOCKED | no PostgreSQL/Docker in the local environment — the suite (language storage, catalogue endpoints, independent crop lots, edit isolation, crop filtering, listing authorisation, notification inbox) runs in pull-request CI with PostgreSQL 16 and is green there |
-| Pull-request CI | `gh run list --branch fix/local-updates` | PASS | `FarmConnect Verification` — the push and the pull-request runs are green, including the PostgreSQL 16 integration suite. **Runs for the head commit `5654272`:** push run [`46085702742`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46085702742) and pull-request run [`46085708809`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46085708809). The previous head `60cf464` was green as well — push [`46085253025`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46085253025), pull request [`46085258349`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46085258349). Every run executes the localisation check, the frontend type check and production build, the backend type check, the migrations, the PostgreSQL 16 integration suite, the `start.bat` validation and the source packaging |
-| Release artefact build | `cd mobile && powershell -ExecutionPolicy Bypass -File .\tool\build_production.ps1 -Target all` | PASS | exit code 0 — `app-release.apk` 57.8 MB (60,617,334 bytes) and `app-release.aab` 56.1 MB (58,780,964 bytes), both against the live Render host |
+| Pull-request CI | `gh run list --branch fix/local-updates` | PASS | `FarmConnect Verification` — the push and the pull-request runs are green, including the PostgreSQL 16 integration suite. **Runs for the head commit `459aeee`:** push run [`46087077962`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46087077962) (success, 1m37s) and pull-request run [`46087083317`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46087083317) (success, 1m30s). The previous heads `5654272` and `60cf464` were green as well — push [`46085702742`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46085702742), pull request [`46085708809`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46085708809). Every run executes the localisation check, the frontend type check and production build, the backend type check, the migrations, the PostgreSQL 16 integration suite, the `start.bat` validation and the source packaging |
+| Release artefact build | `cd mobile && powershell -ExecutionPolicy Bypass -File .\tool\build_production.ps1 -Target all` | PASS | exit code 0 — `app-release.apk` 57.8 MB (60,617,334 bytes) and `app-release.aab` 56.1 MB (58,781,991 bytes), both against the live Render host |
 | Release artefact on a device | `adb -s emulator-5554 install -r mobile\build\app\outputs\flutter-apk\app-release.apk` | PASS | `Success`. `aapt2 dump badging` → package `in.farmconnect.farmconnect_mobile`, versionName `1.0.0`, label `FarmConnect`; `aapt2 dump permissions` → `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_COARSE_LOCATION`, `ACCESS_FINE_LOCATION`, `CAMERA`. `apksigner verify --print-certs` → `CN=Android Debug` — the artefact is **debug-signed**, so it is **not** Play Store ready (see [`docs/MULTILINGUAL_AND_CROPS.md`](MULTILINGUAL_AND_CROPS.md), limitation 3) |
 | Release artefact — embedded host | scan `libapp.so` of every ABI inside the APK | PASS | `farmconnect-api-sn98.onrender.com` appears **3×** in `arm64-v8a`, `armeabi-v7a` and `x86_64`; `10.0.2.2:5000` appears **0×** in all three |
 | Release artefact points at production | `unzip -p app-release.apk lib/arm64-v8a/libapp.so \| grep -c 'http://10.0.2.2:5000'` | PASS | The local development URL occurs **0** times in all three ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`), while `https://farmconnect-api-sn98.onrender.com/api` occurs once per ABI — the compile-time `--dart-define` resolved to the live host |

@@ -315,6 +315,10 @@ model ApmcMarketRate {
   maxPrice     Float
   updatedAt    DateTime @default(now())
 
+  // A published rate is unique: the same market centre publishes the same
+  // commodity once per day. The key makes the import repeatable instead of
+  // piling up duplicate rows.
+  @@unique([state, district, marketCenter, commodity, updatedAt], name: "ApmcMarketRate_publication_key")
   @@index([district, commodity])
   @@index([commodity])
 }

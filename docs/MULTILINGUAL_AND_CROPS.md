@@ -400,7 +400,7 @@ estimated. The live route and cross-platform matrices are kept separately in
 
 | Check | Command | Result | Evidence |
 | --- | --- | --- | --- |
-| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 57 / 57 tests green (6 suites: `language`, `productQuery`, `categoryResolver`, `apmcBenchmark`, `logisticsService`, `coordinate`) |
+| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 70 / 70 tests green (7 suites: `language`, `productQuery`, `categoryResolver`, `apmcBenchmark`, `logisticsService`, `coordinate`, `apmcRateCsv`) |
 | Backend type check | `cd backend && npx tsc --noEmit` | PASS | exit code 0 |
 | Website type check | `cd frontend && npx tsc --noEmit` | PASS | exit code 0 |
 | Website production build | `cd frontend && npm run build` | PASS | exit code 0 — 21 routes prerendered/built, no prerender errors |
@@ -449,6 +449,33 @@ estimated. The live route and cross-platform matrices are kept separately in
   and the Android crop catalogue / listing model keeps one crop's name,
   variety, quantity, unit, price and availability independent of a second
   crop.
+
+`backend/src/__tests__/apmcRateCsv.test.ts`
+: the importer of the **real** market bulletin. It proves that a rate is read
+  as the market published it, that a missing value is never replaced by a
+  default, that a price which is not a number and a row whose prices
+  contradict each other are **rejected with a reason** instead of being
+  corrected, that the publication date is required, that a quoted cell with a
+  comma is read correctly and that an empty file yields **no** row at all.
+
+### 5.1 Loading a real APMC bulletin
+
+The benchmark screens of both clients read the published rows of the shared
+`ApmcMarketRate` table. The table is currently empty, because a rate may
+only be loaded from a **real** market bulletin:
+
+```bash
+cd backend
+npm run db:apmc-rates -- path/to/rates.csv --dry-run   # validate only
+npm run db:apmc-rates -- path/to/rates.csv             # write the rows
+```
+
+The importer copies the bulletin into the shared database and rejects every
+row it cannot read — it never generates a rate. A published rate is
+identified by its publication key (state, district, market centre,
+commodity, publication date), so the import is repeatable. The format and
+the whole procedure are described in
+[`docs/APMC_RATE_IMPORT.md`](APMC_RATE_IMPORT.md).
 
 ### Honest behaviour notes
 
@@ -504,10 +531,16 @@ this work:
 6. **The shared database contains no APMC rate row.** `GET /api/apmc/rates`
    answers `{"success":true,"data":[],"rates":[],"total":0}`, so the Mandi
    Rates page, the home ticker, the savings calculator and the farmer
-   dashboard show their honest "not published yet" state. There is **no seed
-   or import path** for APMC rates yet — and adding one with invented rows
-   would reintroduce exactly the mock data that was removed. Loading real
-   benchmark rows into the shared database is the open item.
+   dashboard show their honest "not published yet" state.
+   There **is** now an import path for APMC rates
+   (`npm run db:apmc-rates -- <file.csv>`, see
+   [`docs/APMC_RATE_IMPORT.md`](APMC_RATE_IMPORT.md)) — it copies a real
+   market bulletin into the shared database and rejects every row it cannot
+   read. It never generates a rate, so the table stays empty until a real
+   bulletin file is handed to it. **Loading a real bulletin into the
+   production database is still the open item** — the importer is the tool,
+   the published rates are the data, and the data is not something the
+   project may invent.
 7. **A farm without a shared position stays off the map.** Since the
    fabricated coordinates were removed (see §7.2), a farmer who never shared
    a GPS position has no `latitude` / `longitude` in the shared database.

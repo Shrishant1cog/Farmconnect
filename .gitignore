@@ -5,5 +5,7 @@ node_modules/
 backend/uploads/
 backend/prisma/*.db
 backend/prisma/*.db-journal
+# The real APMC rate file is data, not source — it is never committed.
+backend/data/apmc-rates.csv
 dist/
 

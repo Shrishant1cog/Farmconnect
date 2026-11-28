@@ -18,6 +18,8 @@ export const coreEn: TranslationMap = {
   'nav.signOut': 'Sign Out',
   'nav.farmerHub': 'Farmer Hub',
   'nav.myOrders': 'My Orders',
+  'nav.cart': 'Cart',
+  'nav.cartWithCount': 'Cart, {count} lots',
   'nav.notifications': 'Notifications',
   'nav.profile': 'Profile',
   'nav.dashboard': 'Dashboard',

@@ -18,6 +18,8 @@ export const coreKn: TranslationMap = {
   'nav.signOut': 'ಸೈನ್ ಔಟ್',
   'nav.farmerHub': 'ರೈತ ಕೇಂದ್ರ',
   'nav.myOrders': 'ನನ್ನ ಆರ್ಡರ್‌ಗಳು',
+  'nav.cart': 'ಬುಟ್ಟಿ',
+  'nav.cartWithCount': 'ಬುಟ್ಟಿ, {count} ಮೊದಿಗಳು',
   'nav.notifications': 'ಅಧಿಸೂಚನೆಗಳು',
   'nav.profile': 'ಪ್ರೊಫೈಲ್',
   'nav.dashboard': 'ಡ್ಯಾಶ್‌ಬೋರ್ಡ್',

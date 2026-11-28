@@ -18,6 +18,8 @@ export const coreHi: TranslationMap = {
   'nav.signOut': 'साइन आउट',
   'nav.farmerHub': 'किसान हब',
   'nav.myOrders': 'मेरे ऑर्डर',
+  'nav.cart': 'कार्ट',
+  'nav.cartWithCount': 'कार्ट, {count} लॉट',
   'nav.notifications': 'सूचनाएँ',
   'nav.profile': 'प्रोफ़ाइल',
   'nav.dashboard': 'डैशबोर्ड',

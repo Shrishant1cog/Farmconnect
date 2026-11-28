@@ -7,6 +7,7 @@ import {
   Sprout, 
   Home, 
   ShoppingBag, 
+  ShoppingCart,
   TrendingUp, 
   MapPin, 
   LogIn, 
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useI18n } from '../../hooks/useI18n';
+import { useCart } from '../../context/CartContext';
 import LanguageSwitcher from './LanguageSwitcher';
 
 export default function Navbar() {
@@ -25,6 +27,18 @@ export default function Navbar() {
   const router = useRouter();
   const { user, isLoading, logout } = useAuth();
   const { t } = useI18n();
+
+  /**
+   * The cart of the visitor.
+   *
+   * The cart used to be invisible: the marketplace filled it, the
+   * checkout read it, but **nothing** in the interface showed that it
+   * existed. A buyer who had just chosen a lot had no way to reach the
+   * checkout except by typing its address. The entry with the number of
+   * the lots closes that gap.
+   */
+  const cart = useCart();
+  const cartCount = cart?.totalItemsCount ?? 0;
 
   const handleLogout = () => {
     if (typeof document !== 'undefined') {
@@ -104,6 +118,19 @@ export default function Navbar() {
             </div>
           ) : user ? (
             <div className="flex items-center gap-2">
+              <Link
+                href="/checkout"
+                className="relative p-2 rounded-xl text-stone-500 hover:text-emerald-800 hover:bg-emerald-50 transition-colors"
+                title={t('nav.cart')}
+                aria-label={t('nav.cartWithCount', { count: cartCount })}
+              >
+                <ShoppingCart className="w-4 h-4" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-700 text-white text-[10px] font-black flex items-center justify-center">
+                    {cartCount > 99 ? '99+' : cartCount}
+                  </span>
+                )}
+              </Link>
               {user.role === 'FARMER' && (
                 <Link
                   href="/farmer/dashboard"
@@ -140,6 +167,19 @@ export default function Navbar() {
             </div>
           ) : (
             <div className="flex items-center gap-2">
+              <Link
+                href="/checkout"
+                className="relative p-2 rounded-xl text-stone-500 hover:text-emerald-800 hover:bg-emerald-50 transition-colors"
+                title={t('nav.cart')}
+                aria-label={t('nav.cartWithCount', { count: cartCount })}
+              >
+                <ShoppingCart className="w-4 h-4" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-700 text-white text-[10px] font-black flex items-center justify-center">
+                    {cartCount > 99 ? '99+' : cartCount}
+                  </span>
+                )}
+              </Link>
               <Link
                 href="/login"
                 className="px-4 py-2 text-xs font-bold text-stone-700 hover:text-stone-900 hover:bg-stone-100 rounded-xl transition-colors flex items-center gap-1.5"

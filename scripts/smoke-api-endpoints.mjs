@@ -143,15 +143,49 @@ const login = await call('POST', '/auth/login', {
 });
 record('login (email + password)', '/auth/login', 'POST', login, '200');
 
-const loginPhone = await call('POST', '/auth/login-phone', {
+// The phone is only an **identifier** — the proof is the password.
+//
+// The endpoint used to open the session of an account when the caller
+// knew nothing but the number; that was a complete account takeover and
+// it is refused now. A request without a password must be rejected, and
+// a request with the password of the account must open the session.
+const loginPhoneWithoutPassword = await call('POST', '/auth/login-phone', {
   body: { phone: `6${String(runId).slice(-9)}`, role: 'FARMER' },
 });
-record('login (phone)', '/auth/login-phone', 'POST', loginPhone, '200 (documented weak path)');
+record(
+  'login (phone without a password is refused)',
+  '/auth/login-phone',
+  'POST',
+  loginPhoneWithoutPassword,
+  '400 (the number alone must never open a session)',
+);
+
+const loginPhone = await call('POST', '/auth/login-phone', {
+  body: { phone: `6${String(runId).slice(-9)}`, password },
+});
+record(
+  'login (phone + password)',
+  '/auth/login-phone',
+  'POST',
+  loginPhone,
+  '200 (the same account as the email sign-in)',
+);
 
 const phoneLoginLegacy = await call('POST', '/auth/phone-login', {
-  body: { phone: `6${String(runId).slice(-9)}`, role: 'FARMER' },
+  body: { phone: `6${String(runId).slice(-9)}`, password },
 });
 record('login (legacy phone alias)', '/auth/phone-login', 'POST', phoneLoginLegacy, '200 (same handler)');
+
+const phoneLoginLegacyWithoutPassword = await call('POST', '/auth/phone-login', {
+  body: { phone: `6${String(runId).slice(-9)}`, role: 'FARMER' },
+});
+record(
+  'login (legacy phone alias without a password is refused)',
+  '/auth/phone-login',
+  'POST',
+  phoneLoginLegacyWithoutPassword,
+  '400 (the number alone must never open a session)',
+);
 
 const firebasePhone = await call('POST', '/auth/firebase-phone', {
   body: { idToken: 'not-a-real-firebase-token' },

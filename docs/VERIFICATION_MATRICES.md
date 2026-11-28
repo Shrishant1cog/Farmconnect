@@ -257,7 +257,7 @@ uses `next/font/local`.
 | The built CSS declares the same font stack | `--font-sans: "jakarta", "jakarta Fallback", system-ui, sans-serif` |
 | The emitted font file | `be6419ffe34f1ed7-s.p.woff2` — 27,348 bytes, byte for byte the committed file |
 | `@font-face` rules in the built CSS | 2 (the family + its size-adjusted fallback) |
-| Build without a network call to Google Fonts | PASS — `npm run build` exit code 0, 21 routes |
+| Build without a network call to Google Fonts | PASS — `npm run build` exit code 0, 25 app routes |
 
 The font was also **not being used at all**: the layout published it as
 the `--font-sans` variable and gave the body the `font-sans` utility

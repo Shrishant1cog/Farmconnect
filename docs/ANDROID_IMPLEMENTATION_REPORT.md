@@ -13,9 +13,10 @@ and **one** PostgreSQL database with the website.
 > and the 8-case integration suite). The **current** results live in
 > [`docs/VERIFICATION_MATRICES.md`](VERIFICATION_MATRICES.md) and
 > [`docs/MULTILINGUAL_AND_CROPS.md`](MULTILINGUAL_AND_CROPS.md) — as of the
-> head commit `0ad8866` the Flutter unit/widget suite is `31 / 31`, the
-> cross-platform workflow suite is `9 / 9` and the route coverage suite
-> opens all `21` routes.
+> head of the branch the Flutter unit/widget suite is `35 / 35`, the backend
+> integration suite is `141 / 141` (CI, PostgreSQL 16), the cross-platform
+> workflow suite is `9 / 9` and the route coverage suite opens all `21`
+> routes.
 
 ---
 

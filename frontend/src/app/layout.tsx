@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Plus_Jakarta_Sans } from 'next/font/google';
+import localFont from 'next/font/local';
 import './globals.css';
 import 'leaflet/dist/leaflet.css';
 import Navbar from '../components/ui/Navbar';
@@ -9,11 +9,21 @@ import Footer from '../components/ui/Footer';
 import SkipLink from '../components/ui/SkipLink';
 import { ModalProvider } from '../context/ModalContext';
 
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
+// Plus Jakarta Sans is **self-hosted**.
+//
+// `next/font/google` downloads the font files while the site is built, so a
+// build fails whenever Google Fonts cannot be reached — a transient network
+// problem in CI is enough. The font file is part of the repository instead,
+// which makes every build (local, CI and Render) reproducible and offline.
+// The file is the variable latin subset of the font; the licence (SIL Open
+// Font License 1.1) is next to it.
+const jakarta = localFont({
+  src: './fonts/PlusJakartaSans-Variable-latin.woff2',
   variable: '--font-sans',
   display: 'swap',
-  weight: ['400', '500', '600', '700', '800'],
+  weight: '400 800',
+  style: 'normal',
+  fallback: ['system-ui', 'sans-serif'],
 });
 
 export const viewport: Viewport = {

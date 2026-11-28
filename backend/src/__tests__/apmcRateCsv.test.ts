@@ -145,4 +145,31 @@ describe('APMC rate CSV — the importer never invents a row', () => {
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0].commodity).toBe('Tomato');
   });
+
+  it('reads a quoted cell that is preceded by a space', () => {
+    const result = parseApmcRateCsv(
+      `${HEADER}\nKarnataka,Mandya, "Mandya APMC",Tomato,2257.5,1800,2800,2026-11-27\n`,
+    );
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].marketCenter).toBe('Mandya APMC');
+  });
+
+  it('reads an unambiguous day-first date', () => {
+    const result = parseApmcRateCsv(
+      `${HEADER}\nKarnataka,Mandya,Mandya APMC,Tomato,2257.5,1800,2800,27/11/2026\n`,
+    );
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].updatedAt.toISOString().slice(0, 10)).toBe('2026-11-27');
+  });
+
+  it('rejects an ambiguous date instead of guessing it', () => {
+    const result = parseApmcRateCsv(
+      `${HEADER}\nKarnataka,Mandya,Mandya APMC,Tomato,2257.5,1800,2800,05/11/2026\n`,
+    );
+
+    expect(result.rows).toHaveLength(0);
+    expect(result.rejected[0].reason).toContain('publication date');
+  });
 });

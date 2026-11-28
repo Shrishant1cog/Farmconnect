@@ -28,7 +28,6 @@ The importer reads a CSV file with a **header row**. The columns are:
 | `minPrice` | yes | The minimum price of the day, in ₹ per quintal. |
 | `maxPrice` | yes | The maximum price of the day, in ₹ per quintal. |
 | `updatedAt` | yes | The day the market published the rate (`YYYY-MM-DD`). |
-
 The header names are matched case-insensitively and the usual spellings of a
 market bulletin are accepted:
 
@@ -50,7 +49,12 @@ A row is rejected — never corrected — when
 * a price is not a number,
 * a price is not greater than zero,
 * the prices contradict each other (`min ≤ modal ≤ max` does not hold),
-* the publication date is missing or cannot be read.
+* the publication date is missing, cannot be read or is **ambiguous**.
+
+A `DD/MM/YYYY` date is accepted when the day is above 12 (`27/11/2026`);
+a date that could be read in two ways (`05/11/2026`) is rejected rather
+than guessed, because a guessed publication date would misplace the rate.
+Use `YYYY-MM-DD` to avoid the question entirely.
 
 Every rejection is reported with its line number and the raw line.
 

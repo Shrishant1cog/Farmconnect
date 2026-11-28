@@ -115,7 +115,10 @@ export function parseCsvRecords(text: string): string[][] {
       continue;
     }
 
-    if (char === '"' && !cellStarted) {
+    if (char === '"' && cell.trim() === '') {
+      // A quoted cell may be preceded by spaces — the spaces are not part of
+      // the value.
+      cell = '';
       inQuotes = true;
       cellStarted = true;
       continue;
@@ -177,6 +180,11 @@ function parsePrice(value: string): number | null {
  * The market publishes the day of the rate, so the date is required: without
  * it the row could not be told apart from a later publication of the same
  * commodity, and the import would not be repeatable.
+ *
+ * `YYYY-MM-DD` is the recommended format. A `DD/MM/YYYY` date is accepted
+ * only when it is **unambiguous** — the day part is above 12. A date that
+ * could be read in two ways is rejected rather than guessed, because a
+ * guessed publication date would misplace the rate.
  */
 function parsePublishedAt(value: string): Date | null {
   const trimmed = value.trim();
@@ -190,6 +198,18 @@ function parsePublishedAt(value: string): Date | null {
       Date.UTC(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3])),
     );
     return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  // `DD/MM/YYYY` — only when the day cannot be a month.
+  const dayFirst = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(trimmed);
+  if (dayFirst) {
+    const day = Number(dayFirst[1]);
+    const month = Number(dayFirst[2]);
+    if (day > 12) {
+      const parsed = new Date(Date.UTC(Number(dayFirst[3]), month - 1, day));
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+    return null;
   }
 
   const parsed = new Date(trimmed);

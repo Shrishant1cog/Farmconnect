@@ -385,7 +385,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get farmerOrderStatusPending => 'Pending';
 
   @override
-  String get farmerOrderStatusConfirmed => 'Packed';
+  String get farmerOrderStatusConfirmed => 'Confirmed';
+
+  @override
+  String get farmerOrderStatusPacked => 'Packed';
 
   @override
   String get farmerOrderStatusDispatched => 'Dispatched';
@@ -660,7 +663,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get consumerOrderStatusPending => 'Pending';
 
   @override
-  String get consumerOrderStatusConfirmed => 'Packed';
+  String get consumerOrderStatusConfirmed => 'Confirmed';
+
+  @override
+  String get consumerOrderStatusPacked => 'Packed';
 
   @override
   String get consumerOrderStatusDispatched => 'Dispatched';

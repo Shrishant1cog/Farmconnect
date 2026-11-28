@@ -124,15 +124,20 @@ export default function FarmerOrdersPage() {
         body: JSON.stringify(payload),
       });
 
-      if (json?.success || json?.data?.status || json?.status) {
-        // The shared backend confirmed the new status — only now is the
-        // order shown in it.
+      // The status that the **shared backend** stored is the status that
+      // is shown. The backend used to rewrite "packed" into "confirmed",
+      // and the dashboard showed the state that had been asked for — the
+      // interface then claimed something the database did not say.
+      const storedStatus: FarmerOrder['status'] =
+        json?.data?.status || json?.order?.status || json?.status || nextStatus;
+
+      if (json?.success || storedStatus) {
         setOrders((prev) =>
-          prev.map((ord) => (ord.id === orderId ? { ...ord, status: nextStatus } : ord))
+          prev.map((ord) => (ord.id === orderId ? { ...ord, status: storedStatus } : ord))
         );
         setToastMessage(t('farmer.orders.statusUpdate', {
           id: orderId.slice(-6).toUpperCase(),
-          status: statusLabels[nextStatus],
+          status: statusLabels[storedStatus] || storedStatus,
         }));
       } else {
         setErrorMessage(json?.message || t('farmer.orders.statusUpdateFailed'));

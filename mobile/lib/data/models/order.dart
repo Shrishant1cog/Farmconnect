@@ -14,6 +14,7 @@ DateTime? _toDate(dynamic value) {
 enum OrderStatus {
   pending,
   confirmed,
+  packed,
   dispatched,
   delivered,
   cancelled;
@@ -21,8 +22,9 @@ enum OrderStatus {
   static OrderStatus fromString(String? raw) {
     switch (raw?.toUpperCase()) {
       case 'CONFIRMED':
-      case 'PACKED':
         return OrderStatus.confirmed;
+      case 'PACKED':
+        return OrderStatus.packed;
       case 'DISPATCHED':
       case 'IN_TRANSIT':
         return OrderStatus.dispatched;
@@ -41,6 +43,8 @@ enum OrderStatus {
         return 'PENDING';
       case OrderStatus.confirmed:
         return 'CONFIRMED';
+      case OrderStatus.packed:
+        return 'PACKED';
       case OrderStatus.dispatched:
         return 'DISPATCHED';
       case OrderStatus.delivered:
@@ -55,6 +59,8 @@ enum OrderStatus {
       case OrderStatus.pending:
         return 'Pending';
       case OrderStatus.confirmed:
+        return 'Confirmed';
+      case OrderStatus.packed:
         return 'Packed';
       case OrderStatus.dispatched:
         return 'Dispatched';

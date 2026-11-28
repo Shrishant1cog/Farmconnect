@@ -421,6 +421,8 @@ String _orderStatusLabel(AppLocalizations l10n, OrderStatus status) {
       return l10n.consumerOrderStatusPending;
     case OrderStatus.confirmed:
       return l10n.consumerOrderStatusConfirmed;
+    case OrderStatus.packed:
+      return l10n.consumerOrderStatusPacked;
     case OrderStatus.dispatched:
       return l10n.consumerOrderStatusDispatched;
     case OrderStatus.delivered:

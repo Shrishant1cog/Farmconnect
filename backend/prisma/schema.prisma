@@ -30,6 +30,7 @@ enum ContainerType {
 enum OrderStatus {
   PENDING
   CONFIRMED
+  PACKED
   DISPATCHED
   DELIVERED
   CANCELLED

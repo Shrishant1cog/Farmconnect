@@ -387,7 +387,10 @@ class AppLocalizationsKn extends AppLocalizations {
   String get farmerOrderStatusPending => 'ಬಾಕಿ';
 
   @override
-  String get farmerOrderStatusConfirmed => 'ಪ್ಯಾಕ್ ಮಾಡಲಾಗಿದೆ';
+  String get farmerOrderStatusConfirmed => 'ಖಡಿಸಲಾಗಿದೆ';
+
+  @override
+  String get farmerOrderStatusPacked => 'ಪ್ಯಾಕ್ ಮಾಡಲಾಗಿದೆ';
 
   @override
   String get farmerOrderStatusDispatched => 'ರವಾಣೆ ಮಾಡಲಾಗಿದೆ';
@@ -661,7 +664,10 @@ class AppLocalizationsKn extends AppLocalizations {
   String get consumerOrderStatusPending => 'ಬಾಕಿ';
 
   @override
-  String get consumerOrderStatusConfirmed => 'ಪ್ಯಾಕ್ ಮಾಡಲಾಗಿದೆ';
+  String get consumerOrderStatusConfirmed => 'ಖಡಿಸಲಾಗಿದೆ';
+
+  @override
+  String get consumerOrderStatusPacked => 'ಪ್ಯಾಕ್ ಮಾಡಲಾಗಿದೆ';
 
   @override
   String get consumerOrderStatusDispatched => 'ರವಾಣೆ ಮಾಡಲಾಗಿದೆ';

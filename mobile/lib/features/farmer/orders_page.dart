@@ -101,6 +101,7 @@ class _FarmerOrdersPageState extends ConsumerState<FarmerOrdersPage> {
     final l10n = AppLocalizations.of(context);
     final options = <OrderStatus>[
       OrderStatus.confirmed,
+      OrderStatus.packed,
       OrderStatus.dispatched,
       OrderStatus.delivered,
       OrderStatus.cancelled,
@@ -282,6 +283,8 @@ String _orderStatusLabel(AppLocalizations l10n, OrderStatus status) {
       return l10n.farmerOrderStatusPending;
     case OrderStatus.confirmed:
       return l10n.farmerOrderStatusConfirmed;
+    case OrderStatus.packed:
+      return l10n.farmerOrderStatusPacked;
     case OrderStatus.dispatched:
       return l10n.farmerOrderStatusDispatched;
     case OrderStatus.delivered:

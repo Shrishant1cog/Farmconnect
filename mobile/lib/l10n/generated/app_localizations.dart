@@ -823,8 +823,14 @@ abstract class AppLocalizations {
   /// No description provided for @farmerOrderStatusConfirmed.
   ///
   /// In en, this message translates to:
-  /// **'Packed'**
+  /// **'Confirmed'**
   String get farmerOrderStatusConfirmed;
+
+  /// No description provided for @farmerOrderStatusPacked.
+  ///
+  /// In en, this message translates to:
+  /// **'Packed'**
+  String get farmerOrderStatusPacked;
 
   /// No description provided for @farmerOrderStatusDispatched.
   ///
@@ -1327,8 +1333,14 @@ abstract class AppLocalizations {
   /// No description provided for @consumerOrderStatusConfirmed.
   ///
   /// In en, this message translates to:
-  /// **'Packed'**
+  /// **'Confirmed'**
   String get consumerOrderStatusConfirmed;
+
+  /// No description provided for @consumerOrderStatusPacked.
+  ///
+  /// In en, this message translates to:
+  /// **'Packed'**
+  String get consumerOrderStatusPacked;
 
   /// No description provided for @consumerOrderStatusDispatched.
   ///

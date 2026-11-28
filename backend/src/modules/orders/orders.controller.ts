@@ -296,8 +296,18 @@ export const updateOrderStatus = async (req: AuthenticatedRequest, res: Response
     }
 
     let prismaStatus = String(status || '').toUpperCase();
-    if (prismaStatus === 'PACKED') prismaStatus = 'CONFIRMED';
+    // `IN_TRANSIT` is the name some clients use for the same state. Every
+    // other status is stored **as it was asked for**: the harvest can
+    // really be packed, and the database knows that state.
     if (prismaStatus === 'IN_TRANSIT') prismaStatus = 'DISPATCHED';
+
+    const validStatuses = ['PENDING', 'CONFIRMED', 'PACKED', 'DISPATCHED', 'DELIVERED', 'CANCELLED'];
+    if (!validStatuses.includes(prismaStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: `Unknown order status "${status}".`,
+      });
+    }
 
     const updatedOrder = await db.order.update({
       where: { id },

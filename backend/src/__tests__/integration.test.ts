@@ -275,16 +275,45 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
     expect(orderRes.body.data.status).toBe('PENDING');
     testOrderId = orderRes.body.data.id;
 
-    // Step 2: Farmer Marks Produce Packed (CONFIRMED)
-    const packRes = await agent
+    // Step 2: Farmer Confirms the Lot (CONFIRMED)
+    const confirmRes = await agent
       .patch(`/api/orders/${testOrderId}/status`)
       .set('Authorization', `Bearer ${farmerToken}`)
       .send({ status: 'CONFIRMED' });
 
-    expect(packRes.status).toBe(200);
-    expect(packRes.body.data.status).toBe('CONFIRMED');
+    expect(confirmRes.status).toBe(200);
+    expect(confirmRes.body.data.status).toBe('CONFIRMED');
 
-    // Step 3: Farmer Dispatches Produce with Logistics (DISPATCHED)
+    // Step 3: Farmer Packs the Harvest (PACKED)
+    //
+    // The backend used to rewrite `PACKED` into `CONFIRMED`, so the
+    // dispatch dashboard of the cultivator showed "packed in crates"
+    // while the shared database still said "confirmed" — and the step
+    // "harvest packed" of the timeline of the buyer could never be
+    // reached. The state that is asked for is the state that is stored.
+    const packRes = await agent
+      .patch(`/api/orders/${testOrderId}/status`)
+      .set('Authorization', `Bearer ${farmerToken}`)
+      .send({ status: 'PACKED' });
+
+    expect(packRes.status).toBe(200);
+    expect(packRes.body.data.status).toBe('PACKED');
+
+    // The row of the shared database really carries the new state.
+    const storedOrder = await prisma.order.findUnique({ where: { id: testOrderId } });
+    expect(storedOrder?.status).toBe('PACKED');
+
+    // A state that does not exist is refused — it is not silently stored
+    // as something else.
+    const unknownStatusRes = await agent
+      .patch(`/api/orders/${testOrderId}/status`)
+      .set('Authorization', `Bearer ${farmerToken}`)
+      .send({ status: 'TELEPORTED' });
+
+    expect(unknownStatusRes.status).toBe(400);
+    expect(unknownStatusRes.body.success).toBe(false);
+
+    // Step 4: Farmer Dispatches Produce with Logistics (DISPATCHED)
     const dispatchRes = await agent
       .patch(`/api/orders/${testOrderId}/status`)
       .set('Authorization', `Bearer ${farmerToken}`)
@@ -293,13 +322,13 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
     expect(dispatchRes.status).toBe(200);
     expect(dispatchRes.body.data.status).toBe('DISPATCHED');
 
-    // Step 4: Consumer Confirms Delivery Receipt (DELIVERED)
-    const confirmRes = await agent
+    // Step 5: Consumer Confirms Delivery Receipt (DELIVERED)
+    const deliveryRes = await agent
       .patch(`/api/orders/${testOrderId}/received`)
       .set('Authorization', `Bearer ${consumerToken}`);
 
-    expect(confirmRes.status).toBe(200);
-    expect(confirmRes.body.data.status).toBe('DELIVERED');
+    expect(deliveryRes.status).toBe(200);
+    expect(deliveryRes.body.data.status).toBe('DELIVERED');
   });
 
   // ==========================================================================

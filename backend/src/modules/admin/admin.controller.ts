@@ -29,7 +29,12 @@ export const getPlatformMetrics = async (_req: AuthenticatedRequest, res: Respon
       db.user.count({ where: { role: 'FARMER' as any } }).catch(() => 0),
       db.user.count({ where: { role: 'CONSUMER' as any } }).catch(() => 0),
       db.product.count({ where: { isAvailable: true } }).catch(() => 0),
-      db.order.count({ where: { status: { in: ['PENDING', 'CONFIRMED', 'DISPATCHED'] as any } } }).catch(() => 0),
+      // An order that is on its way is active — placed, confirmed, packed
+      // or dispatched. The "packed" state was missing from the list, so a
+      // harvest that was being packed was not counted at all.
+      db.order.count({
+        where: { status: { in: ['PENDING', 'CONFIRMED', 'PACKED', 'DISPATCHED'] as any } },
+      }).catch(() => 0),
       (db as any).complaint ? (db as any).complaint.count({ where: { status: 'PENDING' } }).catch(() => 0) : 0,
       // The command center shows a "Total Enquiries" figure. It used to be
       // read from a field the backend never sent, so the card showed a

@@ -74,10 +74,28 @@ void main() {
 
   group('Order', () {
     test('maps the order status aliases used by the backend', () {
-      expect(OrderStatus.fromString('PACKED'), OrderStatus.confirmed);
       expect(OrderStatus.fromString('IN_TRANSIT'), OrderStatus.dispatched);
       expect(OrderStatus.fromString('DELIVERED'), OrderStatus.delivered);
       expect(OrderStatus.fromString(null), OrderStatus.pending);
+    });
+
+    test('keeps "packed" apart from "confirmed"', () {
+      // The backend used to rewrite `PACKED` into `CONFIRMED`, so the
+      // phone showed "packed" for an order that the shared database
+      // still called "confirmed". The harvest can now really be packed,
+      // and the two states are two states.
+      expect(OrderStatus.fromString('PACKED'), OrderStatus.packed);
+      expect(OrderStatus.fromString('CONFIRMED'), OrderStatus.confirmed);
+      expect(OrderStatus.packed.wireValue, 'PACKED');
+      expect(OrderStatus.confirmed.wireValue, 'CONFIRMED');
+      expect(OrderStatus.packed.label, 'Packed');
+      expect(OrderStatus.confirmed.label, 'Confirmed');
+    });
+
+    test('every status survives the round trip through the wire', () {
+      for (final status in OrderStatus.values) {
+        expect(OrderStatus.fromString(status.wireValue), status);
+      }
     });
 
     test('parses an order with items', () {

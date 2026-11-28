@@ -385,7 +385,10 @@ class AppLocalizationsHi extends AppLocalizations {
   String get farmerOrderStatusPending => 'लंबित';
 
   @override
-  String get farmerOrderStatusConfirmed => 'पैक किया गया';
+  String get farmerOrderStatusConfirmed => 'पुष्टि की गई';
+
+  @override
+  String get farmerOrderStatusPacked => 'पैक किया गया';
 
   @override
   String get farmerOrderStatusDispatched => 'भेजा गया';
@@ -657,7 +660,10 @@ class AppLocalizationsHi extends AppLocalizations {
   String get consumerOrderStatusPending => 'लंबित';
 
   @override
-  String get consumerOrderStatusConfirmed => 'पैक किया गया';
+  String get consumerOrderStatusConfirmed => 'पुष्टि की गई';
+
+  @override
+  String get consumerOrderStatusPacked => 'पैक किया गया';
 
   @override
   String get consumerOrderStatusDispatched => 'भेजा गया';

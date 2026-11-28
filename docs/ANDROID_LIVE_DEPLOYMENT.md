@@ -122,11 +122,21 @@ flutter build appbundle --release \
 | Artefact | Path | Size |
 | --- | --- | --- |
 | Release APK | `mobile/build/app/outputs/flutter-apk/app-release.apk` | 57.8 MB (60,617,334 bytes) |
-| Release App Bundle | `mobile/build/app/outputs/bundle/release/app-release.aab` | 56.1 MB (58,781,991 bytes) |
+| Release App Bundle | `mobile/build/app/outputs/bundle/release/app-release.aab` | 56.0 MB (58,770,324 bytes) |
 | Debug APK | `mobile/build/app/outputs/flutter-apk/app-debug.apk` | 157.6 MB (165,269,190 bytes) |
 
 `mobile/build/` is excluded by `mobile/.gitignore`, so these are build
 artifacts rather than tracked files. Rebuild them with section 3.1.
+
+The two release artefacts were rebuilt on **2026-11-28** after the last source
+change of the audit series (`d455244`) and were verified again:
+
+| Check | Command | Result |
+| --- | --- | --- |
+| The package really points at production | `aapt2 dump badging app-release.apk` | package `in.farmconnect.farmconnect_mobile`, versionName `1.0.0`, label `FarmConnect`, `minSdkVersion 24`, `targetSdkVersion 36` |
+| The permissions are the expected ones | `aapt2 dump badging app-release.apk` | `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_COARSE_LOCATION`, `ACCESS_FINE_LOCATION`, `CAMERA` — nothing else |
+| The signature | `apksigner verify --print-certs app-release.apk` | `CN=Android Debug` — the artefact is **debug-signed**, so it is **not** Play Store ready (see section 7) |
+| The embedded host | scan `libapp.so` of every ABI inside the APK | `farmconnect-api-sn98.onrender.com` **3×** in `arm64-v8a`, `armeabi-v7a` and `x86_64`; `10.0.2.2:5000` **0×** and `localhost:5000` **0×** in all three |
 
 ### 3.4 Verifying that a build points at production
 
@@ -310,15 +320,50 @@ cd mobile && flutter analyze
 
 ```
 cd mobile && flutter test
-→ 00:00 +21: All tests passed!    (21/21)
+→ 00:01 +35: All tests passed!    (35/35)
 ```
 
 | File | Covers |
 | --- | --- |
-| `test/model_parsing_test.dart` | JSON parsing of products, orders, enquiries, users, prices, notifications |
+| `test/model_parsing_test.dart` | JSON parsing of products, orders, enquiries, users, prices, notifications — and the **round trip** of every order status, including the new `PACKED` |
 | `test/cart_widget_test.dart` | Empty cart state, adding products, quantity changes, minimum order quantity |
 | `test/production_config_test.dart` | The production build scripts pin the deployed Render API and never point at the emulator address |
 | `test/router_session_test.dart` | The session-restore redirect: a restored session leaves the splash screen (see section 6.4) |
+| `test/locale_test.dart`, `test/crop_listing_test.dart` | The three languages, the language switch and the independent crop lots |
+| `test/profile_role_test.dart` | The entry "My favourites" is offered to a **buyer** and not to a cultivator — the favourites belong to a buyer, the shared backend refuses them with HTTP 403 |
+
+### 6.2.1 Live integration suites against the deployed backend
+
+Four suites run on the emulator against the **live** Render services. None of
+them uses a mock server or a fake response.
+
+```
+cd mobile
+flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 \
+  --dart-define=TEST_API_BASE_URL=https://farmconnect-api-sn98.onrender.com/api \
+  --dart-define=TEST_SOCKET_URL=https://farmconnect-api-sn98.onrender.com
+→ 00:57 +9: All tests passed!      (9/9)
+
+flutter test integration_test/route_coverage_test.dart -d emulator-5554 … 
+→ 01:26 +1: All tests passed!      (21/21 routes opened)
+
+flutter test integration_test/auth_journey_test.dart -d emulator-5554 …
+→ 00:57 +5: All tests passed!      (5/5)
+
+flutter test integration_test/cross_platform_test.dart -d emulator-5554 …
+→ 00:53 +2: All tests passed!      (2/2)
+
+flutter test integration_test/packed_status_test.dart -d emulator-5554 …
+→ 00:17 +1: All tests passed!      (1/1)
+```
+
+| Suite | What it proves on the live backend |
+| --- | --- |
+| `shared_data_workflow_test.dart` | the nine shared workflows: the listing of one client is visible on the other, the enquiries and the chat, the favourites, the order, the socket event, the language preference and the shared positions |
+| `route_coverage_test.dart` | all **21** routes open on the real router without a widget exception |
+| `auth_journey_test.dart` | the sign-in, the session restore, the logout and the re-sign-in of the **same** account |
+| `cross_platform_test.dart` | the order that the website placed is listed on the phone — the run really printed `Order #68f854b8 \| Delivered \| Web QA Tomato 1795847693410` |
+| `packed_status_test.dart` | the state `PACKED` is **stored** by the shared backend (the answer of the API carries it), an unknown state is refused with **HTTP 400**, and the Android list shows "Packed" **in the card of that order** |
 
 ### 6.3 Release APK on the emulator against the **live** services
 
@@ -475,11 +520,16 @@ data remain and are documented rather than hidden:
 | --- | --- | --- |
 | Live API health | `GET /api/health` | ✅ `{"status":"UP","database":"UP"}` |
 | Live website | `GET https://farmconnect-web.onrender.com` | ✅ HTTP 200 |
-| Backend tests | `cd backend && npm test -- --runInBand` | ✅ 7/7 |
+| Backend unit tests | `cd backend && npm run test:unit` | ✅ 92/92 |
 | Backend build | `cd backend && npm run build` | ✅ exit 0 |
 | Frontend types | `cd frontend && npx tsc --noEmit` | ✅ exit 0 |
-| Frontend build | `cd frontend && npm run build` | ✅ exit 0, 24 routes |
-| PR CI | run `45991116804` | ✅ PostgreSQL 16 container, migrations applied, 7/7 |
+| Frontend regression tests | `cd frontend && npm test` | ✅ 44/44 |
+| Frontend build | `cd frontend && npm run build` | ✅ exit 0, 25 routes |
+| Android analysis | `cd mobile && flutter analyze` | ✅ "No issues found!" |
+| Android tests | `cd mobile && flutter test` | ✅ 35/35 |
+| CI — `verify` job | `gh run list --branch fix/local-updates` | ✅ the localisation check, the localisation **usage** check, the frontend types, the frontend tests, the frontend build, the backend types, the backend unit tests and the PostgreSQL 16 integration suite (140 tests) |
+| CI — `Android client` job | the same command | ✅ a **separate** job with Flutter 3.47.2 stable: `flutter analyze --no-fatal-infos` and `flutter test` |
+| PR CI | run `46145115931` (branch head `d455244`) | ✅ PostgreSQL 16 container, migrations applied, 140/140 |
 
 ### 6.8 Ten-workflow verification matrix
 

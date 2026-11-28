@@ -129,11 +129,76 @@ split per feature group so several languages can be added independently.
 
 | Group | en | kn | hi | Missing / extra |
 | --- | --- | --- | --- | --- |
-| `core` | 120 | 120 | 120 | 0 / 0 |
-| `auth` | 126 | 126 | 126 | 0 / 0 |
-| `farmer` | 301 | 301 | 301 | 0 / 0 |
-| `consumer` | 232 | 232 | 232 | 0 / 0 |
-| `misc` | 352 | 352 | 352 | 0 / 0 |
+| `core` | 132 | 132 | 132 | 0 / 0 |
+| `auth` | 121 | 121 | 121 | 0 / 0 |
+| `farmer` | 313 | 313 | 313 | 0 / 0 |
+| `consumer` | 248 | 248 | 248 | 0 / 0 |
+| `misc` | 395 | 395 | 395 | 0 / 0 |
+
+#### 2.3.1 The two forms of a count (singular and plural)
+
+A count of one must be written in the singular. The audit of the live navbar
+found **"My favourites, 1 entries"** — the translator had no way to say it
+otherwise, because `t('nav.favoritesWithCount', { count })` always returned
+the same sentence.
+
+The translator now knows the two forms:
+
+```ts
+// frontend/src/i18n/types.ts
+resolveTemplate(table, fallback, key, params)
+```
+
+* When the dictionary carries `key.one` and `key.other`, the form that fits
+  the count is used.
+* A key **without** the two forms keeps its plain template — every existing
+  string behaves exactly as before.
+* A language that does not have the two forms yet falls back to the English
+  reference — an English sentence instead of an empty label.
+* An unknown key stays the key — nothing is invented.
+
+The count may be a number (`5`) **or** a number that was already formatted for
+the active language (`"1,000"`): the interface formats the numbers before it
+hands them to the translator, and "1,000" must still read as "one". The helper
+`readCount()` parses both forms.
+
+The strings that carry a count have the two forms in all three languages:
+
+| Key | English | Kannada | Hindi |
+| --- | --- | --- | --- |
+| `nav.cartWithCount` | "Cart, 1 lot" / "Cart, 3 lots" | "ಬುಟ್ಟಿ, 1 ಮೊದಿ" / "ಬುಟ್ಟಿ, {count} ಮೊದಿಗಳು" | "कार्ट, 1 लॉट" / "कार्ट, {count} लॉट" |
+| `nav.favoritesWithCount` | "My favourites, 1 entry" / "… 3 entries" | "ನನ್ನ ಇಷ್ಟಪಟ್ಟಗಳು, 1 ನಮೂಕೆ" / "… {count} ನಮೂಕೆಗಳು" | "मेरे पसंदीदा, 1 प्रविष्टि" / "… {count} प्रविष्टियाँ" |
+| `nav.notificationsWithCount` | "Notifications, 1 unread" / "… 5 unread" | "ಅಧಿಸೂಚನೆಗಳು, 1 ಓದದವು" / "… {count} ಓದದವು" | "सूचनाएँ, 1 अपठित" / "… {count} अपठित" |
+| `misc.notifications.subtitleWithCount` | "1 notice was not read yet." / "5 notices …" | "1 ಸೂಚನೆಯನ್ನು …" / "{count} ಸೂಚನೆಗಳನ್ನು …" | "1 संदेश अभी तक नहीं पढ़ा गया।" / "{count} संदेश अभी तक नहीं पढ़े गए।" |
+| `consumer.favorites.activeLots` | "1 active lot" / "3 active lots" | "1 ಸಕ್ರಿಯ ಮೊದಿ" / "{count} ಸಕ್ರಿಯ ಮೊದಿಗಳು" | "1 सक्रिय लॉट" / "{count} सक्रिय लॉट" |
+
+The regression tests live in `frontend/src/lib/__tests__/plural.test.mjs`
+(9 tests).
+
+#### 2.3.2 The second half of the question: does the key **exist**?
+
+`scripts/verify-i18n.mjs` proves that the three languages contain the **same**
+keys. A key that is missing from *all* of them passes that check — and that is
+exactly how the raw key `farmer.orders.orderNumber` reached the screen of the
+dispatch dashboard.
+
+`scripts/verify-i18n-usage.mjs` asks the other half: it reads every `t('…')`
+call of the website, compares the keys with the English dictionaries and fails
+when a key is **used but not defined**. The result is honest about its own
+limits:
+
+| Number | Meaning |
+| --- | --- |
+| 68 | files scanned |
+| 1 209 | known keys |
+| 1 003 | keys asked for |
+| **0** | missing keys (after the fix) |
+| 206 | keys that are defined but never asked for (not an error — some strings are prepared for a screen that is still being built) |
+| 12 | calls in 7 files that build their key at runtime — **not** checked statically |
+
+The script is wired into the CI workflow (`.github/workflows/verify.yml`), so
+a key that is asked for but not defined fails the build from now on instead of
+reaching a user.
 
 ### 2.4 Android implementation
 
@@ -154,7 +219,7 @@ refresh and no flicker**.
 The language is stored in the encrypted keystore
 (`farmconnect_locale`) and deliberately **survives a logout**.
 
-**ARB size:** 397 keys per language (`en`, `kn`, `hi`) — 0 missing / 0 extra,
+**ARB size:** 400 keys per language (`en`, `kn`, `hi`) — 0 missing / 0 extra,
 verified by `scripts/verify-i18n.mjs`.
 
 ### 2.4.1 The position a farmer or a buyer shares
@@ -362,13 +427,16 @@ type a crop that is not listed.
 # 1. Every language contains the complete English key set (website + Android)
 node scripts/verify-i18n.mjs
 
+# 1b. Every key the website asks for really exists
+node scripts/verify-i18n-usage.mjs
+
 # 2. Backend unit tests (no database required)
 cd backend && npx jest src/__tests__/language.test.ts \
                      src/__tests__/productQuery.test.ts \
                      src/__tests__/categoryResolver.test.ts
 
-# 3. Website types
-cd frontend && npx tsc --noEmit
+# 3. Website types + regression tests
+cd frontend && npx tsc --noEmit && npm test
 
 # 4. Android analysis + tests
 cd mobile && flutter analyze && flutter test
@@ -400,21 +468,23 @@ estimated. The live route and cross-platform matrices are kept separately in
 
 | Check | Command | Result | Evidence |
 | --- | --- | --- | --- |
-| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 73 / 73 tests green (7 suites: `language`, `productQuery`, `categoryResolver`, `apmcBenchmark`, `logisticsService`, `coordinate`, `apmcRateCsv`) |
+| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 92 / 92 tests green (9 suites: `language`, `productQuery`, `categoryResolver`, `apmcBenchmark`, `logisticsService`, `coordinate`, `geo`, `jwtSecret`, `apmcRateCsv`) |
 | Backend type check | `cd backend && npx tsc --noEmit` | PASS | exit code 0 |
+| Backend database integration suite (CI, PostgreSQL 16) | `cd backend && npm run test:integration` | PASS (CI) | 140 / 140 tests green in 10 suites. Locally **BLOCKED** — no PostgreSQL/Docker in the local environment |
 | Website type check | `cd frontend && npx tsc --noEmit` | PASS | exit code 0 |
-| Website production build | `cd frontend && npm run build` | PASS | exit code 0 — 21 routes prerendered/built, no prerender errors. The build does **not** reach out to Google Fonts: Plus Jakarta Sans is self-hosted (`frontend/src/app/fonts`), so the build is reproducible offline |
+| Website regression tests | `cd frontend && npm test` | PASS | 44 / 44 tests green (`node --test`, no dependency) |
+| Website production build | `cd frontend && npm run build` | PASS | exit code 0 — 25 routes prerendered/built, no prerender errors. The build does **not** reach out to Google Fonts: Plus Jakarta Sans is self-hosted (`frontend/src/app/fonts`), so the build is reproducible offline |
 | Android static analysis | `cd mobile && flutter analyze` | PASS | "No issues found!" |
-| Android unit + widget tests | `cd mobile && flutter test` | PASS | 31 / 31 tests green (includes `locale_test.dart` and `crop_listing_test.dart`) |
-| Localisation key parity | `node scripts/verify-i18n.mjs` | PASS | website `core` 120, `auth` 126, `farmer` 313, `consumer` 233, `misc` 362 keys; Android ARB 397 keys — 0 missing / 0 extra for Kannada and Hindi |
+| Android unit + widget tests | `cd mobile && flutter test` | PASS | 35 / 35 tests green (includes `locale_test.dart`, `crop_listing_test.dart` and `profile_role_test.dart`) |
+| Localisation key parity | `node scripts/verify-i18n.mjs` | PASS | website `core` 132, `auth` 121, `farmer` 313, `consumer` 248, `misc` 395 keys; Android ARB 400 keys — 0 missing / 0 extra for Kannada and Hindi |
+| Localisation **usage** | `node scripts/verify-i18n-usage.mjs` | PASS | 68 files scanned, 1 198 known keys, 1 003 keys asked for, **0 missing**. The script reports honestly that 12 calls in 7 files build their key at runtime and are therefore **not** checked statically. Wired into the CI workflow |
 | Hardcoded-English scan of the website JSX | `node C:\Users\user\AppData\Local\Temp\opencode\find-hardcoded-jsx.mjs` | PASS | 3 hits — all false positives (`Promise` type annotations) |
-| Website + API route smoke (deployed) | `node scripts/smoke-routes.mjs` | PASS | 22 / 22 website routes + 24 / 24 API routes answered with the expected status (200, or the expected auth redirect) |
-| API endpoint smoke (deployed) | `node scripts/smoke-api-endpoints.mjs` | PASS | 50 probes, 0 unexpected statuses — every endpoint of the shared backend was exercised with a real request |
+| Website + API route smoke (deployed) | `node scripts/smoke-routes.mjs` | PASS | 25 / 25 website routes + 24 / 24 API routes answered with the expected status (200, or the expected auth redirect) |
+| API endpoint smoke (deployed) | `node scripts/smoke-api-endpoints.mjs` | PASS | 52 probes, 0 unexpected statuses — every endpoint of the shared backend was exercised with a real request |
 | Live feature verification (deployed) | `node scripts/live-verify.mjs` | PASS | 61 / 61 checks green against the deployed API — 46 feature checks plus 15 that prove no fabricated benchmark, route, coordinate or success state reaches the backend |
 | Multilingual catalogue verification (deployed) | `node scripts/verify-localised-catalogue.mjs` | PASS | 12 / 12 checks green — every category and crop carries its Kannada and Hindi name, the catalogue and the product filter find a crop in English, Kannada and Hindi, and the APMC endpoint answers with the real rows |
 | Android route coverage (emulator, deployed API) | `cd mobile && flutter test integration_test/route_coverage_test.dart -d emulator-5554 …` | PASS | 21 / 21 routes opened, no widget exception — `01:26 +1: All tests passed!` |
 | Cross-platform workflow suite (emulator, deployed API) | `cd mobile && flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 …` | PASS | 9 / 9 tests green — `00:57 +9: All tests passed!`, exit code 0 |
-| Backend database integration suite | `cd backend && npm run test:integration` | BLOCKED | no PostgreSQL/Docker in the local environment — the suite (language storage, catalogue endpoints, independent crop lots, edit isolation, crop filtering, listing authorisation, notification inbox) runs in pull-request CI with PostgreSQL 16 and is green there |
 
 ### What the unit tests actually cover
 

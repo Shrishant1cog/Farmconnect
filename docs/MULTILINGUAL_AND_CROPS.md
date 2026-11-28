@@ -400,10 +400,10 @@ estimated. The live route and cross-platform matrices are kept separately in
 
 | Check | Command | Result | Evidence |
 | --- | --- | --- | --- |
-| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 70 / 70 tests green (7 suites: `language`, `productQuery`, `categoryResolver`, `apmcBenchmark`, `logisticsService`, `coordinate`, `apmcRateCsv`) |
+| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 73 / 73 tests green (7 suites: `language`, `productQuery`, `categoryResolver`, `apmcBenchmark`, `logisticsService`, `coordinate`, `apmcRateCsv`) |
 | Backend type check | `cd backend && npx tsc --noEmit` | PASS | exit code 0 |
 | Website type check | `cd frontend && npx tsc --noEmit` | PASS | exit code 0 |
-| Website production build | `cd frontend && npm run build` | PASS | exit code 0 — 21 routes prerendered/built, no prerender errors |
+| Website production build | `cd frontend && npm run build` | PASS | exit code 0 — 21 routes prerendered/built, no prerender errors. The build does **not** reach out to Google Fonts: Plus Jakarta Sans is self-hosted (`frontend/src/app/fonts`), so the build is reproducible offline |
 | Android static analysis | `cd mobile && flutter analyze` | PASS | "No issues found!" |
 | Android unit + widget tests | `cd mobile && flutter test` | PASS | 31 / 31 tests green (includes `locale_test.dart` and `crop_listing_test.dart`) |
 | Localisation key parity | `node scripts/verify-i18n.mjs` | PASS | website `core` 120, `auth` 126, `farmer` 313, `consumer` 233, `misc` 362 keys; Android ARB 397 keys — 0 missing / 0 extra for Kannada and Hindi |

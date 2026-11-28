@@ -207,6 +207,33 @@ again.
 | 4 | Missing `Scaffold` | `No Material widget found.` — the screen could not be opened at all | `TextField` needs a `Material` ancestor; both screens are pushed as full-screen routes | Both screens now bring their own `Scaffold` + `AppBar` — `mobile/lib/features/market_rates/market_rates_page.dart`, `mobile/lib/features/logistics/logistics_page.dart` |
 | 5 | English fallback in the market-rate model | A row without a commodity was labelled `Commodity` | Hardcoded English fallback in the model | The fallback was removed and the model now carries the localised `commodityNameKn` / `commodityNameHi` of the shared catalogue — `mobile/lib/data/models/misc.dart`, `mobile/lib/features/market_rates/market_rates_page.dart` |
 
+#### 1.3.2 The build depended on a third-party font download
+
+The push run of the CI failed while the pull-request run of the **same**
+commit passed — both build the identical code. The cause was
+`next/font/google`, which downloads the font files while the site is
+built:
+
+```
+An error occurred in `next/font`.
+TypeError: Cannot read properties of null (reading '1')
+    at next/dist/compiled/@next/font/dist/google/loader.js:122:78
+```
+
+A build that reaches out to a third-party host is a build that fails at
+random, and a failed build means a failed deploy. Plus Jakarta Sans is
+now **self-hosted**: the variable latin subset is part of the repository
+(`frontend/src/app/fonts/PlusJakartaSans-Variable-latin.woff2`) together
+with its SIL Open Font License 1.1, and `frontend/src/app/layout.tsx`
+uses `next/font/local`.
+
+| Check | Result |
+| --- | --- |
+| The built CSS declares the same font stack | `--font-sans: "jakarta", "jakarta Fallback", system-ui, sans-serif` |
+| The emitted font file | `be6419ffe34f1ed7-s.p.woff2` — 27,348 bytes, byte for byte the committed file |
+| `@font-face` rules in the built CSS | 2 (the family + its size-adjusted fallback) |
+| Build without a network call to Google Fonts | PASS — `npm run build` exit code 0, 21 routes |
+
 ---
 
 ## 1.4 Mock data and fabricated states
@@ -348,7 +375,7 @@ unavailable instead.").
 
 | Check | Command | Result | Evidence |
 | --- | --- | --- | --- |
-| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 70 / 70 tests green (7 suites: `language`, `productQuery`, `categoryResolver`, `apmcBenchmark`, `logisticsService`, `coordinate`, `apmcRateCsv` — including the 8 tests of the APMC benchmark resolver, the 5 tests that prove the logistics quote never invents a benchmark or a route, the 9 tests of the coordinate schema, which prove that a cleared position never becomes the point `0 / 0`, and the 13 tests of the APMC rate importer, which prove that a malformed bulletin row is rejected instead of being corrected) |
+| Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 73 / 73 tests green (7 suites: `language`, `productQuery`, `categoryResolver`, `apmcBenchmark`, `logisticsService`, `coordinate`, `apmcRateCsv` — including the 8 tests of the APMC benchmark resolver, the 5 tests that prove the logistics quote never invents a benchmark or a route, the 9 tests of the coordinate schema, which prove that a cleared position never becomes the point `0 / 0`, and the 16 tests of the APMC rate importer, which prove that a malformed bulletin row is rejected instead of being corrected) |
 | Backend type check | `cd backend && npx tsc --noEmit` | PASS | exit code 0 |
 | Website type check | `cd frontend && npx tsc --noEmit` | PASS | exit code 0 |
 | Website production build | `cd frontend && npm run build` | PASS | exit code 0 — 21 routes prerendered/built, no prerender errors |
@@ -363,7 +390,7 @@ unavailable instead.").
 | APMC rate importer (dry run, no database write) | `cd backend && npm run db:apmc-rates -- <test bulletin>.csv --dry-run` | PASS | 2 usable row(s), 1 commodity resolves to the crop catalogue, 1 published commodity does not (reported as such), 1 row rejected with the reason `the price(s) modalPrice are not a number` — **nothing was written**. A missing file and a file without a usable row both end with exit code 1 and write nothing. The 13 unit tests of `apmcRateCsv` cover the same rules |
 | Cross-platform workflow suite (emulator, deployed API) | `cd mobile && flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 …` | PASS | 9 / 9 tests green — `00:54 +9: All tests passed!`, exit code 0 |
 | Backend database integration suite | `cd backend && npm run test:integration` | BLOCKED | no PostgreSQL/Docker in the local environment — the suite (language storage, catalogue endpoints, independent crop lots, edit isolation, crop filtering, listing authorisation, notification inbox) runs in pull-request CI with PostgreSQL 16 and is green there |
-| Pull-request CI | `gh run list --branch fix/local-updates` | PASS | `FarmConnect Verification` — the push and the pull-request runs are green, including the PostgreSQL 16 integration suite. **Runs for the head commit `459aeee`:** push run [`46087077962`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46087077962) (success, 1m37s) and pull-request run [`46087083317`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46087083317) (success, 1m30s). The previous heads `5654272` and `60cf464` were green as well — push [`46085702742`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46085702742), pull request [`46085708809`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46085708809). Every run executes the localisation check, the frontend type check and production build, the backend type check, the migrations, the PostgreSQL 16 integration suite, the `start.bat` validation and the source packaging |
+| Pull-request CI | `gh run list --branch fix/local-updates` | PASS | `FarmConnect Verification` — the push and the pull-request runs are green, including the PostgreSQL 16 integration suite. **Runs for the head commit `d7703af`:** push run [`46088640695`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46088640695) (success, 1m57s) and pull-request run [`46088644582`](https://github.com/Shrishant1cog/Farmconnect/actions/runs/46088644582) (success, 1m28s). The earlier heads `459aeee`, `5654272` and `60cf464` were green as well. Every run executes the localisation check, the frontend type check and production build, the backend type check, the migrations, the PostgreSQL 16 integration suite, the `start.bat` validation and the source packaging. The run of `d597f74` failed while the pull-request run of the same commit passed — `next/font/google` could not reach Google Fonts; the font is self-hosted since `d7703af`, so the build no longer depends on a third-party host (see §1.3.2) |
 | Release artefact build | `cd mobile && powershell -ExecutionPolicy Bypass -File .\tool\build_production.ps1 -Target all` | PASS | exit code 0 — `app-release.apk` 57.8 MB (60,617,334 bytes) and `app-release.aab` 56.1 MB (58,781,991 bytes), both against the live Render host |
 | Release artefact on a device | `adb -s emulator-5554 install -r mobile\build\app\outputs\flutter-apk\app-release.apk` | PASS | `Success`. `aapt2 dump badging` → package `in.farmconnect.farmconnect_mobile`, versionName `1.0.0`, label `FarmConnect`; `aapt2 dump permissions` → `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_COARSE_LOCATION`, `ACCESS_FINE_LOCATION`, `CAMERA`. `apksigner verify --print-certs` → `CN=Android Debug` — the artefact is **debug-signed**, so it is **not** Play Store ready (see [`docs/MULTILINGUAL_AND_CROPS.md`](MULTILINGUAL_AND_CROPS.md), limitation 3) |
 | Release artefact — embedded host | scan `libapp.so` of every ABI inside the APK | PASS | `farmconnect-api-sn98.onrender.com` appears **3×** in `arm64-v8a`, `armeabi-v7a` and `x86_64`; `10.0.2.2:5000` appears **0×** in all three |

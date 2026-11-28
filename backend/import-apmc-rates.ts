@@ -18,7 +18,7 @@ import fs from 'fs';
 import path from 'path';
 import process from 'process';
 
-import { parseApmcRateCsv, ApmcRateRow } from './src/utils/apmcRateCsv';
+import { parseApmcRateCsv } from './src/utils/apmcRateCsv';
 import { findCatalogueEntry } from './src/data/cropCatalog';
 
 const prisma = new PrismaClient();
@@ -121,7 +121,11 @@ async function main() {
   let updated = 0;
 
   for (const row of rows) {
-    const key = {
+    // The publication key is enforced by the database
+    // (`ApmcMarketRate_publication_key`), so the upsert is atomic: running
+    // the import again updates the prices of the same publication instead
+    // of piling up duplicate rows.
+    const publicationKey = {
       state: row.state,
       district: row.district,
       marketCenter: row.marketCenter,
@@ -129,7 +133,10 @@ async function main() {
       updatedAt: row.updatedAt,
     };
 
-    const existing = await prisma.apmcMarketRate.findFirst({ where: key });
+    const existing = await prisma.apmcMarketRate.findUnique({
+      where: { ApmcMarketRate_publication_key: publicationKey },
+      select: { id: true },
+    });
 
     if (existing) {
       await prisma.apmcMarketRate.update({
@@ -144,14 +151,10 @@ async function main() {
     } else {
       await prisma.apmcMarketRate.create({
         data: {
-          state: row.state,
-          district: row.district,
-          marketCenter: row.marketCenter,
-          commodity: row.commodity,
+          ...publicationKey,
           modalPrice: row.modalPrice,
           minPrice: row.minPrice,
           maxPrice: row.maxPrice,
-          updatedAt: row.updatedAt,
         },
       });
       inserted += 1;

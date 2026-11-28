@@ -550,9 +550,9 @@ data remain and are documented rather than hidden:
 | Frontend build | `cd frontend && npm run build` | ✅ exit 0, 25 app routes (21 static, 4 dynamic) |
 | Android analysis | `cd mobile && flutter analyze` | ✅ "No issues found!" |
 | Android tests | `cd mobile && flutter test` | ✅ 35/35 |
-| CI — `verify` job | `gh run list --branch fix/local-updates` | ✅ the localisation check, the localisation **usage** check, the frontend types, the frontend tests, the frontend build, the backend types, the backend unit tests and the PostgreSQL 16 integration suite (140 tests) |
+| CI — `verify` job | `gh run list --branch fix/local-updates` | ✅ the localisation check, the localisation **usage** check, the frontend types, the frontend tests, the frontend build, the backend types, the backend unit tests and the PostgreSQL 16 integration suite (141 tests) |
 | CI — `Android client` job | the same command | ✅ a **separate** job with Flutter 3.47.2 stable: `flutter analyze --no-fatal-infos` and `flutter test` |
-| PR CI | run `46146837425` (branch head `6fd8c88`) | ✅ PostgreSQL 16 container, migrations applied, 140/140 |
+| PR CI | run `46148588861` (branch head `e5c6e0e`) | ✅ PostgreSQL 16 container, migrations applied, 141/141 |
 
 ### 6.8 Ten-workflow verification matrix
 

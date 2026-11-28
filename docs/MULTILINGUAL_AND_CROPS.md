@@ -470,7 +470,7 @@ estimated. The live route and cross-platform matrices are kept separately in
 | --- | --- | --- | --- |
 | Backend unit tests (no database) | `cd backend && npm run test:unit` | PASS | 92 / 92 tests green (9 suites: `language`, `productQuery`, `categoryResolver`, `apmcBenchmark`, `logisticsService`, `coordinate`, `geo`, `jwtSecret`, `apmcRateCsv`) |
 | Backend type check | `cd backend && npx tsc --noEmit` | PASS | exit code 0 |
-| Backend database integration suite (CI, PostgreSQL 16) | `cd backend && npm run test:integration` | PASS (CI) | 140 / 140 tests green in 10 suites. Locally **BLOCKED** — no PostgreSQL/Docker in the local environment |
+| Backend database integration suite (CI, PostgreSQL 16) | `cd backend && npm run test:integration` | PASS (CI) | **141 / 141** tests green in 10 suites (140 after `db01ae4`, 141 after the new *leftover buyer row* test of `d455244`). Locally **BLOCKED** — no PostgreSQL/Docker in the local environment |
 | Website type check | `cd frontend && npx tsc --noEmit` | PASS | exit code 0 |
 | Website regression tests | `cd frontend && npm test` | PASS | 44 / 44 tests green (`node --test`, no dependency) |
 | Website production build | `cd frontend && npm run build` | PASS | exit code 0 — 25 app routes built (21 static, 4 dynamic), 24 static pages generated, no prerender error. The build does **not** reach out to Google Fonts: Plus Jakarta Sans is self-hosted (`frontend/src/app/fonts`), so the build is reproducible offline |

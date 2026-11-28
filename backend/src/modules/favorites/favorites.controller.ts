@@ -9,6 +9,13 @@ const getUserId = (req: AuthenticatedRequest): string | null => {
 /**
  * Resolve (or lazily create) the consumer profile that owns favourites.
  * Favourites are always scoped to a ConsumerProfile row.
+ *
+ * A profile is only created for an account that really **is** a buyer.
+ * The endpoint used to create one for every signed-in account, so a
+ * cultivator who called it got a buyer profile of its own — a row of the
+ * wrong kind for an account of the wrong role, and a list that the buyer
+ * interface of the platform can never show. A cultivator is refused
+ * instead.
  */
 const resolveConsumerProfileId = async (userId: string): Promise<string | null> => {
   const existing = await db.consumerProfile.findUnique({ where: { userId } });
@@ -18,6 +25,11 @@ const resolveConsumerProfileId = async (userId: string): Promise<string | null> 
 
   const user = await db.user.findUnique({ where: { id: userId } });
   if (!user) {
+    return null;
+  }
+
+  if (String(user.role).toUpperCase() !== 'CONSUMER') {
+    // The favourites belong to a buyer.
     return null;
   }
 
@@ -32,6 +44,22 @@ const resolveConsumerProfileId = async (userId: string): Promise<string | null> 
   return created.id;
 };
 
+/**
+ * The answer for an account that may not keep favourites.
+ *
+ * The status is 401 when there is no session at all and 403 when the
+ * session belongs to an account that is not a buyer.
+ */
+const forbiddenResponse = (req: AuthenticatedRequest, res: Response) => {
+  if (!getUserId(req)) {
+    return res.status(401).json({ success: false, message: 'Authentication required' });
+  }
+  return res.status(403).json({
+    success: false,
+    message: 'Favourites belong to a buyer account.',
+  });
+};
+
 // 1. All favourites of the signed-in consumer
 export const getFavorites = async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -42,7 +70,7 @@ export const getFavorites = async (req: AuthenticatedRequest, res: Response) => 
 
     const consumerProfileId = await resolveConsumerProfileId(userId);
     if (!consumerProfileId) {
-      return res.status(404).json({ success: false, message: 'Consumer profile not found' });
+      return forbiddenResponse(req, res);
     }
 
     const [products, farmers] = await Promise.all([
@@ -103,7 +131,7 @@ export const toggleFavoriteProduct = async (req: AuthenticatedRequest, res: Resp
 
     const consumerProfileId = await resolveConsumerProfileId(userId);
     if (!consumerProfileId) {
-      return res.status(404).json({ success: false, message: 'Consumer profile not found' });
+      return forbiddenResponse(req, res);
     }
 
     const existing = await db.favouriteProduct.findUnique({
@@ -139,7 +167,7 @@ export const toggleFavoriteFarmer = async (req: AuthenticatedRequest, res: Respo
 
     const consumerProfileId = await resolveConsumerProfileId(userId);
     if (!consumerProfileId) {
-      return res.status(404).json({ success: false, message: 'Consumer profile not found' });
+      return forbiddenResponse(req, res);
     }
 
     const existing = await db.favouriteFarmer.findUnique({

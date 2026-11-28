@@ -1317,4 +1317,89 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
 
     await prisma.user.deleteMany({ where: { id: suspended.id } });
   });
+
+  // ==========================================================================
+  // 13. THE FAVOURITES BELONG TO A BUYER
+  // ==========================================================================
+
+  it('FAVOURITES: a cultivator is refused and never receives a buyer profile', async () => {
+    // The suite farmer must not own a buyer profile for this test. The
+    // endpoint used to create one for every signed-in account, so a
+    // cultivator that called it got a row of the wrong kind for an
+    // account of the wrong role.
+    await prisma.consumerProfile.deleteMany({ where: { userId: farmerUserId } });
+
+    const before = await prisma.consumerProfile.count({ where: { userId: farmerUserId } });
+    expect(before).toBe(0);
+
+    // The list of the favourites is refused.
+    const list = await agent
+      .get('/api/favorites')
+      .set('Authorization', `Bearer ${farmerToken}`);
+    expect(list.status).toBe(403);
+    expect(list.body.success).toBe(false);
+
+    // So is the heart on a lot.
+    const toggle = await agent
+      .post(`/api/favorites/products/${createdProductId}`)
+      .set('Authorization', `Bearer ${farmerToken}`);
+    expect(toggle.status).toBe(403);
+    expect(toggle.body.success).toBe(false);
+
+    // And no row of the wrong kind may be created on the way.
+    const after = await prisma.consumerProfile.count({ where: { userId: farmerUserId } });
+    expect(after).toBe(0);
+
+    // The buyer may really use the favourites.
+    const buyer = await agent
+      .get('/api/favorites')
+      .set('Authorization', `Bearer ${consumerToken}`);
+    expect(buyer.status).toBe(200);
+    expect(buyer.body.success).toBe(true);
+    expect(Array.isArray(buyer.body.data.products)).toBe(true);
+    expect(Array.isArray(buyer.body.data.farmers)).toBe(true);
+
+    // A guest is not signed in at all.
+    const guest = await agent.get('/api/favorites');
+    expect(guest.status).toBe(401);
+  });
+
+  it('FAVOURITES: the heart of the buyer really stores the lot', async () => {
+    const consumerProfile = await prisma.consumerProfile.findUnique({
+      where: { userId: consumerUserId },
+    });
+    expect(consumerProfile).not.toBeNull();
+
+    const add = await agent
+      .post(`/api/favorites/products/${createdProductId}`)
+      .set('Authorization', `Bearer ${consumerToken}`);
+    expect(add.status).toBe(201);
+    expect(add.body.isFavorite).toBe(true);
+
+    const stored = await prisma.favouriteProduct.findUnique({
+      where: {
+        consumerId_productId: {
+          consumerId: consumerProfile!.id,
+          productId: createdProductId,
+        },
+      },
+    });
+    expect(stored).not.toBeNull();
+
+    const remove = await agent
+      .delete(`/api/favorites/products/${createdProductId}`)
+      .set('Authorization', `Bearer ${consumerToken}`);
+    expect(remove.status).toBe(200);
+    expect(remove.body.isFavorite).toBe(false);
+
+    const gone = await prisma.favouriteProduct.findUnique({
+      where: {
+        consumerId_productId: {
+          consumerId: consumerProfile!.id,
+          productId: createdProductId,
+        },
+      },
+    });
+    expect(gone).toBeNull();
+  });
 });

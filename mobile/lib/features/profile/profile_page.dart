@@ -415,12 +415,18 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         Card(
           child: Column(
             children: [
-              _tile(
-                icon: Icons.favorite_border_rounded,
-                title: l10n.profileMyFavorites,
-                onTap: () => context.push('/favorites'),
-              ),
-              const Divider(height: 1),
+              // The favourites belong to a buyer. The shared backend
+              // refuses them for a cultivator (HTTP 403), so the entry is
+              // only offered to the account that may really use it —
+              // the website shows the heart for the same reason.
+              if (user.isConsumer) ...[
+                _tile(
+                  icon: Icons.favorite_border_rounded,
+                  title: l10n.profileMyFavorites,
+                  onTap: () => context.push('/favorites'),
+                ),
+                const Divider(height: 1),
+              ],
               _tile(
                 icon: Icons.notifications_none_rounded,
                 title: l10n.navNotifications,

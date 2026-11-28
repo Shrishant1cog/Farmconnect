@@ -30,8 +30,6 @@ export const authEn: TranslationMap = {
   'auth.login.consumerSeed': 'Buyer Seed',
   'auth.login.noAccount': "Don't have an account yet?",
   'auth.login.registerHere': 'Register here',
-  'auth.login.testCodeNotice': 'SMS region restricted. Enter test code',
-  'auth.login.testCode': '123456',
   'auth.login.loadingVerifyingCredentials': 'Verifying credentials...',
   'auth.login.loadingDispatchingCode': 'Dispatching SMS verification code...',
   'auth.login.loadingConfirmingCode': 'Confirming verification code...',
@@ -40,7 +38,9 @@ export const authEn: TranslationMap = {
   'auth.login.success': 'Authentication successful! Navigating to workspace...',
   'auth.login.errorInvalidPhone': 'Please provide a valid 10-digit mobile number.',
   'auth.login.errorInvalidOtp': 'Please enter the 6-digit verification code.',
-  'auth.login.errorInvalidTestOtp': 'Invalid test OTP. Enter 123456 to verify.',
+  'auth.login.errorSmsUnavailable':
+    'SMS sign-in is not available because the message service is not configured. Please sign in with your mobile number and password.',
+  'auth.login.errorUnableDispatch': 'Unable to dispatch the verification SMS.',
   'auth.login.errorTokenNotReceived': 'Login failed: Token not received from server.',
   'auth.login.errorVerificationFailed': 'Verification failed. Please check the code.',
   'auth.login.errorMissingCredentials': 'Please enter both identifier and password.',
@@ -144,14 +144,10 @@ export const authEn: TranslationMap = {
   'auth.phone.verifyingOtp': 'Verifying OTP...',
   'auth.phone.verifyWorkspace': 'Verify & Enter Workspace',
   'auth.phone.changeMobile': 'Change Mobile Number',
-  'auth.phone.localDevMode': 'Local Dev Mode:',
-  'auth.phone.regionRestricted': 'Region SMS is restricted. Use test OTP:',
-  'auth.phone.testOtp': '123456',
   'auth.phone.errorInvalidPhone': 'Please provide a valid 10-digit mobile number.',
-  'auth.phone.errorFirebaseNotInitialized':
-    'Firebase Auth is not initialized. Using local verification mode.',
   'auth.phone.errorUnableDispatch': 'Unable to dispatch verification SMS.',
+  'auth.phone.errorSmsUnavailable':
+    'SMS sign-in is not available because the message service is not configured. Please sign in with your mobile number and password.',
   'auth.phone.errorInvalidOtpLength': 'Please enter the 6-digit verification code.',
-  'auth.phone.errorInvalidTestCode': 'Invalid test code. Enter 123456 to verify.',
   'auth.phone.errorVerificationFailed': 'Verification code failed. Please try again.',
 };

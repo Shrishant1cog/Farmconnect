@@ -27,8 +27,6 @@ export const authHi: TranslationMap = {
   'auth.login.consumerSeed': 'खरीदार टेस्ट',
   'auth.login.noAccount': 'अभी खाता नहीं है?',
   'auth.login.registerHere': 'यहाँ रजिस्टर करें',
-  'auth.login.testCodeNotice': 'SMS क्षेत्र प्रतिबंधित है। टेस्ट कोड',
-  'auth.login.testCode': '123456',
   'auth.login.loadingVerifyingCredentials': 'विवरण सत्यापित किए जा रहे हैं...',
   'auth.login.loadingDispatchingCode': 'SMS सत्यापन कोड भेजा जा रहा है...',
   'auth.login.loadingConfirmingCode': 'सत्यापन कोड की पुष्टि हो रही है...',
@@ -37,7 +35,9 @@ export const authHi: TranslationMap = {
   'auth.login.success': 'प्रमाणीकरण सफल! वर्कस्पेस पर जा रहे हैं...',
   'auth.login.errorInvalidPhone': 'कृपया सही 10-अंकीय मोबाइल नंबर दर्ज करें।',
   'auth.login.errorInvalidOtp': 'कृपया 6-अंकीय सत्यापन कोड दर्ज करें।',
-  'auth.login.errorInvalidTestOtp': 'गलत टेस्ट OTP। सत्यापित करने के लिए 123456 दर्ज करें।',
+  'auth.login.errorSmsUnavailable':
+    'संदेश सेवा कॉन्फ़िगर नहीं होने के कारण SMS साइन-इन उपलब्ध नहीं है। कृपया अपने मोबाइल नंबर और पासवर्ड से साइन-इन करें।',
+  'auth.login.errorUnableDispatch': 'सत्यापन SMS नहीं भेजा जा सका।',
   'auth.login.errorTokenNotReceived': 'साइन इन विफल: सर्वर से टोकन नहीं मिला।',
   'auth.login.errorVerificationFailed': 'सत्यापन विफल। कृपया कोड जाँचें।',
   'auth.login.errorMissingCredentials': 'कृपया पहचान संख्या और पासवर्ड दोनों दर्ज करें।',
@@ -141,15 +141,11 @@ export const authHi: TranslationMap = {
   'auth.phone.verifyingOtp': 'OTP सत्यापित किया जा रहा है...',
   'auth.phone.verifyWorkspace': 'सत्यापित करें और वर्कस्पेस में प्रवेश करें',
   'auth.phone.changeMobile': 'मोबाइल नंबर बदलें',
-  'auth.phone.localDevMode': 'लोकल डेव मोड:',
-  'auth.phone.regionRestricted': 'क्षेत्र SMS प्रतिबंधित है। टेस्ट OTP का उपयोग करें:',
-  'auth.phone.testOtp': '123456',
   'auth.phone.errorInvalidPhone': 'कृपया सही 10-अंकीय मोबाइल नंबर दर्ज करें।',
-  'auth.phone.errorFirebaseNotInitialized':
-    'Firebase Auth शुरू नहीं हुआ। स्थानीय सत्यापन मोड का उपयोग किया जा रहा है।',
   'auth.phone.errorUnableDispatch': 'सत्यापन SMS नहीं भेजा जा सका।',
+  'auth.phone.errorSmsUnavailable':
+    'संदेश सेवा कॉन्फ़िगर नहीं होने के कारण SMS साइन-इन उपलब्ध नहीं है। कृपया अपने मोबाइल नंबर और पासवर्ड से साइन-इन करें।',
   'auth.phone.errorInvalidOtpLength': 'कृपया 6-अंकीय सत्यापन कोड दर्ज करें।',
-  'auth.phone.errorInvalidTestCode': 'गलत टेस्ट कोड। सत्यापित करने के लिए 123456 दर्ज करें।',
   'auth.phone.errorVerificationFailed':
     'सत्यापन कोड विफल। कृपया फिर कोशिश करें।',
 };

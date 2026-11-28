@@ -10,6 +10,44 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:1234567890:web:abcdef123456',
 };
 
+/**
+ * Is the SMS (phone) sign-in service really configured?
+ *
+ * The Firebase SDK can always be *initialised* — it accepts any string as
+ * an API key — so the existence of the `auth` object says nothing about
+ * whether a verification code can actually be sent. The placeholders above
+ * are **not** a configuration: with them the SDK reports
+ * `auth/invalid-api-key` at runtime.
+ *
+ * The interface therefore asks this flag before it offers the OTP tab, so
+ * that an unconfigured deployment reports the truth instead of pretending
+ * that a code was sent.
+ */
+export const isFirebasePhoneAuthConfigured = Boolean(
+  process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN &&
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID &&
+    process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+);
+
+/**
+ * The Firebase error codes that mean: **the message service is not
+ * available**.
+ *
+ * They are all reported with one honest message instead of a made-up
+ * "test code", because a code that was never sent cannot be verified.
+ */
+export const SMS_UNAVAILABLE_CODES = [
+  'auth/operation-not-allowed',
+  'auth/configuration-not-found',
+  'auth/invalid-app-credential',
+  'auth/invalid-api-key',
+  'auth/api-key-not-valid',
+  'auth/app-not-authorized',
+  'auth/project-not-found',
+  'auth/unauthorized-domain',
+];
+
 // Initialize Firebase safely for both Next.js SSR and client hydration
 export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const auth: Auth = getAuth(app);

@@ -80,13 +80,23 @@ class AuthRepository {
     return _persist(payload);
   }
 
-  /// Phone OTP sign-in (same endpoint the website uses for its OTP tab).
+  /// Phone sign-in.
+  ///
+  /// The phone number is only an **identifier** — the proof is the
+  /// password of the account, exactly as on the password endpoint. The
+  /// endpoint never creates an account: a sign-in cannot bring an account
+  /// into existence.
+  ///
+  /// The role of the **account** decides which workspace opens; the role
+  /// that the client sends is only a hint for the server.
   Future<AuthSession> loginWithPhone({
     required String phone,
+    required String password,
     required UserRole role,
   }) async {
     final payload = await _api.post(ApiEndpoints.loginPhone, body: {
       'phone': phone,
+      'password': password,
       'role': role.wireValue,
     });
 

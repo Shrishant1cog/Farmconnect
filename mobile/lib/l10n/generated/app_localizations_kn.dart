@@ -785,9 +785,6 @@ class AppLocalizationsKn extends AppLocalizations {
   String get authSignIn => 'ಸೈನ್ ಇನ್';
 
   @override
-  String get authSendOtp => 'OTP ಕಳುಹಿಸಿ';
-
-  @override
   String get authNewUserPrompt => 'FarmConnect ಇದು ಹೊಸದೇ?';
 
   @override
@@ -812,7 +809,14 @@ class AppLocalizationsKn extends AppLocalizations {
   String get authPasswordTab => 'ಪಾಸ್‌ವರ್ಡ್';
 
   @override
-  String get authPhoneOtpTab => 'ಫೋನ್ OTP';
+  String get authMobileTab => 'ಮೊಬೈಲ್';
+
+  @override
+  String get authMobileSignIn => 'ಮೊಬೈಲ್‌ನಲ್ಲಿ ಸೈನ್ ಇನ್ ಮಾಡಿ';
+
+  @override
+  String get authMobileSignInHint =>
+      'ನಿಮ್ಮ ಖಾತೆಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ಮತ್ತು ಪಾಸ್‌ವರ್ಡ್ ನಮೂದಿಸಿ. ನಿಮ್ಮ ಖಾತೆಯ ಪಾತ್ರವೇ ಯಾವ ಕಾರ್ಯಸ್ಥಳ ತೆರೆಯುತ್ತದೆ ಎಂದು ನಿರ್ಧರಿಸುತ್ತದೆ.';
 
   @override
   String get authCreateAccountTitle => 'ನಿಮ್ಮ ಖಾತೆ ರಚಿಸಿ';

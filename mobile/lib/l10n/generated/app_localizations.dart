@@ -1534,12 +1534,6 @@ abstract class AppLocalizations {
   /// **'Sign in'**
   String get authSignIn;
 
-  /// No description provided for @authSendOtp.
-  ///
-  /// In en, this message translates to:
-  /// **'Send OTP'**
-  String get authSendOtp;
-
   /// No description provided for @authNewUserPrompt.
   ///
   /// In en, this message translates to:
@@ -1588,11 +1582,23 @@ abstract class AppLocalizations {
   /// **'Password'**
   String get authPasswordTab;
 
-  /// No description provided for @authPhoneOtpTab.
+  /// No description provided for @authMobileTab.
   ///
   /// In en, this message translates to:
-  /// **'Phone OTP'**
-  String get authPhoneOtpTab;
+  /// **'Mobile'**
+  String get authMobileTab;
+
+  /// No description provided for @authMobileSignIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with mobile'**
+  String get authMobileSignIn;
+
+  /// No description provided for @authMobileSignInHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the mobile number and the password of your account. The role of the account decides which workspace opens.'**
+  String get authMobileSignInHint;
 
   /// No description provided for @authCreateAccountTitle.
   ///

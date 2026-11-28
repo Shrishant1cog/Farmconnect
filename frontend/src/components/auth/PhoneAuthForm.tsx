@@ -2,9 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Phone, ArrowRight, Loader2, AlertCircle, CheckCircle2, ShieldCheck, KeyRound } from 'lucide-react';
+import { Phone, ArrowRight, Loader2, AlertCircle, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { fetchApi } from '../../lib/api';
-import { auth, setupRecaptcha } from '../../lib/firebase';
+import {
+  auth,
+  setupRecaptcha,
+  isFirebasePhoneAuthConfigured,
+  SMS_UNAVAILABLE_CODES,
+} from '../../lib/firebase';
 import { useI18n } from '../../hooks/useI18n';
 import { signInWithPhoneNumber } from 'firebase/auth';
 
@@ -23,7 +28,6 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmationResult, setConfirmationResult] = useState<any>(null);
-  const [isTestBypass, setIsTestBypass] = useState(false);
 
   useEffect(() => {
     // Reset reCAPTCHA container on unmount
@@ -53,8 +57,11 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
     setLoading(true);
 
     try {
-      if (!auth) {
-        throw new Error(t('auth.phone.errorFirebaseNotInitialized'));
+      if (!isFirebasePhoneAuthConfigured) {
+        // The message service is not configured. There is **no** test
+        // code: a sign-in without a real code would open the account of
+        // whoever owns the number.
+        throw new Error(t('auth.phone.errorSmsUnavailable'));
       }
 
       const appVerifier = setupRecaptcha('recaptcha-container');
@@ -64,16 +71,11 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
     } catch (err: any) {
       console.warn('Firebase SMS attempt notice:', err?.code || err?.message);
 
-      // If Firebase blocked India or config was missing, switch cleanly to test mode
       if (
-        err?.code === 'auth/operation-not-allowed' ||
-        err?.code === 'auth/configuration-not-found' ||
-        err?.code === 'auth/invalid-app-credential' ||
-        !auth
+        SMS_UNAVAILABLE_CODES.includes(err?.code) ||
+        !isFirebasePhoneAuthConfigured
       ) {
-        setIsTestBypass(true);
-        setStep('OTP');
-        setError(null);
+        setError(t('auth.phone.errorSmsUnavailable'));
       } else {
         setError(err?.message || t('auth.phone.errorUnableDispatch'));
       }
@@ -94,39 +96,37 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
     setLoading(true);
 
     try {
-      const cleanPhone = phone.replace(/\D/g, '').slice(-10);
-
-      // 1. If using Firebase live confirmation
-      if (confirmationResult && !isTestBypass) {
-        await confirmationResult.confirm(otp);
-      } else if (isTestBypass && otp !== '123456') {
-        throw new Error(t('auth.phone.errorInvalidTestCode'));
+      if (!confirmationResult) {
+        // No code was ever sent — there is nothing to confirm.
+        throw new Error(t('auth.phone.errorSmsUnavailable'));
       }
 
-      // 2. Complete session with backend
-      const res = await fetchApi('/auth/login-phone', {
+      // The code is confirmed by the message service. The backend then
+      // verifies the **ID token** of that confirmation, so the session is
+      // only issued for a number whose owner really received the code.
+      const confirmation = await confirmationResult.confirm(otp);
+      const idToken = await confirmation.user.getIdToken();
+
+      const res = await fetchApi('/auth/firebase-phone', {
         method: 'POST',
-        body: JSON.stringify({
-          phone: cleanPhone,
-          role,
-        }),
+        body: JSON.stringify({ idToken, role }),
       });
 
       const token = res?.data?.token || res?.token;
       const user = res?.data?.user || res?.user;
 
-      if (token && user) {
-        localStorage.setItem('farmconnect_token', token);
-        localStorage.setItem('fc_token', token);
-        localStorage.setItem('farmconnect_role', user.role || role);
-        localStorage.setItem('farmconnect_user', JSON.stringify(user));
-        localStorage.setItem('fc_user', JSON.stringify(user));
+      if (!token || !user) {
+        throw new Error(t('auth.phone.errorVerificationFailed'));
+      }
 
-        if (onSuccess) {
-          onSuccess();
-        } else {
-          router.push(role === 'FARMER' ? '/farmer/dashboard' : '/consumer/explore');
-        }
+      localStorage.setItem('farmconnect_token', token);
+      localStorage.setItem('fc_token', token);
+      localStorage.setItem('farmconnect_role', user.role || role);
+      localStorage.setItem('farmconnect_user', JSON.stringify(user));
+      localStorage.setItem('fc_user', JSON.stringify(user));
+
+      if (onSuccess) {
+        onSuccess();
       } else {
         router.push(role === 'FARMER' ? '/farmer/dashboard' : '/consumer/explore');
       }
@@ -147,17 +147,6 @@ export default function PhoneAuthForm({ role, onSuccess }: PhoneAuthFormProps) {
         <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-xs text-red-700 animate-in fade-in duration-150">
           <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
           <span>{error}</span>
-        </div>
-      )}
-
-      {/* Test Bypass Notification */}
-      {isTestBypass && (
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2 text-xs text-amber-900">
-          <KeyRound className="w-4 h-4 shrink-0 text-amber-600" />
-          <span>
-            <strong>{t('auth.phone.localDevMode')}</strong>{' '}
-            {t('auth.phone.regionRestricted')} <strong>{t('auth.phone.testOtp')}</strong>
-          </span>
         </div>
       )}
 

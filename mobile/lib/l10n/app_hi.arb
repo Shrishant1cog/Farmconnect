@@ -249,7 +249,6 @@
   "commonDays": "दिन",
 
   "authSignIn": "साइन इन करें",
-  "authSendOtp": "OTP भेजें",
   "authNewUserPrompt": "FarmConnect पर नए हैं?",
   "authCreateAccount": "खाता बनाएँ",
   "authMobileOrEmail": "मोबाइल नंबर या ईमेल",
@@ -258,7 +257,9 @@
   "authMobileNumber": "मोबाइल नंबर",
   "authValidMobile": "सही 10 अंकों का मोबाइल नंबर दर्ज करें",
   "authPasswordTab": "पासवर्ड",
-  "authPhoneOtpTab": "फ़ोन OTP",
+  "authMobileTab": "मोबाइल",
+  "authMobileSignIn": "मोबाइल से साइन इन करें",
+  "authMobileSignInHint": "अपने खाते का मोबाइल नंबर और पासवर्ड दर्ज करें। कौन-सा वर्कस्पेस खुलेगा यह आपके खाते की भूमिका तय करती है।",
   "authCreateAccountTitle": "अपना खाता बनाएँ",
   "authRegisterAsCultivator": "किसान के रूप में पंजीकरण करें",
   "authRegisterAsBuyer": "खरीदार के रूप में पंजीकरण करें",

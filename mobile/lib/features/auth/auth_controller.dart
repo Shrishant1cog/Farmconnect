@@ -100,8 +100,20 @@ class AuthController extends Notifier<AuthState> {
     await _applySession(session);
   }
 
-  Future<void> loginWithPhone({required String phone, required UserRole role}) async {
-    final session = await _repository.loginWithPhone(phone: phone, role: role);
+  /// Sign in with a mobile number and the password of the account.
+  ///
+  /// The phone number alone never opens a session — the password is the
+  /// proof. See [AuthRepository.loginWithPhone].
+  Future<void> loginWithPhone({
+    required String phone,
+    required String password,
+    required UserRole role,
+  }) async {
+    final session = await _repository.loginWithPhone(
+      phone: phone,
+      password: password,
+      role: role,
+    );
     await _applySession(session);
   }
 

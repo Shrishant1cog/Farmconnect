@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { db } from '../../config/db';
 import { normalizeLanguage, resolveSupportedLanguage } from '../../utils/language';
@@ -331,6 +332,15 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
+    // A suspended account cannot sign in. The administrator's moderation
+    // action has to hold for a new session as well.
+    if ((user as any).isActive === false) {
+      return res.status(401).json({
+        success: false,
+        message: 'This account has been suspended. Please contact the administrator.',
+      });
+    }
+
     const normalizedRole = (user.role || 'CONSUMER').toUpperCase();
 
     const token = jwt.sign(
@@ -379,11 +389,37 @@ export const login = async (req: Request, res: Response) => {
 };
 
 /**
- * 3. Mobile OTP / Direct Phone Login Handler
+ * A password hash for an account that has no password of its own.
+ *
+ * The value has to be **unguessable**: it used to be derived from the
+ * phone number (`otp_auth_<phone>`) or from the Firebase uid
+ * (`firebase_<uid>`), which turned every phone account into an account
+ * that anybody could open with a computed password.
+ */
+const randomPasswordHash = (): string => {
+  const secret = crypto.randomBytes(32).toString('hex');
+  if (bcrypt) {
+    return bcrypt.hashSync(secret, 10);
+  }
+  return secret;
+};
+
+/**
+ * 2b. Phone Sign-In
+ *
+ * The endpoint used to answer a session for **any** phone number: it
+ * created the account when it was missing and signed it in without any
+ * proof of ownership. The phone numbers of the cultivators are published by
+ * the public directory (`GET /api/users/farmers`), so knowing a phone
+ * number was enough to take over that account.
+ *
+ * A phone number is now only an **identifier**. The proof is the password
+ * of the account, exactly as on the password endpoint. The account is
+ * never created here — a sign-in cannot bring an account into existence.
  */
 export const loginPhone = async (req: Request, res: Response) => {
   try {
-    const { phone, role = 'FARMER' } = req.body;
+    const { phone, password, role = 'CONSUMER' } = req.body;
     if (!phone) {
       return res.status(400).json({ success: false, message: 'Phone number is required.' });
     }
@@ -393,7 +429,13 @@ export const loginPhone = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Invalid 10-digit mobile number.' });
     }
 
-    const normalizedRole = String(role).toUpperCase() === 'CONSUMER' ? 'CONSUMER' : 'FARMER';
+    const cleanPassword = (password || '').toString().trim();
+    if (!cleanPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'The password of the account is required.',
+      });
+    }
 
     let user: any = null;
     try {
@@ -410,45 +452,43 @@ export const loginPhone = async (req: Request, res: Response) => {
       console.warn('[loginPhone] Find user DB notice:', err);
     }
 
-    let defaultHash = 'otp_verified';
+    // The same generic answer for an unknown account and for a wrong
+    // password — the endpoint must not reveal which phone numbers exist.
+    const invalid = () =>
+      res.status(401).json({
+        success: false,
+        message: 'Invalid credentials. Please verify your mobile number and password.',
+      });
+
+    if (!user) {
+      return invalid();
+    }
+
+    const hashToCompare = user.passwordHash || user.password;
+    if (!hashToCompare) {
+      return invalid();
+    }
+
+    let isMatch = false;
     if (bcrypt) {
-      defaultHash = await bcrypt.hash('otp_auth_' + cleanPhone, 10);
+      isMatch = await bcrypt.compare(cleanPassword, hashToCompare);
+    } else {
+      isMatch = cleanPassword === hashToCompare;
     }
 
-    if (!user) {
-      const defaultName = normalizedRole === 'FARMER' ? 'Cultivator Farmer' : 'Verified Buyer';
-
-      try {
-        user = await db.user.create({
-          data: {
-            phone: cleanPhone,
-            name: defaultName,
-            role: normalizedRole as any,
-            email: `${cleanPhone}@phone.farmconnect.in`,
-            passwordHash: defaultHash,
-          } as any,
-          include: {
-            farmerProfile: true,
-            consumerProfile: true,
-          },
-        });
-      } catch (createErr) {
-        console.error('[loginPhone] User creation notice:', createErr);
-      }
+    if (!isMatch) {
+      return invalid();
     }
 
-    if (!user) {
-      user = {
-        id: `usr_phone_${Date.now()}`,
-        phone: cleanPhone,
-        name: normalizedRole === 'FARMER' ? 'Cultivator Farmer' : 'Verified Buyer',
-        role: normalizedRole,
-        email: `${cleanPhone}@phone.farmconnect.in`,
-      };
+    if (user.isActive === false) {
+      return res.status(401).json({
+        success: false,
+        message: 'This account has been suspended. Please contact the administrator.',
+      });
     }
 
     // Ensure FarmerProfile exists
-    if (user && normalizedRole === 'FARMER' && !user.farmerProfile) {
+    if (user && (user.role || '').toUpperCase() === 'FARMER' && !user.farmerProfile) {
       try {
         const fp = await db.farmerProfile.findFirst({ where: { userId: user.id } });
         if (!fp) {
@@ -471,7 +511,9 @@ export const loginPhone = async (req: Request, res: Response) => {
       } catch {}
     }
 
-    const tokenRole = (user.role || normalizedRole).toUpperCase();
+    // The role of the **account** decides — not the role the client asked
+    // for. A request cannot promote itself.
+    const tokenRole = (user.role || 'CONSUMER').toUpperCase();
 
     const token = jwt.sign(
       { id: user.id, role: tokenRole, phone: user.phone },
@@ -562,16 +604,16 @@ export const firebasePhoneAuth = async (req: Request, res: Response) => {
       });
 
       if (!user) {
-        let defaultHash = 'firebase_otp';
-        if (bcrypt) {
-          defaultHash = await bcrypt.hash('firebase_' + firebaseUid, 10);
-        }
+        const defaultHash = randomPasswordHash();
         user = await db.user.create({
           data: {
             phone: cleanPhone,
             firebaseUid: firebaseUid,
             name: name?.trim() || (normalizedRole === 'FARMER' ? 'Verified Cultivator' : 'Direct Consumer'),
             email: `${cleanPhone}@phone.farmconnect.in`,
+            // The password of a phone account is **random**. It used to be
+            // derived from the phone number (`firebase_<uid>`), which made
+            // every phone account reachable with a guessable password.
             passwordHash: defaultHash,
             role: normalizedRole as any,
           } as any,
@@ -585,14 +627,23 @@ export const firebasePhoneAuth = async (req: Request, res: Response) => {
       console.warn('[FirebasePhoneAuth] DB sync notice:', dbErr);
     }
 
-    const activeUser = user || {
-      id: `usr_${firebaseUid.substring(0, 8)}`,
-      name: name?.trim() || (normalizedRole === 'FARMER' ? 'Verified Cultivator' : 'Direct Buyer'),
-      phone: cleanPhone,
-      role: normalizedRole,
-      state,
-      district,
-    };
+    if (!user) {
+      // The account could not be stored. A session for an account that does
+      // not exist in the shared database would be a fabricated session.
+      return res.status(500).json({
+        success: false,
+        message: 'The phone account could not be prepared. Please try again.',
+      });
+    }
+
+    if (user.isActive === false) {
+      return res.status(401).json({
+        success: false,
+        message: 'This account has been suspended. Please contact the administrator.',
+      });
+    }
+
+    const activeUser = user;
 
     const token = jwt.sign(
       { 

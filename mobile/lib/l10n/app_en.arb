@@ -249,7 +249,6 @@
   "commonDays": "days",
 
   "authSignIn": "Sign in",
-  "authSendOtp": "Send OTP",
   "authNewUserPrompt": "New to FarmConnect?",
   "authCreateAccount": "Create an account",
   "authMobileOrEmail": "Mobile number or email",
@@ -258,7 +257,9 @@
   "authMobileNumber": "Mobile number",
   "authValidMobile": "Enter a valid 10-digit mobile number",
   "authPasswordTab": "Password",
-  "authPhoneOtpTab": "Phone OTP",
+  "authMobileTab": "Mobile",
+  "authMobileSignIn": "Sign in with mobile",
+  "authMobileSignInHint": "Enter the mobile number and the password of your account. The role of the account decides which workspace opens.",
   "authCreateAccountTitle": "Create your account",
   "authRegisterAsCultivator": "Register as cultivator",
   "authRegisterAsBuyer": "Register as buyer",

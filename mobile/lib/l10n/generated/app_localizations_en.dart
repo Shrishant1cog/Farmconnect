@@ -784,9 +784,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authSignIn => 'Sign in';
 
   @override
-  String get authSendOtp => 'Send OTP';
-
-  @override
   String get authNewUserPrompt => 'New to FarmConnect?';
 
   @override
@@ -811,7 +808,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authPasswordTab => 'Password';
 
   @override
-  String get authPhoneOtpTab => 'Phone OTP';
+  String get authMobileTab => 'Mobile';
+
+  @override
+  String get authMobileSignIn => 'Sign in with mobile';
+
+  @override
+  String get authMobileSignInHint =>
+      'Enter the mobile number and the password of your account. The role of the account decides which workspace opens.';
 
   @override
   String get authCreateAccountTitle => 'Create your account';

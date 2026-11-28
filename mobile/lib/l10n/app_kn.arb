@@ -249,7 +249,6 @@
   "commonDays": "ದಿನಗಳು",
 
   "authSignIn": "ಸೈನ್ ಇನ್",
-  "authSendOtp": "OTP ಕಳುಹಿಸಿ",
   "authNewUserPrompt": "FarmConnect ಇದು ಹೊಸದೇ?",
   "authCreateAccount": "ಖಾತೆ ರಚಿಸಿ",
   "authMobileOrEmail": "ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ಅಥವಾ ಇಮೇಲ್",
@@ -258,7 +257,9 @@
   "authMobileNumber": "ಮೊಬೈಲ್ ಸಂಖ್ಯೆ",
   "authValidMobile": "ಸರಿಯಾದ 10-ಅಂಕಿತ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ನಮೂದಿಸಿ",
   "authPasswordTab": "ಪಾಸ್‌ವರ್ಡ್",
-  "authPhoneOtpTab": "ಫೋನ್ OTP",
+  "authMobileTab": "ಮೊಬೈಲ್",
+  "authMobileSignIn": "ಮೊಬೈಲ್‌ನಲ್ಲಿ ಸೈನ್ ಇನ್ ಮಾಡಿ",
+  "authMobileSignInHint": "ನಿಮ್ಮ ಖಾತೆಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ಮತ್ತು ಪಾಸ್‌ವರ್ಡ್ ನಮೂದಿಸಿ. ನಿಮ್ಮ ಖಾತೆಯ ಪಾತ್ರವೇ ಯಾವ ಕಾರ್ಯಸ್ಥಳ ತೆರೆಯುತ್ತದೆ ಎಂದು ನಿರ್ಧರಿಸುತ್ತದೆ.",
   "authCreateAccountTitle": "ನಿಮ್ಮ ಖಾತೆ ರಚಿಸಿ",
   "authRegisterAsCultivator": "ರೈತನಾಗಿ ನೋಂದಾಯಿಸಿ",
   "authRegisterAsBuyer": "ಖರೀದಿದಾರನಾಗಿ ನೋಂದಾಯಿಸಿ",

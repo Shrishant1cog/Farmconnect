@@ -27,8 +27,6 @@ export const authKn: TranslationMap = {
   'auth.login.consumerSeed': 'ಖರೀದಾರ ಟೆಸ್ಟ್',
   'auth.login.noAccount': 'ಇನ್ನೂ ಖಾತೆ ಇಲ್ಲವೇ?',
   'auth.login.registerHere': 'ಇಲ್ಲಿ ನೋಂದಣಿ ಮಾಡಿ',
-  'auth.login.testCodeNotice': 'SMS ಪ್ರದೇಶ ನಿರ್ಬಂಧಿತವಾಗಿದೆ. ಟೆಸ್ಟ್ ಕೋಡ್',
-  'auth.login.testCode': '123456',
   'auth.login.loadingVerifyingCredentials': 'ಪ್ರಮಾಣೀಕರಿಸಲಾಗುತ್ತಿದೆ...',
   'auth.login.loadingDispatchingCode': 'SMS ಪರಿಶೀಲನಾ ಕೋಡ್ ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ...',
   'auth.login.loadingConfirmingCode': 'ಪರಿಶೀಲನಾ ಕೋಡ್ ದೃಢಪಿಸಲಾಗುತ್ತಿದೆ...',
@@ -37,7 +35,9 @@ export const authKn: TranslationMap = {
   'auth.login.success': 'ಪ್ರಮಾಣೀಕರಣ ಯಶವಿಸಿದೆ! ಕಾರ್ಯಸ್ಥಳಕ್ಕೆ ನೆಗಸುತ್ತಿದೆ...',
   'auth.login.errorInvalidPhone': 'ದಯವಿಟ್ಟು ಸರಿಯಾದ 10-ಅಂಕಿತ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ.',
   'auth.login.errorInvalidOtp': 'ದಯವಿಟ್ಟು 6-ಅಂಕಿತ ಪರಿಶೀಲನಾ ಕೋಡ್ ನಮೂದಿಸಿ.',
-  'auth.login.errorInvalidTestOtp': 'ತಪ್ಪು ಟೆಸ್ಟ್ OTP. ಪರಿಶೀಲಿಸಲು 123456 ನಮೂದಿಸಿ.',
+  'auth.login.errorSmsUnavailable':
+    'ಸಂದೇಶ ಸೇವೆ ಕ್ರಮಾಸೀನಗೊಂಡಿರದ ಕಾರಣ SMS ಸೈನ್ ಇನ್ ಲಭ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ಮತ್ತು ಪಾಸ್‌ವರ್ಡ್ ಬಳಸಿ ಸೈನ್ ಇನ್ ಮಾಡಿ.',
+  'auth.login.errorUnableDispatch': 'ಪರಿಶೀಲನಾ SMS ಕಳುಹಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.',
   'auth.login.errorTokenNotReceived': 'ಸೈನ್ ಇನ್ ವಿಫಲವಾಗಿದೆ: ಸರ್ವರ್‌ನಿಂದ ಟೋಕನ್ ಸಿಗಲಿಲ್ಲ.',
   'auth.login.errorVerificationFailed': 'ಪರಿಶೀಲನೆ ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಕೋಡ್ ಪರಿಶೀಲಿಸಿ.',
   'auth.login.errorMissingCredentials': 'ಗುರುತಿಸುವ ವಿವರ ಮತ್ತು ಪಾಸ್‌ವರ್ಡ್ ಎರಡನ್ನೂ ನಮೂದಿಸಿ.',
@@ -141,15 +141,11 @@ export const authKn: TranslationMap = {
   'auth.phone.verifyingOtp': 'OTP ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ...',
   'auth.phone.verifyWorkspace': 'ಪರಿಶೀಲಿಸಿ ಮತ್ತು ಕಾರ್ಯಸ್ಥಳಕ್ಕೆ ಪ್ರವೇಶಿಸಿ',
   'auth.phone.changeMobile': 'ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ಬದಲಾಯಿಸಿ',
-  'auth.phone.localDevMode': 'ಸ್ಥಳೀಯ ಡೆವ್ ಮೋಡ್:',
-  'auth.phone.regionRestricted': 'ಪ್ರದೇಶ SMS ನಿರ್ಬಂಧಿತವಾಗಿದೆ. ಟೆಸ್ಟ್ OTP ಬಳಸಿ:',
-  'auth.phone.testOtp': '123456',
   'auth.phone.errorInvalidPhone': 'ದಯವಿಟ್ಟು ಸರಿಯಾದ 10-ಅಂಕಿತ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ.',
-  'auth.phone.errorFirebaseNotInitialized':
-    'Firebase ಪ್ರಮಾಣೀಕರಣ ಪ್ರಾರಂಭವಾಗಿಲ್ಲ. ಸ್ಥಳೀಯ ಪರಿಶೀಲನಾ ಮೋಡ್ ಬಳಸಲಾಗುತ್ತಿದೆ.',
   'auth.phone.errorUnableDispatch': 'ಪರಿಶೀಲನಾ SMS ಕಳುಹಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.',
+  'auth.phone.errorSmsUnavailable':
+    'ಸಂದೇಶ ಸೇವೆ ಕ್ರಮಾಸೀನಗೊಂಡಿರದ ಕಾರಣ SMS ಸೈನ್ ಇನ್ ಲಭ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ಮತ್ತು ಪಾಸ್‌ವರ್ಡ್ ಬಳಸಿ ಸೈನ್ ಇನ್ ಮಾಡಿ.',
   'auth.phone.errorInvalidOtpLength': 'ದಯವಿಟ್ಟು 6-ಅಂಕಿತ ಪರಿಶೀಲನಾ ಕೋಡ್ ನಮೂದಿಸಿ.',
-  'auth.phone.errorInvalidTestCode': 'ತಪ್ಪು ಟೆಸ್ಟ್ ಕೋಡ್. ಪರಿಶೀಲಿಸಲು 123456 ನಮೂದಿಸಿ.',
   'auth.phone.errorVerificationFailed':
     'ಪರಿಶೀಲನಾ ಕೋಡ್ ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
 };

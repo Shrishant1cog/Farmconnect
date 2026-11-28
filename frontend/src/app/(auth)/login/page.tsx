@@ -19,7 +19,12 @@ import {
   Check
 } from 'lucide-react';
 import { fetchApi } from '../../../lib/api';
-import { auth, setupRecaptcha } from '../../../lib/firebase';
+import {
+  auth,
+  setupRecaptcha,
+  isFirebasePhoneAuthConfigured,
+  SMS_UNAVAILABLE_CODES,
+} from '../../../lib/firebase';
 import { useI18n } from '../../../hooks/useI18n';
 import { signInWithPhoneNumber, signInWithEmailAndPassword, type ConfirmationResult } from 'firebase/auth';
 
@@ -37,7 +42,6 @@ export default function LoginPage() {
   const [otp, setOtp] = useState('');
   const [otpStep, setOtpStep] = useState<'PHONE' | 'OTP'>('PHONE');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
-  const [isTestBypass, setIsTestBypass] = useState(false);
 
   // Email / Password States
   const [emailOrPhone, setEmailOrPhone] = useState('farmer@farmconnect.com');
@@ -129,17 +133,24 @@ export default function LoginPage() {
     setLoadingText(t('auth.login.loadingDispatchingCode'));
 
     try {
+      if (!isFirebasePhoneAuthConfigured) {
+        // The message service is not configured. There is **no** test
+        // code: a sign-in without a real code would open the account of
+        // whoever owns the number.
+        throw new Error(t('auth.login.errorSmsUnavailable'));
+      }
+
       const appVerifier = setupRecaptcha('recaptcha-container');
       const confirmation = await signInWithPhoneNumber(auth, formattedNumber, appVerifier);
       setConfirmationResult(confirmation);
       setOtpStep('OTP');
     } catch (err: any) {
       console.warn('Firebase SMS provider notice:', err?.code || err?.message);
-      // Auto-fallback for restricted test regions or quota limits
-      setIsTestBypass(true);
-      setOtpStep('OTP');
-      setOtp('123456');
-      setErrorMessage(null);
+      setErrorMessage(
+        SMS_UNAVAILABLE_CODES.includes(err?.code) || !isFirebasePhoneAuthConfigured
+          ? t('auth.login.errorSmsUnavailable')
+          : err?.message || t('auth.login.errorUnableDispatch')
+      );
     } finally {
       setLoading(false);
     }
@@ -159,39 +170,28 @@ export default function LoginPage() {
     setLoadingText(t('auth.login.loadingConfirmingCode'));
 
     try {
-      const cleanPhone = phone.replace(/\D/g, '').slice(-10);
-
-      if (confirmationResult && !isTestBypass) {
-        await confirmationResult.confirm(otp);
-      } else if (isTestBypass && otp !== '123456') {
-        throw new Error(t('auth.login.errorInvalidTestOtp'));
+      if (!confirmationResult) {
+        // No code was ever sent — there is nothing to confirm.
+        throw new Error(t('auth.login.errorSmsUnavailable'));
       }
+
+      // The code is confirmed by the message service. The backend then
+      // verifies the **ID token** of that confirmation, so the session is
+      // only issued for a number whose owner really received the code.
+      const confirmation = await confirmationResult.confirm(otp);
+      const idToken = await confirmation.user.getIdToken();
 
       setLoadingText(t('auth.login.loadingSecuringSession'));
 
-      // Call dedicated phone login endpoint with fallback
-      let res: any;
-      try {
-        res = await fetchApi('/auth/login-phone', {
-          method: 'POST',
-          body: JSON.stringify({ phone: cleanPhone, role }),
-        });
-      } catch {
-        res = await fetchApi('/auth/login', {
-          method: 'POST',
-          body: JSON.stringify({
-            identifier: cleanPhone,
-            phone: cleanPhone,
-            password: 'password123',
-            role,
-          }),
-        });
-      }
+      const res: any = await fetchApi('/auth/firebase-phone', {
+        method: 'POST',
+        body: JSON.stringify({ idToken, role }),
+      });
 
       const token = res?.data?.token || res?.token;
-      const user = res?.data?.user || res?.user || { role, name: 'Verified User', phone: cleanPhone };
+      const user = res?.data?.user || res?.user;
 
-      if (token) {
+      if (token && user) {
         handleAuthSuccess(token, user);
       } else {
         throw new Error(t('auth.login.errorTokenNotReceived'));
@@ -346,15 +346,6 @@ export default function LoginPage() {
           <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-3 text-xs text-red-700 animate-in fade-in duration-200">
             <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
             <span className="font-semibold leading-relaxed">{errorMessage}</span>
-          </div>
-        )}
-
-        {isTestBypass && activeTab === 'OTP' && (
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-2 text-xs text-amber-900 animate-in fade-in duration-150">
-            <KeyRound className="w-4 h-4 shrink-0 text-amber-600" />
-            <span>
-              {t('auth.login.testCodeNotice')} <strong>{t('auth.login.testCode')}</strong>.
-            </span>
           </div>
         )}
 

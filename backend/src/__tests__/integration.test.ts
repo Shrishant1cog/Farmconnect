@@ -1120,4 +1120,132 @@ describe('FarmConnect Core Functional & Integration Suite', () => {
       .set('Authorization', `Bearer ${escalated}`);
     expect(mine.status).toBe(200);
   });
+
+  // ==========================================================================
+  // 12. THE PHONE NUMBER IS AN IDENTIFIER, NEVER A PROOF
+  // ==========================================================================
+
+  it('PHONE: a sign-in without the password is refused', async () => {
+    // The endpoint used to answer a session for **any** phone number. The
+    // phone numbers of the cultivators are published by the public
+    // directory, so knowing a number was enough to take the account over.
+    const res = await agent
+      .post('/api/auth/login-phone')
+      .send({ phone: '9448123456', role: 'FARMER' });
+
+    expect(res.status).toBe(400);
+    expect(res.body?.data?.token).toBeUndefined();
+    expect(res.body?.token).toBeUndefined();
+  });
+
+  it('PHONE: a sign-in with a wrong password is refused', async () => {
+    const res = await agent
+      .post('/api/auth/login-phone')
+      .send({ phone: '9448123456', password: 'not-the-password', role: 'FARMER' });
+
+    expect(res.status).toBe(401);
+    expect(res.body?.data?.token).toBeUndefined();
+    expect(res.body?.token).toBeUndefined();
+  });
+
+  it('PHONE: a sign-in never creates an account', async () => {
+    // A sign-in cannot bring an account into existence. Before the fix the
+    // endpoint created the account and signed it in — the account then had
+    // the guessable password `otp_auth_<phone>`.
+    const phone = `5${String(Date.now()).slice(-9)}`;
+
+    const res = await agent
+      .post('/api/auth/login-phone')
+      .send({ phone, password: 'AnyPassword@123', role: 'CONSUMER' });
+
+    expect(res.status).toBe(401);
+
+    const created = await prisma.user.count({ where: { phone } });
+    expect(created).toBe(0);
+
+    const withPrefix = await prisma.user.count({ where: { phone: `+91${phone}` } });
+    expect(withPrefix).toBe(0);
+  });
+
+  it('PHONE: the correct password opens the account of that number', async () => {
+    // The happy path still works — the phone number identifies the
+    // account, the password proves it.
+    const res = await agent
+      .post('/api/auth/login-phone')
+      .send({ phone: '9448123456', password: 'Password@123', role: 'CONSUMER' });
+
+    expect(res.status).toBe(200);
+    expect(res.body?.data?.token).toBeTruthy();
+    // The role of the **account** wins — the requested role is only a hint.
+    expect(res.body?.data?.user?.role).toBe('FARMER');
+    expect(res.body?.data?.user?.id).toBe(farmerUserId);
+  });
+
+  it('PHONE: the derived password of a phone account does not open it', async () => {
+    // Accounts that were created by the old phone flow carried the password
+    // `otp_auth_<phone>` — derived from the phone number, which is public.
+    // A new account no longer has such a password.
+    const phone = `6${String(Date.now()).slice(-9)}`;
+    const email = `${phone}@phone.farmconnect.test`;
+
+    await prisma.user.create({
+      data: {
+        phone,
+        email,
+        name: 'Audit Phone Account',
+        passwordHash: await bcrypt.hash('ARealRandomPassword@2026', 10),
+        role: 'CONSUMER',
+        isActive: true,
+      },
+    });
+
+    const derived = await agent
+      .post('/api/auth/login')
+      .send({ identifier: phone, password: `otp_auth_${phone}` });
+    expect(derived.status).toBe(401);
+
+    const real = await agent
+      .post('/api/auth/login')
+      .send({ identifier: phone, password: 'ARealRandomPassword@2026' });
+    expect(real.status).toBe(200);
+
+    await prisma.user.deleteMany({ where: { email } });
+  });
+
+  it('PHONE: a suspended account is refused on every sign-in path', async () => {
+    const phone = `7${String(Date.now()).slice(-9)}`;
+    const email = `${phone}@phone.farmconnect.test`;
+
+    const suspended = await prisma.user.create({
+      data: {
+        phone,
+        email,
+        name: 'Audit Suspended Phone Account',
+        passwordHash,
+        role: 'CONSUMER',
+        isActive: true,
+      },
+    });
+
+    // The account works while it is active.
+    const active = await agent
+      .post('/api/auth/login-phone')
+      .send({ phone, password: 'Password@123', role: 'CONSUMER' });
+    expect(active.status).toBe(200);
+
+    await prisma.user.update({ where: { id: suspended.id }, data: { isActive: false } });
+
+    // Every sign-in path has to refuse it.
+    const viaPhone = await agent
+      .post('/api/auth/login-phone')
+      .send({ phone, password: 'Password@123', role: 'CONSUMER' });
+    expect(viaPhone.status).toBe(401);
+
+    const viaEmail = await agent
+      .post('/api/auth/login')
+      .send({ email, password: 'Password@123' });
+    expect(viaEmail.status).toBe(401);
+
+    await prisma.user.deleteMany({ where: { id: suspended.id } });
+  });
 });

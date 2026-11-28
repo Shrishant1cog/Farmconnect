@@ -20,11 +20,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _phonePasswordController = TextEditingController();
 
   bool _isPasswordTab = true;
   bool _isSubmitting = false;
   bool _obscurePassword = true;
-  UserRole _otpRole = UserRole.consumer;
+  bool _obscurePhonePassword = true;
   String? _errorMessage;
 
   @override
@@ -32,6 +33,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     _identifierController.dispose();
     _passwordController.dispose();
     _phoneController.dispose();
+    _phonePasswordController.dispose();
     super.dispose();
   }
 
@@ -83,7 +85,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     try {
       await ref
           .read(authControllerProvider.notifier)
-          .loginWithPhone(phone: _phoneController.text.trim(), role: _otpRole);
+          .loginWithPhone(
+            phone: _phoneController.text.trim(),
+            password: _phonePasswordController.text,
+            role: UserRole.consumer,
+          );
     } on ApiException catch (error) {
       setState(
         () => _errorMessage = l10n.commonRequestFailed(error.displayMessage),
@@ -150,7 +156,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           : Text(
                               _isPasswordTab
                                   ? l10n.authSignIn
-                                  : l10n.authSendOtp,
+                                  : l10n.authMobileSignIn,
                             ),
                     ),
                     const SizedBox(height: 18),
@@ -230,7 +236,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       TextFormField(
         controller: _phoneController,
         keyboardType: TextInputType.phone,
-        textInputAction: TextInputAction.done,
+        textInputAction: TextInputAction.next,
         decoration: const InputDecoration(
           prefixIcon: Icon(Icons.phone_iphone_rounded),
         ).copyWith(labelText: l10n.authMobileNumber),
@@ -240,27 +246,39 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         },
       ),
       const SizedBox(height: 16),
-      SegmentedButton<UserRole>(
-        showSelectedIcon: false,
-        style: const ButtonStyle(
-          visualDensity: VisualDensity.compact,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      TextFormField(
+        controller: _phonePasswordController,
+        obscureText: _obscurePhonePassword,
+        textInputAction: TextInputAction.done,
+        onFieldSubmitted: (_) => _submitPhone(),
+        decoration: InputDecoration(
+          labelText: l10n.commonPassword,
+          prefixIcon: const Icon(Icons.lock_outline_rounded),
+          suffixIcon: IconButton(
+            onPressed: () =>
+                setState(() => _obscurePhonePassword = !_obscurePhonePassword),
+            icon: Icon(
+              _obscurePhonePassword
+                  ? Icons.visibility_outlined
+                  : Icons.visibility_off_outlined,
+            ),
+            tooltip: _obscurePhonePassword
+                ? l10n.authShowPassword
+                : l10n.authHidePassword,
+          ),
         ),
-        segments: [
-          ButtonSegment(
-            value: UserRole.consumer,
-            label: Text(l10n.commonBuyer),
-            icon: const Icon(Icons.shopping_bag_outlined),
-          ),
-          ButtonSegment(
-            value: UserRole.farmer,
-            label: Text(l10n.commonCultivator),
-            icon: const Icon(Icons.agriculture_outlined),
-          ),
-        ],
-        selected: {_otpRole},
-        onSelectionChanged: (selection) =>
-            setState(() => _otpRole = selection.first),
+        validator: (value) => (value == null || value.trim().length < 6)
+            ? l10n.authPasswordMinLength
+            : null,
+      ),
+      const SizedBox(height: 14),
+      // The account decides which workspace opens — the mobile number and
+      // the password identify it. The role belongs to the account and is
+      // chosen when the account is **created**, so there is no role switch
+      // here that would pretend to change something.
+      Text(
+        l10n.authMobileSignInHint,
+        style: const TextStyle(color: AppTheme.stone500, fontSize: 12.5),
       ),
     ];
   }
@@ -332,7 +350,7 @@ class _ModeTabs extends StatelessWidget {
           ),
           _tab(
             context,
-            l10n.authPhoneOtpTab,
+            l10n.authMobileTab,
             !isPasswordTab,
             () => onChanged(false),
           ),

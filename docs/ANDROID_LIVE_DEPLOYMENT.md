@@ -345,7 +345,7 @@ flutter test integration_test/shared_data_workflow_test.dart -d emulator-5554 \
 → 00:57 +9: All tests passed!      (9/9)
 
 flutter test integration_test/route_coverage_test.dart -d emulator-5554 … 
-→ 01:26 +1: All tests passed!      (21/21 routes opened)
+→ 01:32 +1: All tests passed!      (21/21 routes opened)
 
 flutter test integration_test/auth_journey_test.dart -d emulator-5554 …
 → 00:57 +5: All tests passed!      (5/5)
@@ -395,6 +395,29 @@ The QA account used for this check was created through the **website API**
 (`POST https://farmconnect-api-sn98.onrender.com/api/auth/register`) and then
 signed in **on the release APK**, which proves that both clients resolve to the
 same account in the same PostgreSQL database.
+
+### 6.3.1 The release APK after the audit series (2026-11-28)
+
+The release APK was rebuilt after the last source change (`d455244`), installed
+again and driven through the whole journey of **both** roles with the QA
+accounts of the audit. Every observation below was read from the screen of the
+device (`uiautomator dump`), not from a mock.
+
+| Step | Observation |
+| --- | --- |
+| Install | `adb install -r app-release.apk` → `Success`; `am start -W` → `Status: ok`, `LaunchState: COLD` |
+| Sign in as the **cultivator** | the dashboard reads "Farmer dashboard", "Web QA Fields", **1** harvest lots, **1** available lots, **1** enquiries, **6** profile views, and the real lot "Web QA Tomato 1795847693410" (₹27.50 · 100 kg) |
+| The profile of the cultivator | "My Profile", "Web QA Cultivator", "Share my farm position — **Not shared yet**", "My complaints", "Logistics & profit calculator", "APMC mandi rates", "Verify cultivator identity", "Sign out" — and **no** "My favourites". The favourites belong to a buyer, the shared backend refuses them with HTTP 403 |
+| Sign out | the dialog "Log out?" appears; after the confirmation the app is back on the sign-in screen ("FarmConnect", "Direct trade between cultivators and buyers", "Sign in", "Create an account") |
+| Sign in as the **buyer** | the marketplace reads "Marketplace", "**49 listings**", with the real lots of the shared database |
+| The orders of the buyer | the list shows the state that the **website** set: `Order #3b37abb3 — **Packed** — Web QA Tomato 1795847693410`, `Order #8efa3976 — Packed`, `Order #6dc1db0c — Packed`, `Order #c757f218 — Packed`, and the pending ones of the socket suite. The state "packed" was created by the backend, stored by the shared database and is read by the phone |
+| The profile of the buyer | "Web QA Buyer", "2847693410", "Buyer", "Share my delivery position — Not shared yet", and **"My favourites"** — the entry a buyer may really use |
+| The favourites of the buyer | the screen "Favourite listings" lists exactly the lot that the **website** kept: "QA Socket Lot 1795855741642 — Socket QA Fields — ₹15 / per kg — 10 kg Available" |
+| End state | the buyer was signed out again — the app waits at the sign-in screen |
+
+The two clients really share one state: the **website** kept the lot and the
+**phone** shows it; the **website** packed the order and the **phone** shows
+"Packed".
 
 ### 6.4 Bugs found and fixed during the release APK verification
 
@@ -524,12 +547,12 @@ data remain and are documented rather than hidden:
 | Backend build | `cd backend && npm run build` | ✅ exit 0 |
 | Frontend types | `cd frontend && npx tsc --noEmit` | ✅ exit 0 |
 | Frontend regression tests | `cd frontend && npm test` | ✅ 44/44 |
-| Frontend build | `cd frontend && npm run build` | ✅ exit 0, 25 routes |
+| Frontend build | `cd frontend && npm run build` | ✅ exit 0, 25 app routes (21 static, 4 dynamic) |
 | Android analysis | `cd mobile && flutter analyze` | ✅ "No issues found!" |
 | Android tests | `cd mobile && flutter test` | ✅ 35/35 |
 | CI — `verify` job | `gh run list --branch fix/local-updates` | ✅ the localisation check, the localisation **usage** check, the frontend types, the frontend tests, the frontend build, the backend types, the backend unit tests and the PostgreSQL 16 integration suite (140 tests) |
 | CI — `Android client` job | the same command | ✅ a **separate** job with Flutter 3.47.2 stable: `flutter analyze --no-fatal-infos` and `flutter test` |
-| PR CI | run `46145115931` (branch head `d455244`) | ✅ PostgreSQL 16 container, migrations applied, 140/140 |
+| PR CI | run `46146837425` (branch head `6fd8c88`) | ✅ PostgreSQL 16 container, migrations applied, 140/140 |
 
 ### 6.8 Ten-workflow verification matrix
 

@@ -310,7 +310,10 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 260,
-        childAspectRatio: 0.72,
+        // The card needs room for the picture **and** for the text of the
+        // listing. The ratio was too small: the text did not fit into the
+        // cell and the card overflowed on a real device.
+        childAspectRatio: 0.62,
         crossAxisSpacing: 14,
         mainAxisSpacing: 14,
       ),

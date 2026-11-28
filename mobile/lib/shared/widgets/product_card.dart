@@ -31,113 +31,154 @@ class ProductCard extends StatelessWidget {
         '${l10n.commonVariety}: ${product.variety!.trim()}',
     ];
     final producerName = _producerName(product);
+
+    final image = product.imageUrl == null || product.imageUrl!.isEmpty
+        ? const _ImageFallback()
+        : CachedNetworkImage(
+            imageUrl: product.imageUrl!,
+            fit: BoxFit.cover,
+            placeholder: (_, __) => const _ImageFallback(),
+            errorWidget: (_, __, ___) => const _ImageFallback(),
+          );
+
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AspectRatio(
-              aspectRatio: 16 / 10,
-              child: product.imageUrl == null || product.imageUrl!.isEmpty
-                  ? const _ImageFallback()
-                  : CachedNetworkImage(
-                      imageUrl: product.imageUrl!,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => const _ImageFallback(),
-                      errorWidget: (_, __, ___) => const _ImageFallback(),
-                    ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        // The card is used in a grid (a cell of a fixed height) and in a
+        // list (an unbounded height). The picture therefore fills the room
+        // that the text does not need when the height is known, and keeps
+        // its proportion when it is not.
+        //
+        // Before that the card used a fixed `AspectRatio` for the picture
+        // and a fixed height for the grid cell. The text of a long listing
+        // needed more room than the cell had, and the card overflowed by
+        // 30 pixels on a real device — the price and the stock were cut
+        // off.
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return MediaQuery.withClampedTextScaling(
+              // A card of a grid has a fixed height. The text is limited
+              // to a readable maximum so that it always fits.
+              minScaleFactor: 1,
+              maxScaleFactor: 1.5,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          product.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-                        ),
-                      ),
-                      if (product.isOrganic)
-                        const Padding(
-                          padding: EdgeInsets.only(left: 6),
-                          child: Icon(Icons.eco_rounded, size: 17, color: AppTheme.emeraldDark),
-                        ),
-                    ],
-                  ),
-                  if (cropDetails.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      cropDetails.join(' · '),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: AppTheme.stone700, fontSize: 12.5),
-                    ),
-                  ],
-                  if (producerName != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      producerName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: AppTheme.stone500, fontSize: 12.5),
-                    ),
-                  ],
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                  if (constraints.hasBoundedHeight)
+                    Expanded(child: image)
+                  else
+                    AspectRatio(aspectRatio: 16 / 10, child: image),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            Text(
-                              '${_formatCurrency(context, product.farmerPrice)} / ${_priceUnitLabel(l10n, product.priceUnit)}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 15,
-                                color: AppTheme.stone900,
+                            Expanded(
+                              child: Text(
+                                product.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              product.isAvailable
-                                  ? '${_formatQuantity(context, product.quantityAvailable, l10n, product.quantityUnit)} ${l10n.commonAvailable}'
-                                  : l10n.commonUnavailable,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                                color: product.isAvailable ? AppTheme.emeraldDark : AppTheme.stone500,
+                            if (product.isOrganic)
+                              const Padding(
+                                padding: EdgeInsets.only(left: 6),
+                                child: Icon(
+                                  Icons.eco_rounded,
+                                  size: 17,
+                                  color: AppTheme.emeraldDark,
+                                ),
                               ),
-                            ),
                           ],
                         ),
-                      ),
-                      if (onAddToCart != null)
-                        IconButton.filled(
-                          onPressed: product.isAvailable ? onAddToCart : null,
-                          icon: const Icon(Icons.add_shopping_cart_rounded, size: 19),
-                          style: IconButton.styleFrom(
-                            backgroundColor: AppTheme.emerald,
-                            foregroundColor: Colors.white,
+                        if (cropDetails.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            cropDetails.join(' · '),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppTheme.stone700,
+                              fontSize: 12.5,
+                            ),
                           ),
+                        ],
+                        if (producerName != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            producerName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppTheme.stone500,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${_formatCurrency(context, product.farmerPrice)} / ${_priceUnitLabel(l10n, product.priceUnit)}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 15,
+                                      color: AppTheme.stone900,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    product.isAvailable
+                                        ? '${_formatQuantity(context, product.quantityAvailable, l10n, product.quantityUnit)} ${l10n.commonAvailable}'
+                                        : l10n.commonUnavailable,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: product.isAvailable
+                                          ? AppTheme.emeraldDark
+                                          : AppTheme.stone500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (onAddToCart != null)
+                              IconButton.filled(
+                                onPressed: product.isAvailable ? onAddToCart : null,
+                                icon: const Icon(
+                                  Icons.add_shopping_cart_rounded,
+                                  size: 19,
+                                ),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: AppTheme.emerald,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            if (trailing != null) trailing!,
+                          ],
                         ),
-                      if (trailing != null) trailing!,
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );

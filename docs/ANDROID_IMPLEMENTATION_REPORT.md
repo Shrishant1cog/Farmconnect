@@ -7,6 +7,16 @@
 Flutter Android application that shares **one** Express/Prisma/Socket.IO backend
 and **one** PostgreSQL database with the website.
 
+> **Note — this is a point-in-time report.** It records the state of the
+> Android implementation on **2026-11-27**; the numbers in it are the ones
+> that were measured on that day (for example the `8 / 8` Flutter unit tests
+> and the 8-case integration suite). The **current** results live in
+> [`docs/VERIFICATION_MATRICES.md`](VERIFICATION_MATRICES.md) and
+> [`docs/MULTILINGUAL_AND_CROPS.md`](MULTILINGUAL_AND_CROPS.md) — as of the
+> head commit `0ad8866` the Flutter unit/widget suite is `31 / 31`, the
+> cross-platform workflow suite is `9 / 9` and the route coverage suite
+> opens all `21` routes.
+
 ---
 
 ## 1. Executive summary
